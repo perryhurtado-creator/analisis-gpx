@@ -1,0 +1,31 @@
+import {fmt} from './metrics.js';
+
+export function drawChart(id,pairs,color,label,onHover,onLeave){
+  const host=document.getElementById(id),vals=pairs.filter(p=>Number.isFinite(p[1]));
+  if(vals.length<2){host.innerHTML='<div class="chart-empty">Este archivo no incluye este dato.</div>';return}
+  const W=900,H=240,p={l:48,r:15,t:15,b:28},xMax=Math.max(...vals.map(x=>x[0]))||1;
+  const rawMin=Math.min(...vals.map(x=>x[1])),rawMax=Math.max(...vals.map(x=>x[1])),pad=Math.max(1,(rawMax-rawMin)*.12),lo=rawMin-pad,hi=rawMax+pad;
+  const x=v=>p.l+v/xMax*(W-p.l-p.r),y=v=>H-p.b-(v-lo)/(hi-lo)*(H-p.t-p.b);
+  const path=vals.map((v,i)=>(i?'L':'M')+x(v[0]).toFixed(1)+' '+y(v[1]).toFixed(1)).join('');
+  const area=path+` L ${x(vals.at(-1)[0])} ${H-p.b} L ${x(vals[0][0])} ${H-p.b} Z`;
+  host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}">
+    <defs><linearGradient id="g-${id}" x1="0" x2="0" y1="0" y2="1"><stop stop-color="${color}" stop-opacity=".24"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+    <line x1="${p.l}" x2="${W-p.r}" y1="${p.t}" y2="${p.t}" stroke="#e5eae6"/>
+    <line x1="${p.l}" x2="${W-p.r}" y1="${H-p.b}" y2="${H-p.b}" stroke="#e5eae6"/>
+    <path d="${area}" fill="url(#g-${id})"/><path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round"/>
+    <line class="guide" x1="0" x2="0" y1="${p.t}" y2="${H-p.b}" stroke="#40574d" stroke-dasharray="4 4" opacity="0"/>
+    <text class="readout" y="${p.t+14}" font-size="12" fill="#253a30"></text>
+    <text x="2" y="${p.t+6}" font-size="11" fill="#718178">${fmt(hi)}</text>
+    <text x="2" y="${H-p.b}" font-size="11" fill="#718178">${fmt(lo)}</text>
+    <text x="${p.l}" y="${H-6}" font-size="11" fill="#718178">0 km</text>
+    <text x="${W-55}" y="${H-6}" font-size="11" fill="#718178">${fmt(xMax)} km</text>
+  </svg>`;
+  const svg=host.querySelector('svg'),guide=host.querySelector('.guide'),read=host.querySelector('.readout');
+  svg.onmousemove=e=>{
+    const b=svg.getBoundingClientRect(),px=(e.clientX-b.left)/b.width*W;
+    const km=Math.max(0,Math.min(xMax,(px-p.l)/(W-p.l-p.r)*xMax));
+    const pt=onHover(km); guide.setAttribute('x1',x(km));guide.setAttribute('x2',x(km));guide.setAttribute('opacity','1');
+    read.setAttribute('x',Math.min(W-150,x(km)+7));read.textContent=pt?`${fmt(pt.d/1000)} km · ${Number.isFinite(pt.ele)?fmt(pt.ele)+' m':''}`:'';
+  };
+  svg.onmouseleave=()=>{guide.setAttribute('opacity','0');read.textContent='';onLeave()};
+}
