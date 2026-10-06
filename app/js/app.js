@@ -1,6 +1,6 @@
 import {parseGPX} from './gpx-parser.js';
 import {parseTCX} from './tcx-parser.js';
-import {avg,fmt,duration,stamp,summary,segments,slopeStats,heartZones} from './metrics.js';
+import {avg,fmt,duration,stamp,summary,segments,slopeStats,speedStats,heartZones} from './metrics.js';
 import {drawChart} from './charts.js';
 import {createMap,fitRoute,showPoint,hidePoint,clearMap} from './map.js';
 import {playRoute,makeVideo,stopRouteAnimation} from './video.js';
@@ -20,7 +20,7 @@ function render(){
   const a=activity,hrs=points.map(p=>p.hr).filter(Number.isFinite),cads=points.map(p=>p.cad).filter(Number.isFinite);
   const speeds=points.map(p=>p.speed).filter(Number.isFinite),eles=points.map(p=>p.ele).filter(Number.isFinite),km=a.distance/1000;
   const avgs=a.duration?km/(a.duration/3600000):avg(speeds);
-  const slopes=slopeStats(points),zones=heartZones(points),maxSpeed=speeds.length?Math.max(...speeds):null,avgSpeed=avgs;
+  const slopes=slopeStats(points),speed=speedStats(points),zones=heartZones(points),maxSpeed=speed.max,avgSpeed=avgs;
   $('analysis').style.display='block';$('routeName').textContent=a.name;
   $('routeMeta').textContent=`${a.type} · ${points.length.toLocaleString('es-MX')} puntos${a.start?' · '+stamp(a.start):''}`;
   const cards=[['Distancia',fmt(km)+' km',''],['Tiempo',duration(a.duration),''],['Velocidad media',avgs?fmt(avgs)+' km/h':'—',''],['Desnivel +','+'+fmt(a.ascent)+' m','accent'],['FC media',hrs.length?Math.round(avg(hrs))+' lpm':'—',''],['Cadencia',cads.length?Math.round(avg(cads))+' rpm':'—','']];
