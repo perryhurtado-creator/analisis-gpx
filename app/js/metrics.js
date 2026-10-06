@@ -21,6 +21,7 @@ function smoothedElevation(points,i){
 }
 export function slopeStats(points){
   const windowM=30,slopes=[];
+  let positiveGain=0,positiveDistance=0;
   for(let i=0;i<points.length;i++){
     const cur=points[i];
     if(!Number.isFinite(cur.ele)||cur.d<windowM)continue;
@@ -29,11 +30,14 @@ export function slopeStats(points){
     const dd=cur.d-points[j].d;
     if(dd<20)continue;
     const e1=smoothedElevation(points,j),e2=smoothedElevation(points,i);
-    if(Number.isFinite(e1)&&Number.isFinite(e2))slopes.push((e2-e1)/dd*100);
+    if(Number.isFinite(e1)&&Number.isFinite(e2)){
+      const slope=(e2-e1)/dd*100;
+      slopes.push(slope);
+      if(e2>e1){positiveGain+=e2-e1;positiveDistance+=dd;}
+    }
   }
   const totalDistance=points.at(-1)?.d||0;
-  const positiveDistance=slopes.filter(s=>s>0);
-  const avgUp=positiveDistance.length?avg(positiveDistance):null;
+  const avgUp=positiveDistance>0?positiveGain/positiveDistance*100:null;
   return {
     maxUp:slopes.length?Math.max(...slopes):null,
     maxDown:slopes.length?Math.min(...slopes):null,
