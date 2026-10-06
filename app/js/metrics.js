@@ -14,16 +14,50 @@ export function summary(a){
     ascent:'+'+fmt(a.ascent)+' m',heart:hrs.length?Math.round(avg(hrs))+' lpm':'—',
     cadence:cads.length?Math.round(avg(cads))+' rpm':'—'};
 }
+function smoothedElevation(points,i){
+  const start=Math.max(0,i-2),end=Math.min(points.length-1,i+2);
+  const vals=points.slice(start,end+1).map(p=>p.ele).filter(Number.isFinite);
+  return vals.length?avg(vals):null;
+}
 export function slopeStats(points){
-  const slopes=[];
-  for(let i=1;i<points.length;i++){
-    const a=points[i-1],b=points[i],dd=b.d-a.d;
-    if(dd>=3&&Number.isFinite(a.ele)&&Number.isFinite(b.ele))slopes.push((b.ele-a.ele)/dd*100);
+  const windowM=30,slopes=[];
+  for(let i=0;i<points.length;i++){
+    const cur=points[i];
+    if(!Number.isFinite(cur.ele)||cur.d<windowM)continue;
+    let j=i-1;
+    while(j>0&&cur.d-points[j].d<windowM)j--;
+    const dd=cur.d-points[j].d;
+    if(dd<20)continue;
+    const e1=smoothedElevation(points,j),e2=smoothedElevation(points,i);
+    if(Number.isFinite(e1)&&Number.isFinite(e2))slopes.push((e2-e1)/dd*100);
   }
+  let positiveGain=0;
+  for(let i=1;i<points.length;i++){
+    const a=points[i-1],b=points[i];
+    if(Number.isFinite(a.ele)&&Number.isFinite(b.ele)&&b.ele>a.ele)positiveGain+=b.ele-a.ele;
+  }
+  const totalDistance=points.at(-1)?.d||0;
   return {
     maxUp:slopes.length?Math.max(...slopes):null,
     maxDown:slopes.length?Math.min(...slopes):null,
-    avgUp:points.length&&points.at(-1).d>0?points.reduce((s,p,i)=>i?s+Math.max(0,p.ele-points[i-1].ele):s,0)/points.at(-1).d*100:null
+    avgUp:totalDistance>0?positiveGain/totalDistance*100:null
+  };
+}
+export function speedStats(points){
+  const intervals=[];
+  for(let i=1;i<points.length;i++){
+    const a=points[i-1],b=points[i];
+    if(!a.time||!b.time)continue;
+    const dt=b.time-a.time,dd=b.d-a.d;
+    if(dt<1000||dt>15000||dd<1)continue;
+    const speed=dd/(dt/3600000)/1000;
+    if(Number.isFinite(speed)&&speed>=0&&speed<=100)intervals.push(speed);
+  }
+  if(!intervals.length)return {max:null,avg:null};
+  const totalTime=points.at(-1).time-points[0].time,totalDistance=points.at(-1).d;
+  return {
+    max:Math.max(...intervals),
+    avg:totalTime>0?totalDistance/1000/(totalTime/3600000):avg(intervals)
   };
 }
 export function heartZones(points){
