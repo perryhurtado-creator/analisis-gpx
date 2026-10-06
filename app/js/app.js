@@ -3,10 +3,11 @@ import {parseTCX} from './tcx-parser.js';
 import {avg,fmt,duration,stamp,summary,segments,slopeStats,speedStats,heartZones} from './metrics.js';
 import {drawChart} from './charts.js';
 import {createMap,fitRoute,showPoint,hidePoint,clearMap} from './map.js';
-import {playRoute,makeVideo,stopRouteAnimation,prepareVideoMap} from './video.js';
+let videoModule=null;
 
 const $=id=>document.getElementById(id);
 let activity=null,compareActivity=null,points=[],resizeObserver=null;
+async function getVideoModule(){if(!videoModule)videoModule=await import('./video.js');return videoModule}
 
 function setFileMessage(text,kind=''){$('fileStatus').textContent=text;$('fileStatus').className='file-note '+kind}
 function esc(t){return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
@@ -33,7 +34,7 @@ function navigate(hash){
   const titles={resumen:'Resumen',video:'Generar vídeo',cartel:'Elabora tu cartel',trazar:'Traza una ruta'};
   $('pageTitle').textContent=titles[id]||'Resumen';
   if(id==='cartel')renderPoster();
-  if(id==='video'&&activity)prepareVideoMap(points);
+  if(id==='video'&&activity)getVideoModule().then(v=>v.prepareVideoMap(points)).catch(e=>console.error('Video module:',e));
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function render(){
@@ -84,7 +85,7 @@ function loadCompare(file){
   readFile(file,(parsed,error)=>{if(error){console.error(error);$('compareState').textContent=error.message||'No fue posible analizar la ruta.';return}compareActivity=parsed;renderComparison();$('compareState').textContent='Ruta cargada: '+parsed.name});
 }
 function resetActivity(){
-  stopRouteAnimation();clearMap();activity=null;compareActivity=null;points=[];
+  if(videoModule)videoModule.stopRouteAnimation();clearMap();activity=null;compareActivity=null;points=[];
   $('analysis').style.display='none';$('metrics').innerHTML='';$('details').innerHTML='';$('segments').innerHTML='';
   $('elevationChart').innerHTML='';$('heartChart').innerHTML='';$('speedChart').innerHTML='';$('elevationStats').innerHTML='';$('heartStats').innerHTML='';$('speedStats').innerHTML='';
   $('compareBody').innerHTML='';$('compareTable').hidden=true;$('compareState').textContent='Aún no has elegido una segunda ruta.';$('compareInput').value='';
@@ -97,7 +98,8 @@ function choose(){$('fileInput').click()}
 
 $('chooseFile').onclick=e=>{e.preventDefault();choose()};$('topLoad').onclick=()=>{resetActivity();location.hash='resumen';choose()};$('sideLoad').onclick=()=>{resetActivity();location.hash='resumen';choose()};
 $('fileInput').onchange=()=>loadFile($('fileInput').files[0]);$('compareLoad').onclick=()=>$('compareInput').click();$('compareInput').onchange=()=>loadCompare($('compareInput').files[0]);
-$('playRoute').onclick=()=>activity&&playRoute(points);$('makeVideo').onclick=()=>activity&&makeVideo(activity);$('fitRoute').onclick=()=>fitRoute(points);
+$('playRoute').onclick=async()=>{if(!activity)return;try{const v=await getVideoModule();v.prepareVideoMap(points);v.playRoute(points)}catch(e){console.error(e);$('videoState').textContent='No se pudo iniciar la reproducción.'}};
+$('makeVideo').onclick=async()=>{if(!activity)return;try{const v=await getVideoModule();v.prepareVideoMap(points);v.makeVideo(activity)}catch(e){console.error(e);$('videoState').textContent='No se pudo iniciar la generación del vídeo.'}};$('fitRoute').onclick=()=>fitRoute(points);
 ['dragenter','dragover'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.add('over')}));
 ['dragleave','drop'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.remove('over')}));
 $('dropZone').addEventListener('drop',e=>loadFile(e.dataTransfer.files[0]));
