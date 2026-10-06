@@ -1,6 +1,7 @@
 import {showPoint,getCanvas} from './map.js';
 
 let playFrame=null,ffmpegEncoder=null;
+export function stopRouteAnimation(){if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;}
 export function playRoute(points,onDone=()=>{}){
   if(!points?.length)return;
   const state=document.getElementById('videoState'),button=document.getElementById('playRoute');
