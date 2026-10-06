@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Perros en Bicicleta · Analizador</title>
-  <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.14.0/mapbox-gl.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="./css/app.css">
 </head>
@@ -59,7 +58,7 @@
 
       <section class="page" id="video">
         <section class="welcome"><div><h2>Generar vídeo</h2><p>Configura el mapa y controla la reproducción de tu recorrido.</p></div></section>
-        <section class="panel video-config"><div class="panel-title"><h3>Configuración del mapa</h3><span>Se guarda en este navegador</span></div><div class="setting-grid"><input id="tokenInput" type="password" placeholder="Token público de Mapbox (pk.…)" autocomplete="off"><button class="save-btn" id="saveToken">Guardar token</button></div><p class="help">Usa únicamente un token público de Mapbox que empiece por <b>pk.</b></p><div id="tokenStatus" class="status"></div></section>
+        <section class="panel video-map-panel"><div class="panel-title"><h3>Mapa de la ruta</h3><span id="videoMapStatus">OpenStreetMap</span></div><div class="map-wrap video-map-wrap"><div id="videoMap" class="map-host"></div></div></section>
         <section class="panel video-panel"><div class="panel-title"><h3>Animación de la ruta</h3><span>Actividad cargada</span></div><p class="feature-copy">Reproduce la ruta sobre el mapa o genera un archivo MP4 para guardar y compartir.</p><div class="action-row"><button class="action-btn" id="playRoute">▷ Reproducir ruta</button><button class="action-btn secondary" id="makeVideo">⬇ Guardar vídeo</button><span class="action-state" id="videoState">Listo para animar tu recorrido.</span></div></section>
       </section>
 
