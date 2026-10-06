@@ -6,13 +6,14 @@ function drawProfile(id,points,field,label,unit){
   const host=document.getElementById(id);
   if(!host||!points?.length)return;
   const values=points.map(p=>Number(p[field])).filter(Number.isFinite);
-  if(!values.length){host.innerHTML='<div class="video-chart-empty">Sin datos disponibles</div>';return}
-  const W=900,H=240,p={l:48,r:15,t:15,b:28},min=Math.min(...values),max=Math.max(...values),pad=Math.max(1,(max-min)*.12),lo=min-pad,hi=max+pad,xMax=Math.max(...points.map(x=>Number(x.d)||0))/1000||1;
-  const x=v=>p.l+(v/xMax)*(W-p.l-p.r),y=v=>H-p.b-(v-lo)/(hi-lo)*(H-p.t-p.b);
-  const coords=points.map((pt,i)=>[x((Number(pt.d)||0)/1000),y(Number(pt[field]))]);
-  const poly=coords.map(c=>c.join(',')).join(' ');
-  host.innerHTML=`<div class="video-chart-head"><span>${label}</span><b id="${id}Value">—</b></div><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="${label}"><polyline class="video-chart-line" points="${poly}"></polyline><line class="video-chart-cursor" id="${id}Cursor" x1="${padX}" x2="${padX}" y1="8" y2="${H-8}"></line></svg><div class="video-chart-axis"><span>${Number(min).toFixed(0)} ${unit}</span><span>${Number(max).toFixed(0)} ${unit}</span></div>`;
-  profileState[field]={coords,min,max,unit};
+  if(!values.length){host.innerHTML='<div class="chart-empty">Este archivo no incluye este dato.</div>';return}
+  const W=900,H=240,p={l:48,r:15,t:15,b:28},rawMin=Math.min(...values),rawMax=Math.max(...values),pad=Math.max(1,(rawMax-rawMin)*.12),lo=rawMin-pad,hi=rawMax+pad,xMax=Math.max(...points.map(x=>Number(x.d)||0))/1000||1;
+  const x=v=>p.l+v/xMax*(W-p.l-p.r),y=v=>H-p.b-(v-lo)/(hi-lo)*(H-p.t-p.b);
+  const vals=points.map(pt=>[x((Number(pt.d)||0)/1000),y(Number(pt[field]))]).filter(v=>Number.isFinite(v[1]));
+  const path=vals.map((v,i)=>(i?'L':'M')+v[0].toFixed(1)+' '+v[1].toFixed(1)).join('');
+  const area=path+` L ${vals.at(-1)[0]} ${H-p.b} L ${vals[0][0]} ${H-p.b} Z`;
+  host.innerHTML=`<div class="video-chart-head"><span>${label}</span><b id="${id}Value">—</b></div><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="${label}"><defs><linearGradient id="vg-${id}" x1="0" x2="0" y1="0" y2="1"><stop class="video-grad-start" offset="0"/><stop class="video-grad-end" offset="1"/></linearGradient></defs><line x1="${p.l}" x2="${W-p.r}" y1="${p.t}" y2="${p.t}" stroke="#e5eae6"/><line x1="${p.l}" x2="${W-p.r}" y1="${H-p.b}" y2="${H-p.b}" stroke="#e5eae6"/><path class="video-chart-area" d="${area}" fill="url(#vg-${id})"/><path class="video-chart-line" d="${path}"/><line class="video-chart-cursor" id="${id}Cursor" x1="${p.l}" x2="${p.l}" y1="${p.t}" y2="${H-p.b}"/><text class="video-chart-readout" x="${p.l+7}" y="${p.t+14}">—</text><text x="2" y="${p.t+6}" font-size="11" fill="#718178">${fmt(hi)}</text><text x="2" y="${H-p.b}" font-size="11" fill="#718178">${fmt(lo)}</text><text x="${p.l}" y="${H-6}" font-size="11" fill="#718178">0 km</text><text x="${W-55}" y="${H-6}" font-size="11" fill="#718178">${fmt(xMax)} km</text></svg>`;
+  profileState[field]={coords:points.map(pt=>[x((Number(pt.d)||0)/1000),y(Number(pt[field]))]),min:rawMin,max:rawMax,unit,x};
 }
 function updateProfile(field,index){
   const state=profileState[field],points=videoPoints;
