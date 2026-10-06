@@ -1,8 +1,44 @@
 import {showVideoPoint,createMap,fitVideoRoute,getCanvas} from './map.js';
 
-let playFrame=null,ffmpegEncoder=null;
+let playFrame=null,ffmpegEncoder=null,videoPoints=[],profileState={elevation:null,speed:null};
 export function stopRouteAnimation(){if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;}
-export function prepareVideoMap(points){if(points?.length){createMap(points,'videoMap');fitVideoRoute(points);}}
+function drawProfile(id,points,field,label,unit){
+  const host=document.getElementById(id);
+  if(!host||!points?.length)return;
+  const values=points.map(p=>Number(p[field])).filter(Number.isFinite);
+  if(!values.length){host.innerHTML='<div class="video-chart-empty">Sin datos disponibles</div>';return}
+  const W=900,H=170,padX=12,padY=18,min=Math.min(...values),max=Math.max(...values),range=max-min||1;
+  const coords=points.map((p,i)=>{
+    const v=Number(p[field]);
+    const x=padX+(i/Math.max(1,points.length-1))*(W-padX*2);
+    const y=padY+(1-(Number.isFinite(v)?(v-min)/range:.5))*(H-padY*2);
+    return [x,y];
+  });
+  const poly=coords.map(c=>c.join(',')).join(' ');
+  host.innerHTML=`<div class="video-chart-head"><span>${label}</span><b id="${id}Value">—</b></div><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="${label}"><polyline class="video-chart-line" points="${poly}"></polyline><line class="video-chart-cursor" id="${id}Cursor" x1="${padX}" x2="${padX}" y1="8" y2="${H-8}"></line></svg><div class="video-chart-axis"><span>${Number(min).toFixed(0)} ${unit}</span><span>${Number(max).toFixed(0)} ${unit}</span></div>`;
+  profileState[field]={coords,min,max,unit};
+}
+function updateProfile(field,index){
+  const state=profileState[field],points=videoPoints;
+  if(!state||!points.length)return;
+  const i=Math.max(0,Math.min(points.length-1,index)),p=points[i],value=Number(p[field]);
+  const cursor=document.getElementById(field==='ele'?'videoElevationCursor':'videoSpeedCursor');
+  const valueEl=document.getElementById(field==='ele'?'videoElevationValue':'videoSpeedValue');
+  const coord=state.coords[i];
+  if(cursor&&coord){cursor.setAttribute('x1',coord[0]);cursor.setAttribute('x2',coord[0])}
+  if(valueEl&&Number.isFinite(value))valueEl.textContent=field==='ele'?Math.round(value)+' m':value.toFixed(1)+' km/h';
+}
+export function prepareVideoMap(points){
+  if(points?.length){
+    videoPoints=points;
+    createMap(points,'videoMap');
+    fitVideoRoute(points);
+    profileState={elevation:null,speed:null};
+    drawProfile('videoElevationChart',points,'ele','Altimetría','m');
+    drawProfile('videoSpeedChart',points,'speed','Velocidad','km/h');
+    updateProfile('ele',0);updateProfile('speed',0);
+  }
+}
 export function playRoute(points,onDone=()=>{}){
   if(!points?.length)return;
   const state=document.getElementById('videoState'),button=document.getElementById('playRoute');
@@ -11,7 +47,7 @@ export function playRoute(points,onDone=()=>{}){
   const start=performance.now(),total=9000;
   function step(now){
     const ratio=Math.min(1,(now-start)/total),index=Math.min(points.length-1,Math.floor(ratio*(points.length-1)));
-    showVideoPoint(points[index]);
+    showVideoPoint(points[index]);updateProfile('ele',index);updateProfile('speed',index);
     if(ratio<1)playFrame=requestAnimationFrame(step);
     else{state.textContent='Reproducción terminada.';button.textContent='▷ Reproducir';playFrame=null;onDone()}
   }
