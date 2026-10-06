@@ -101,15 +101,6 @@ $('playRoute').onclick=()=>activity&&playRoute(points);$('makeVideo').onclick=()
 ['dragenter','dragover'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.add('over')}));
 ['dragleave','drop'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.remove('over')}));
 $('dropZone').addEventListener('drop',e=>loadFile(e.dataTransfer.files[0]));
-$('tokenInput').value=localStorage.getItem('pb-mapbox-token')||'';
-$('saveToken').onclick=()=>{
-  const token=$('tokenInput').value.trim(),status=$('tokenStatus');
-  if(token&&!token.startsWith('pk.')){status.textContent='Usa un token público de Mapbox que empiece por pk.';status.className='status error';return}
-  localStorage.setItem('pb-mapbox-token',token);
-  status.textContent=token?'Token guardado. El mapa se actualizará.':'Token eliminado. Se usará el mapa de respaldo.';
-  status.className='status ok';if(activity)createMap(points);
-};
-
 window.addEventListener('error',e=>console.error('App error:',e.error||e.message));
 
 window.addEventListener('hashchange',()=>navigate(location.hash));
