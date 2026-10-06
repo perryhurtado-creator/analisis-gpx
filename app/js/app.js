@@ -2,8 +2,8 @@ import {parseGPX} from './gpx-parser.js';
 import {parseTCX} from './tcx-parser.js';
 import {avg,fmt,duration,stamp,summary,segments} from './metrics.js';
 import {drawChart} from './charts.js';
-import {createMap,fitRoute,showPoint,hidePoint} from './map.js';
-import {playRoute,makeVideo} from './video.js';
+import {createMap,fitRoute,showPoint,hidePoint,clearMap} from './map.js';
+import {playRoute,makeVideo,stopRouteAnimation} from './video.js';
 
 const $=id=>document.getElementById(id);
 let activity=null,compareActivity=null,points=[],resizeObserver=null;
@@ -59,9 +59,18 @@ function loadCompare(file){
   if(!file)return;$('compareState').textContent='Analizando '+file.name+'…';
   readFile(file,(parsed,error)=>{if(error){console.error(error);$('compareState').textContent=error.message||'No fue posible analizar la ruta.';return}compareActivity=parsed;renderComparison();$('compareState').textContent='Ruta cargada: '+parsed.name});
 }
+function resetActivity(){
+  stopRouteAnimation();clearMap();activity=null;compareActivity=null;points=[];
+  $('analysis').style.display='none';$('metrics').innerHTML='';$('details').innerHTML='';$('segments').innerHTML='';
+  $('elevationChart').innerHTML='';$('heartChart').innerHTML='';$('speedChart').innerHTML='';
+  $('compareBody').innerHTML='';$('compareTable').hidden=true;$('compareState').textContent='Aún no has elegido una segunda ruta.';$('compareInput').value='';
+  $('routeName').textContent='Actividad';$('routeMeta').textContent='Archivo analizado localmente';
+  $('mapStatus').textContent='Preparando mapa';$('videoState').textContent='Listo para animar tu recorrido.';$('playRoute').textContent='▷ Reproducir';
+  setFileMessage('Sin actividad cargada todavía.');
+}
 function choose(){$('fileInput').click()}
 
-$('chooseFile').onclick=e=>{e.preventDefault();choose()};$('topLoad').onclick=choose;$('sideLoad').onclick=choose;
+$('chooseFile').onclick=e=>{e.preventDefault();choose()};$('topLoad').onclick=()=>{resetActivity();choose()};$('sideLoad').onclick=()=>{resetActivity();choose()};
 $('fileInput').onchange=()=>loadFile($('fileInput').files[0]);$('compareLoad').onclick=()=>$('compareInput').click();$('compareInput').onchange=()=>loadCompare($('compareInput').files[0]);
 $('playRoute').onclick=()=>activity&&playRoute(points);$('makeVideo').onclick=()=>activity&&makeVideo(activity);$('fitRoute').onclick=()=>fitRoute(points);
 ['dragenter','dragover'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.add('over')}));
