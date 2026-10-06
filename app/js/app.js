@@ -16,6 +16,25 @@ function nearest(km){
   const prev=points[Math.max(0,lo-1)],next=points[lo];
   return Math.abs(prev.d-target)<Math.abs(next.d-target)?prev:next;
 }
+function renderPoster(){
+  const box=$('posterData'),preview=$('posterPreview'),status=$('posterStatus'),button=$('makePoster');
+  if(!activity){box.innerHTML='<div class="poster-empty"><b>Sin actividad</b><span>Carga primero una ruta desde Resumen.</span></div>';preview.innerHTML='<div class="poster-empty"><b>Aún no hay una ruta cargada</b><span>Sube una actividad desde Resumen para preparar tu cartel.</span></div>';status.textContent='Esperando ruta';button.disabled=true;return}
+  const km=activity.distance/1000, d=activity.ascent;
+  const distancePts=km<=15?1:km<=25?2:km<=40?3:km<=60?4:km<=80?5:6;
+  const elevationPts=d<=200?1:d<=500?2:d<=900?3:d<=1400?4:d<=2000?5:6;
+  box.innerHTML=`<div class="poster-route-name">${esc(activity.name)}</div><div class="poster-grid"><div><span>Distancia</span><b>${fmt(km)} km</b></div><div><span>Desnivel +</span><b>${fmt(d)} m</b></div><div><span>Puntos distancia</span><b>${distancePts}</b></div><div><span>Puntos desnivel</span><b>${elevationPts}</b></div></div><div class="poster-note">La clasificación final utilizará también terreno/técnica, calor/exposición y duración según el sistema oficial.</div>`;
+  preview.innerHTML=`<div class="poster-card"><div class="poster-card-top">PERROS EN BICICLETA</div><div class="poster-card-map">Ruta cargada</div><div class="poster-card-title">${esc(activity.name)}</div><div class="poster-card-stats"><span>${fmt(km)} km</span><span>+${fmt(d)} m</span><span>${duration(activity.duration)}</span></div><div class="poster-card-level">CLASIFICACIÓN MTB</div></div>`;
+  status.textContent='Ruta preparada';button.disabled=false;
+}
+function navigate(hash){
+  const id=(hash||'#resumen').replace('#','');
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active-page',p.id===id));
+  document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+id));
+  const titles={resumen:'Resumen',video:'Generar vídeo',cartel:'Elabora tu cartel',trazar:'Traza una ruta'};
+  $('pageTitle').textContent=titles[id]||'Resumen';
+  if(id==='cartel')renderPoster();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 function render(){
   const a=activity,hrs=points.map(p=>p.hr).filter(Number.isFinite),cads=points.map(p=>p.cad).filter(Number.isFinite);
   const speeds=points.map(p=>p.speed).filter(Number.isFinite),eles=points.map(p=>p.ele).filter(Number.isFinite),km=a.distance/1000;
@@ -69,6 +88,7 @@ function resetActivity(){
   $('elevationChart').innerHTML='';$('heartChart').innerHTML='';$('speedChart').innerHTML='';$('elevationStats').innerHTML='';$('heartStats').innerHTML='';$('speedStats').innerHTML='';
   $('compareBody').innerHTML='';$('compareTable').hidden=true;$('compareState').textContent='Aún no has elegido una segunda ruta.';$('compareInput').value='';
   $('routeName').textContent='Actividad';$('routeMeta').textContent='Archivo analizado localmente';
+  renderPoster();
   $('mapStatus').textContent='Preparando mapa';$('videoState').textContent='Listo para animar tu recorrido.';$('playRoute').textContent='▷ Reproducir';
   setFileMessage('Sin actividad cargada todavía.');
 }
@@ -80,7 +100,6 @@ $('playRoute').onclick=()=>activity&&playRoute(points);$('makeVideo').onclick=()
 ['dragenter','dragover'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.add('over')}));
 ['dragleave','drop'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.remove('over')}));
 $('dropZone').addEventListener('drop',e=>loadFile(e.dataTransfer.files[0]));
-$('settingsLink').onclick=()=>{$('configuracion').classList.toggle('visible');$('tokenInput').focus()};
 $('tokenInput').value=localStorage.getItem('pb-mapbox-token')||'';
 $('saveToken').onclick=()=>{
   const token=$('tokenInput').value.trim(),status=$('tokenStatus');
@@ -91,3 +110,8 @@ $('saveToken').onclick=()=>{
 };
 
 window.addEventListener('error',e=>console.error('App error:',e.error||e.message));
+
+window.addEventListener('hashchange',()=>navigate(location.hash));
+document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();location.hash=a.getAttribute('href').slice(1)}));
+$('makePoster').onclick=()=>{if(!activity)return; $('posterStatus').textContent='Cartel preparado para la siguiente etapa de diseño.'};
+navigate(location.hash||'#resumen');
