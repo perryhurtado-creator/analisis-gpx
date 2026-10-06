@@ -31,16 +31,13 @@ export function slopeStats(points){
     const e1=smoothedElevation(points,j),e2=smoothedElevation(points,i);
     if(Number.isFinite(e1)&&Number.isFinite(e2))slopes.push((e2-e1)/dd*100);
   }
-  let positiveGain=0;
-  for(let i=1;i<points.length;i++){
-    const a=points[i-1],b=points[i];
-    if(Number.isFinite(a.ele)&&Number.isFinite(b.ele)&&b.ele>a.ele)positiveGain+=b.ele-a.ele;
-  }
   const totalDistance=points.at(-1)?.d||0;
+  const positiveDistance=slopes.filter(s=>s>0);
+  const avgUp=positiveDistance.length?avg(positiveDistance):null;
   return {
     maxUp:slopes.length?Math.max(...slopes):null,
     maxDown:slopes.length?Math.min(...slopes):null,
-    avgUp:totalDistance>0?positiveGain/totalDistance*100:null
+    avgUp:avgUp
   };
 }
 export function speedStats(points){
