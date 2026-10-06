@@ -14,6 +14,35 @@ export function summary(a){
     ascent:'+'+fmt(a.ascent)+' m',heart:hrs.length?Math.round(avg(hrs))+' lpm':'—',
     cadence:cads.length?Math.round(avg(cads))+' rpm':'—'};
 }
+export function slopeStats(points){
+  const slopes=[];
+  for(let i=1;i<points.length;i++){
+    const a=points[i-1],b=points[i],dd=b.d-a.d;
+    if(dd>=3&&Number.isFinite(a.ele)&&Number.isFinite(b.ele))slopes.push((b.ele-a.ele)/dd*100);
+  }
+  return {
+    maxUp:slopes.length?Math.max(...slopes):null,
+    maxDown:slopes.length?Math.min(...slopes):null,
+    avgUp:points.length&&points.at(-1).d>0?points.reduce((s,p,i)=>i?s+Math.max(0,p.ele-points[i-1].ele):s,0)/points.at(-1).d*100:null
+  };
+}
+export function heartZones(points){
+  const valid=points.filter(p=>Number.isFinite(p.hr));
+  if(!valid.length)return [];
+  const max=Math.max(...valid.map(p=>p.hr));
+  const bounds=[0,.60,.70,.80,.90,1.01].map(x=>max*x);
+  const ms=[0,0,0,0,0];
+  for(let i=0;i<points.length-1;i++){
+    const p=points[i],n=points[i+1];
+    if(!Number.isFinite(p.hr)||!p.time||!n.time)continue;
+    const dt=n.time-p.time;
+    if(dt<=0||dt>120000)continue;
+    let z=0;
+    if(p.hr>=bounds[4])z=4;else if(p.hr>=bounds[3])z=3;else if(p.hr>=bounds[2])z=2;else if(p.hr>=bounds[1])z=1;
+    ms[z]+=dt;
+  }
+  return ms.map((time,i)=>({zone:i+1,min:bounds[i],max:i===4?max:bounds[i+1],time}));
+}
 export function segments(activity){
   const points=activity.points,rows=[];
   for(let i=0;i<5;i++){
