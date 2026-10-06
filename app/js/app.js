@@ -3,7 +3,7 @@ import {parseTCX} from './tcx-parser.js';
 import {avg,fmt,duration,stamp,summary,segments,slopeStats,speedStats,heartZones} from './metrics.js';
 import {drawChart} from './charts.js';
 import {createMap,fitRoute,showPoint,hidePoint,clearMap} from './map.js';
-import {playRoute,makeVideo,stopRouteAnimation} from './video.js';
+import {playRoute,makeVideo,stopRouteAnimation,prepareVideoMap} from './video.js';
 
 const $=id=>document.getElementById(id);
 let activity=null,compareActivity=null,points=[],resizeObserver=null;
@@ -33,6 +33,7 @@ function navigate(hash){
   const titles={resumen:'Resumen',video:'Generar vídeo',cartel:'Elabora tu cartel',trazar:'Traza una ruta'};
   $('pageTitle').textContent=titles[id]||'Resumen';
   if(id==='cartel')renderPoster();
+  if(id==='video'&&activity)prepareVideoMap(points);
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function render(){
