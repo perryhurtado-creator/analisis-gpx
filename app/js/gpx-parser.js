@@ -42,7 +42,7 @@ export function finalize(xml,p,type,file){
       else{descent-=delta;cur.up=prev.up}
     }else cur.up=prev.up;
     const dt=cur.time&&prev.time?(cur.time-prev.time)/1000:null;
-    if(!cur.speed&&dt&&dt>0&&dt<600) cur.speed=(cur.d-prev.d)/dt*3.6;
+    if(dt&&dt>0&&dt<=30&&cur.d-prev.d>=1) cur.speed=(cur.d-prev.d)/dt*3.6;
   }
   const times=p.filter(x=>x.time).map(x=>x.time);
   return {points:p,name:childText(xml,'name')||file.replace(/\.(gpx|tcx)$/i,''),type,file,
