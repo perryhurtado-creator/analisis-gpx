@@ -11,121 +11,70 @@
 <body>
 <div class="app">
   <aside class="sidebar">
-    <div class="brand">
-      <div class="badge">PB</div>
-      <div><strong>Perros en Bicicleta</strong><small>Ruta · análisis · comunidad</small></div>
-    </div>
+    <div class="brand"><div class="badge">PB</div><div><strong>Perros en Bicicleta</strong><small>Ruta · análisis · comunidad</small></div></div>
     <div>
-      <p class="nav-label">Panel principal</p>
+      <p class="nav-label">Menú</p>
       <nav class="nav">
-        <a class="active" href="#inicio"><span>◉</span>Resumen</a>
-        <a href="#mapa"><span>⌖</span>Recorrido</a>
-        <a href="#graficas"><span>⌁</span>Rendimiento</a>
-        <a href="#segmentos"><span>≋</span>Segmentos</a>
-        <a href="#comparar"><span>⇄</span>Comparar rutas</a>
-        <a href="#video"><span>▷</span>Generar video</a>
-        <a id="settingsLink" href="#configuracion"><span>⚙</span>Configuración</a>
+        <a class="active" href="#resumen"><span>◉</span>Resumen</a>
+        <a href="#video"><span>▷</span>Generar vídeo</a>
+        <a href="#cartel"><span>▣</span>Elabora tu cartel</a>
+        <a href="#trazar"><span>⌖</span>Traza una ruta</a>
       </nav>
     </div>
-    <div class="side-bottom">
-      <b>Tu información se queda contigo</b>
-      <p>Los archivos se analizan localmente en este navegador.</p>
-      <button class="tiny-btn" id="sideLoad">+ Cargar actividad</button>
-    </div>
+    <div class="side-bottom"><b>Tu información se queda contigo</b><p>Los archivos se analizan localmente en este navegador.</p><button class="tiny-btn" id="sideLoad">+ Cargar actividad</button></div>
   </aside>
 
   <main class="content">
     <header class="topbar">
-      <div><div class="eyebrow">Analizador de actividad</div><h1>Tu siguiente aventura empieza aquí</h1></div>
-      <div class="top-actions">
-        <span class="activity-type">🚴 Ciclismo y correr</span>
-        <button class="new-btn" id="topLoad">+ Nueva actividad</button>
-      </div>
+      <div><div class="eyebrow">Perros en Bicicleta</div><h1 id="pageTitle">Resumen</h1></div>
+      <div class="top-actions"><span class="activity-type">🚴 Ciclismo y correr</span><button class="new-btn" id="topLoad">+ Nueva actividad</button></div>
     </header>
 
-    <div class="dashboard" id="inicio">
-      <section class="welcome">
-        <div><h2>Resumen de actividad</h2><p>Importa un GPX o TCX para ver toda tu ruta de un vistazo.</p></div>
+    <div class="dashboard">
+      <section class="page active-page" id="resumen">
+        <section class="welcome"><div><h2>Resumen de actividad</h2><p>Importa un GPX o TCX para ver tu ruta de un vistazo.</p></div></section>
+        <label class="upload" id="dropZone" for="fileInput">
+          <div class="upload-left"><div class="upload-icon">↥</div><div><h3>Sube una actividad</h3><p>Arrastra tu archivo aquí o selecciónalo desde tu equipo. Compatible con GPX y TCX.</p></div></div>
+          <button type="button" id="chooseFile">Elegir archivo</button>
+        </label>
+        <input id="fileInput" type="file" accept=".gpx,.tcx,application/gpx+xml,application/xml,text/xml" hidden>
+        <div id="fileStatus" class="file-note">Sin actividad cargada todavía.</div>
+
+        <section id="analysis">
+          <div class="route-head"><div><h2 id="routeName">Actividad</h2><p id="routeMeta">Archivo analizado localmente</p></div><button class="tiny-btn route-fit" id="fitRoute">Encuadrar ruta</button></div>
+          <div id="metrics" class="metrics"></div>
+          <div class="layout">
+            <section class="panel"><div class="panel-title"><h3>Recorrido</h3><span id="mapStatus">Preparando mapa</span></div><div class="map-wrap"><div id="map" class="map-host"></div></div></section>
+            <aside class="chart-stack">
+              <section class="panel"><div class="panel-title"><h3>Altimetría</h3><span>m</span></div><div id="elevationChart" class="chart"></div><div id="elevationStats" class="chart-stats"></div></section>
+              <section class="panel"><div class="panel-title"><h3>Frecuencia cardiaca</h3><span>lpm</span></div><div id="heartChart" class="chart"></div><div id="heartStats" class="chart-stats"></div></section>
+              <section class="panel"><div class="panel-title"><h3>Velocidad</h3><span>km/h</span></div><div id="speedChart" class="chart"></div><div id="speedStats" class="chart-stats"></div></section>
+            </aside>
+          </div>
+          <section class="panel detail-panel"><div class="panel-title"><h3>Detalles</h3><span>Actividad</span></div><div class="details" id="details"></div></section>
+          <section class="panel detail-panel"><div class="panel-title"><h3>Segmentos de la actividad</h3><span>5 tramos</span></div><div class="table-wrap"><table><thead><tr><th>Segmento</th><th>Distancia</th><th>Tiempo</th><th>Vel. media</th><th>Desnivel +</th><th>FC media</th><th>Cadencia</th></tr></thead><tbody id="segments"></tbody></table></div></section>
+          <section class="panel detail-panel" id="comparar"><div class="panel-title"><h3>Comparar rutas</h3><span>Actividad actual vs. otra ruta</span></div><p class="feature-copy">Carga una segunda actividad para contrastar distancia, tiempo, velocidad, desnivel y frecuencia cardiaca.</p><input id="compareInput" type="file" accept=".gpx,.tcx,application/gpx+xml,application/xml,text/xml" hidden><div class="action-row"><button class="action-btn" id="compareLoad">+ Elegir ruta para comparar</button><span class="action-state" id="compareState">Aún no has elegido una segunda ruta.</span></div><div class="table-wrap compare-wrap"><table id="compareTable" hidden><thead><tr><th>Métrica</th><th id="mainRouteHeader">Actual</th><th id="compareRouteHeader">Comparación</th></tr></thead><tbody id="compareBody"></tbody></table></div></section>
+        </section>
       </section>
 
-      <label class="upload" id="dropZone" for="fileInput">
-        <div class="upload-left">
-          <div class="upload-icon">↥</div>
-          <div><h3>Sube una actividad</h3><p>Arrastra tu archivo aquí o selecciónalo desde tu equipo. Compatible con GPX y TCX.</p></div>
-        </div>
-        <button type="button" id="chooseFile">Elegir archivo</button>
-      </label>
-      <input id="fileInput" type="file" accept=".gpx,.tcx,application/gpx+xml,application/xml,text/xml" hidden>
-      <div id="fileStatus" class="file-note">Sin actividad cargada todavía.</div>
-
-      <section class="settings" id="configuracion">
-        <div class="panel">
-          <div class="panel-title"><h3>Configuración del mapa</h3><span>Se guarda solamente en este navegador</span></div>
-          <div class="setting-grid">
-            <input id="tokenInput" type="password" placeholder="Token público de Mapbox (pk.…)" autocomplete="off">
-            <button class="save-btn" id="saveToken">Guardar token</button>
-          </div>
-          <p class="help">Mapbox se usa como mapa principal. Nunca pegues un token secreto.</p>
-          <div id="tokenStatus" class="status"></div>
-        </div>
+      <section class="page" id="video">
+        <section class="welcome"><div><h2>Generar vídeo</h2><p>Configura el mapa y controla la reproducción de tu recorrido.</p></div></section>
+        <section class="panel video-config"><div class="panel-title"><h3>Configuración del mapa</h3><span>Se guarda en este navegador</span></div><div class="setting-grid"><input id="tokenInput" type="password" placeholder="Token público de Mapbox (pk.…)" autocomplete="off"><button class="save-btn" id="saveToken">Guardar token</button></div><p class="help">Usa únicamente un token público de Mapbox que empiece por <b>pk.</b></p><div id="tokenStatus" class="status"></div></section>
+        <section class="panel video-panel"><div class="panel-title"><h3>Animación de la ruta</h3><span>Actividad cargada</span></div><p class="feature-copy">Reproduce la ruta sobre el mapa o genera un archivo MP4 para guardar y compartir.</p><div class="action-row"><button class="action-btn" id="playRoute">▷ Reproducir ruta</button><button class="action-btn secondary" id="makeVideo">⬇ Guardar vídeo</button><span class="action-state" id="videoState">Listo para animar tu recorrido.</span></div></section>
       </section>
 
-      <section id="analysis">
-        <div class="route-head">
-          <div><h2 id="routeName">Actividad</h2><p id="routeMeta">Archivo analizado localmente</p></div>
-          <button class="tiny-btn route-fit" id="fitRoute">Encuadrar ruta</button>
-        </div>
-        <div id="metrics" class="metrics"></div>
+      <section class="page" id="cartel">
+        <section class="welcome"><div><h2>Elabora tu cartel</h2><p>Genera el cartel de tu ruta con la información analizada y su clasificación MTB.</p></div></section>
+        <section class="panel poster-builder"><div class="poster-preview" id="posterPreview"><div class="poster-empty"><b>Aún no hay una ruta cargada</b><span>Sube una actividad desde Resumen para preparar tu cartel.</span></div></div><div class="poster-info"><div class="panel-title"><h3>Información del cartel</h3><span id="posterStatus">Esperando ruta</span></div><div id="posterData" class="poster-data"></div><button class="action-btn" id="makePoster" disabled>▣ Generar cartel</button></div></section>
+      </section>
 
-        <div class="layout">
-          <section class="panel" id="mapa">
-            <div class="panel-title"><h3>Recorrido</h3><span id="mapStatus">Preparando mapa</span></div>
-            <div class="map-wrap"><div id="map" class="map-host"></div></div>
-          </section>
-          <aside class="chart-stack" id="graficas">
-            <section class="panel"><div class="panel-title"><h3>Altimetría</h3><span>m</span></div><div id="elevationChart" class="chart"></div><div id="elevationStats" class="chart-stats"></div></section>
-            <section class="panel"><div class="panel-title"><h3>Frecuencia cardiaca</h3><span>lpm</span></div><div id="heartChart" class="chart"></div><div id="heartStats" class="chart-stats"></div></section>
-            <section class="panel"><div class="panel-title"><h3>Velocidad</h3><span>km/h</span></div><div id="speedChart" class="chart"></div><div id="speedStats" class="chart-stats"></div></section>
-          </aside>
-        </div>
-
-        <section class="panel detail-panel">
-          <div class="panel-title"><h3>Detalles</h3><span>Actividad</span></div>
-          <div class="details" id="details"></div>
-        </section>
-
-        <section class="panel detail-panel" id="segmentos">
-          <div class="panel-title"><h3>Segmentos de la actividad</h3><span>División automática en 5 tramos</span></div>
-          <div class="table-wrap">
-            <table><thead><tr><th>Segmento</th><th>Distancia</th><th>Tiempo</th><th>Vel. media</th><th>Desnivel +</th><th>FC media</th><th>Cadencia</th></tr></thead>
-            <tbody id="segments"></tbody></table>
-          </div>
-        </section>
-
-        <div class="feature-grid">
-          <section class="panel" id="comparar">
-            <div class="panel-title"><h3>Comparar rutas</h3><span>Actividad actual vs. otra ruta</span></div>
-            <p class="feature-copy">Carga una segunda actividad para contrastar distancia, tiempo, velocidad, desnivel y frecuencia cardiaca.</p>
-            <input id="compareInput" type="file" accept=".gpx,.tcx,application/gpx+xml,application/xml,text/xml" hidden>
-            <div class="action-row"><button class="action-btn" id="compareLoad">+ Elegir ruta para comparar</button><span class="action-state" id="compareState">Aún no has elegido una segunda ruta.</span></div>
-            <div class="table-wrap compare-wrap"><table id="compareTable" hidden><thead><tr><th>Métrica</th><th id="mainRouteHeader">Actual</th><th id="compareRouteHeader">Comparación</th></tr></thead><tbody id="compareBody"></tbody></table></div>
-          </section>
-
-          <section class="panel" id="video">
-            <div class="panel-title"><h3>Video de ruta</h3><span>Animación local</span></div>
-            <p class="feature-copy">Reproduce la actividad sobre el mapa o genera un MP4 con la ruta animada.</p>
-            <div class="action-row">
-              <button class="action-btn" id="playRoute">▷ Reproducir</button>
-              <button class="action-btn secondary" id="makeVideo">⬇ Generar MP4</button>
-              <span class="action-state" id="videoState">Listo para animar tu recorrido.</span>
-            </div>
-          </section>
-        </div>
+      <section class="page" id="trazar">
+        <section class="welcome"><div><h2>Traza una ruta</h2><p>Esta sección queda preparada para la siguiente etapa del proyecto.</p></div></section>
+        <section class="panel coming-soon"><div class="coming-icon">⌖</div><h3>Próximamente</h3><p>Aquí construiremos la herramienta para crear y trazar nuevas rutas.</p></section>
       </section>
     </div>
   </main>
 </div>
-
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.14.0/mapbox-gl.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
