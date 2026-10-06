@@ -36,18 +36,31 @@ export function finalize(xml,p,type,file){
   for(let i=1;i<p.length;i++){
     const prev=p[i-1],cur=p[i];
     cur.d=prev.d+meters(prev,cur);
-    if(cur.ele!==null&&prev.ele!==null){
-      const delta=cur.ele-prev.ele;
-      if(delta>0){ascent+=delta;cur.up=prev.up+delta}
-      else{descent-=delta;cur.up=prev.up}
-    }else cur.up=prev.up;
+    cur.up=prev.up;
     const dt=cur.time&&prev.time?(cur.time-prev.time)/1000:null;
     if(dt&&dt>0&&dt<=30&&cur.d-prev.d>=1) cur.speed=(cur.d-prev.d)/dt*3.6;
   }
+  const elevations=p.map((point,i)=>{
+    if(!Number.isFinite(point.ele))return null;
+    const start=Math.max(0,i-2),end=Math.min(p.length-1,i+2);
+    const values=p.slice(start,end+1).map(x=>x.ele).filter(Number.isFinite);
+    return values.length?values.reduce((s,v)=>s+v,0)/values.length:null;
+  });
+  let smoothUp=0,smoothDown=0,up=0;
+  for(let i=1;i<p.length;i++){
+    const e1=elevations[i-1],e2=elevations[i];
+    if(Number.isFinite(e1)&&Number.isFinite(e2)){
+      const delta=e2-e1,dd=p[i].d-p[i-1].d;
+      if(dd>=3&&Math.abs(delta)>=1){
+        if(delta>0){smoothUp+=delta;up+=delta}else smoothDown-=delta;
+      }
+    }
+    p[i].up=up;
+  }
+  ascent=smoothUp;descent=smoothDown;
   const times=p.filter(x=>x.time).map(x=>x.time);
   return {points:p,name:childText(xml,'name')||file.replace(/\.(gpx|tcx)$/i,''),type,file,
     distance:p.at(-1).d,ascent,descent,duration:times.length>1?Math.max(...times)-Math.min(...times):null,
     start:times.length?Math.min(...times):null};
 }
-
 export {all,childText};
