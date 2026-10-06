@@ -62,7 +62,7 @@ function loadCompare(file){
 function resetActivity(){
   stopRouteAnimation();clearMap();activity=null;compareActivity=null;points=[];
   $('analysis').style.display='none';$('metrics').innerHTML='';$('details').innerHTML='';$('segments').innerHTML='';
-  $('elevationChart').innerHTML='';$('heartChart').innerHTML='';$('speedChart').innerHTML='';
+  $('elevationChart').innerHTML='';$('heartChart').innerHTML='';$('speedChart').innerHTML='';$('elevationStats').innerHTML='';$('heartStats').innerHTML='';$('speedStats').innerHTML='';
   $('compareBody').innerHTML='';$('compareTable').hidden=true;$('compareState').textContent='Aún no has elegido una segunda ruta.';$('compareInput').value='';
   $('routeName').textContent='Actividad';$('routeMeta').textContent='Archivo analizado localmente';
   $('mapStatus').textContent='Preparando mapa';$('videoState').textContent='Listo para animar tu recorrido.';$('playRoute').textContent='▷ Reproducir';
