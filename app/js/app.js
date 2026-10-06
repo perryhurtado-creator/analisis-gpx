@@ -94,7 +94,7 @@ function resetActivity(){
 }
 function choose(){$('fileInput').click()}
 
-$('chooseFile').onclick=e=>{e.preventDefault();choose()};$('topLoad').onclick=()=>{resetActivity();choose()};$('sideLoad').onclick=()=>{resetActivity();choose()};
+$('chooseFile').onclick=e=>{e.preventDefault();choose()};$('topLoad').onclick=()=>{resetActivity();location.hash='resumen';choose()};$('sideLoad').onclick=()=>{resetActivity();location.hash='resumen';choose()};
 $('fileInput').onchange=()=>loadFile($('fileInput').files[0]);$('compareLoad').onclick=()=>$('compareInput').click();$('compareInput').onchange=()=>loadCompare($('compareInput').files[0]);
 $('playRoute').onclick=()=>activity&&playRoute(points);$('makeVideo').onclick=()=>activity&&makeVideo(activity);$('fitRoute').onclick=()=>fitRoute(points);
 ['dragenter','dragover'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.add('over')}));
