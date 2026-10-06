@@ -7,13 +7,9 @@ function drawProfile(id,points,field,label,unit){
   if(!host||!points?.length)return;
   const values=points.map(p=>Number(p[field])).filter(Number.isFinite);
   if(!values.length){host.innerHTML='<div class="video-chart-empty">Sin datos disponibles</div>';return}
-  const W=900,H=170,padX=12,padY=18,min=Math.min(...values),max=Math.max(...values),range=max-min||1;
-  const coords=points.map((p,i)=>{
-    const v=Number(p[field]);
-    const x=padX+(i/Math.max(1,points.length-1))*(W-padX*2);
-    const y=padY+(1-(Number.isFinite(v)?(v-min)/range:.5))*(H-padY*2);
-    return [x,y];
-  });
+  const W=900,H=240,p={l:48,r:15,t:15,b:28},min=Math.min(...values),max=Math.max(...values),pad=Math.max(1,(max-min)*.12),lo=min-pad,hi=max+pad,xMax=Math.max(...points.map(x=>Number(x.d)||0))/1000||1;
+  const x=v=>p.l+(v/xMax)*(W-p.l-p.r),y=v=>H-p.b-(v-lo)/(hi-lo)*(H-p.t-p.b);
+  const coords=points.map((pt,i)=>[x((Number(pt.d)||0)/1000),y(Number(pt[field]))]);
   const poly=coords.map(c=>c.join(',')).join(' ');
   host.innerHTML=`<div class="video-chart-head"><span>${label}</span><b id="${id}Value">—</b></div><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="${label}"><polyline class="video-chart-line" points="${poly}"></polyline><line class="video-chart-cursor" id="${id}Cursor" x1="${padX}" x2="${padX}" y1="8" y2="${H-8}"></line></svg><div class="video-chart-axis"><span>${Number(min).toFixed(0)} ${unit}</span><span>${Number(max).toFixed(0)} ${unit}</span></div>`;
   profileState[field]={coords,min,max,unit};
@@ -26,7 +22,9 @@ function updateProfile(field,index){
   const valueEl=document.getElementById(field==='ele'?'videoElevationValue':'videoSpeedValue');
   const coord=state.coords[i];
   if(cursor&&coord){cursor.setAttribute('x1',coord[0]);cursor.setAttribute('x2',coord[0])}
+  const read=document.getElementById(field==='ele'?'videoElevationReadout':'videoSpeedReadout');
   if(valueEl&&Number.isFinite(value))valueEl.textContent=field==='ele'?Math.round(value)+' m':value.toFixed(1)+' km/h';
+  if(read&&Number.isFinite(value))read.textContent=field==='ele'?Math.round(value)+' m':value.toFixed(1)+' km/h';
 }
 export function prepareVideoMap(points){
   if(points?.length){
