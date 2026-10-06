@@ -1,8 +1,8 @@
-import {showPoint,getCanvas,createMap} from './map.js';
+import {showVideoPoint,createMap,fitVideoRoute} from './map.js';
 
 let playFrame=null,ffmpegEncoder=null;
 export function stopRouteAnimation(){if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;}
-export function prepareVideoMap(points){if(points?.length)createMap(points,'videoMap');}
+export function prepareVideoMap(points){if(points?.length){createMap(points,'videoMap');fitVideoRoute(points);}}
 export function playRoute(points,onDone=()=>{}){
   if(!points?.length)return;
   const state=document.getElementById('videoState'),button=document.getElementById('playRoute');
@@ -11,7 +11,7 @@ export function playRoute(points,onDone=()=>{}){
   const start=performance.now(),total=9000;
   function step(now){
     const ratio=Math.min(1,(now-start)/total),index=Math.min(points.length-1,Math.floor(ratio*(points.length-1)));
-    showPoint(points[index]);
+    showVideoPoint(points[index]);
     if(ratio<1)playFrame=requestAnimationFrame(step);
     else{state.textContent='Reproducción terminada.';button.textContent='▷ Reproducir';playFrame=null;onDone()}
   }
