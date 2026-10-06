@@ -1,5 +1,7 @@
 import {fmt} from './metrics.js';
 
+const charts = new Map();
+
 export function drawChart(id,pairs,color,label,onHover,onLeave){
   const host=document.getElementById(id),vals=pairs.filter(p=>Number.isFinite(p[1]));
   if(vals.length<2){host.innerHTML='<div class="chart-empty">Este archivo no incluye este dato.</div>';return}
@@ -21,11 +23,34 @@ export function drawChart(id,pairs,color,label,onHover,onLeave){
     <text x="${W-55}" y="${H-6}" font-size="11" fill="#718178">${fmt(xMax)} km</text>
   </svg>`;
   const svg=host.querySelector('svg'),guide=host.querySelector('.guide'),read=host.querySelector('.readout');
+  charts.set(id,{x,xMax,guide,read,onLeave});
+
+  const syncGuides=km=>{
+    charts.forEach(chart=>{
+      const clamped=Math.max(0,Math.min(chart.xMax,km));
+      chart.guide.setAttribute('x1',chart.x(clamped));
+      chart.guide.setAttribute('x2',chart.x(clamped));
+      chart.guide.setAttribute('opacity','1');
+    });
+  };
+
   svg.onmousemove=e=>{
     const b=svg.getBoundingClientRect(),px=(e.clientX-b.left)/b.width*W;
     const km=Math.max(0,Math.min(xMax,(px-p.l)/(W-p.l-p.r)*xMax));
-    const pt=onHover(km); guide.setAttribute('x1',x(km));guide.setAttribute('x2',x(km));guide.setAttribute('opacity','1');
-    read.setAttribute('x',Math.min(W-150,x(km)+7));read.textContent=pt?`${fmt(pt.d/1000)} km · ${Number.isFinite(pt.ele)?fmt(pt.ele)+' m':''}`:'';
+    const pt=onHover(km);
+    syncGuides(km);
+    charts.forEach(chart=>{
+      const clamped=Math.max(0,Math.min(chart.xMax,km));
+      chart.read.setAttribute('x',Math.min(W-150,chart.x(clamped)+7));
+      chart.read.textContent=pt?`${fmt(pt.d/1000)} km`:''; 
+    });
+    read.textContent=pt?`${fmt(pt.d/1000)} km · ${Number.isFinite(pt.ele)?fmt(pt.ele)+' m':''}`:'';
   };
-  svg.onmouseleave=()=>{guide.setAttribute('opacity','0');read.textContent='';onLeave()};
+  svg.onmouseleave=()=>{
+    charts.forEach(chart=>{
+      chart.guide.setAttribute('opacity','0');
+      chart.read.textContent='';
+    });
+    onLeave();
+  };
 }
