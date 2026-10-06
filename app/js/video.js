@@ -1,7 +1,8 @@
-import {showPoint,getCanvas} from './map.js';
+import {showPoint,getCanvas,createMap} from './map.js';
 
 let playFrame=null,ffmpegEncoder=null;
 export function stopRouteAnimation(){if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;}
+export function prepareVideoMap(points){if(points?.length)createMap(points,'videoMap');}
 export function playRoute(points,onDone=()=>{}){
   if(!points?.length)return;
   const state=document.getElementById('videoState'),button=document.getElementById('playRoute');
@@ -43,7 +44,7 @@ export function makeVideo(activity){
   const state=document.getElementById('videoState');
   const canvas=getCanvas();
   if(location.protocol==='file:'){state.textContent='Para exportar MP4 abre la app con INICIAR_APP.bat; no abras index.html directamente.';return}
-  if(!canvas||!window.MediaRecorder){state.textContent='Para generar el video activa Mapbox con tu token público.';return}
+  if(!canvas||!window.MediaRecorder){state.textContent='Este navegador no permite grabar el mapa de OpenStreetMap en esta configuración.';return}
   const recordMime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(type=>MediaRecorder.isTypeSupported(type));
   if(!recordMime){state.textContent='Este navegador no permite grabar la animación.';return}
   if(!canvas.captureStream){state.textContent='Este navegador no permite grabar el mapa.';return}
