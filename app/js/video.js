@@ -1,4 +1,4 @@
-import {showVideoPoint,createMap,fitVideoRoute} from './map.js';
+import {showVideoPoint,createMap,fitVideoRoute,getCanvas} from './map.js';
 
 let playFrame=null,ffmpegEncoder=null;
 export function stopRouteAnimation(){if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;}
