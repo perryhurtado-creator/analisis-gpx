@@ -51,13 +51,21 @@ export function speedStats(points){
     const dt=b.time-a.time,dd=b.d-a.d;
     if(dt<1000||dt>15000||dd<1)continue;
     const speed=dd/(dt/3600000)/1000;
-    if(Number.isFinite(speed)&&speed>=0&&speed<=100)intervals.push(speed);
+    if(Number.isFinite(speed)&&speed>=0&&speed<=100)intervals.push({i,speed});
   }
   if(!intervals.length)return {max:null,avg:null};
+  const rolling=[];
+  for(const item of intervals){
+    const end=points[item.i].time;
+    let j=item.i-1;
+    while(j>0&&end-points[j].time<3000)j--;
+    const dt=points[item.i].time-points[j].time,dd=points[item.i].d-points[j].d;
+    if(dt>=3000&&dd>0)rolling.push(dd/(dt/3600000)/1000);
+  }
   const totalTime=points.at(-1).time-points[0].time,totalDistance=points.at(-1).d;
   return {
-    max:Math.max(...intervals),
-    avg:totalTime>0?totalDistance/1000/(totalTime/3600000):avg(intervals)
+    max:Math.max(...(rolling.length?rolling:intervals.map(x=>x.speed))),
+    avg:totalTime>0?totalDistance/1000/(totalTime/3600000):avg(intervals.map(x=>x.speed))
   };
 }
 export function heartZones(points){
