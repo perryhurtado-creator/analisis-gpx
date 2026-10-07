@@ -13,7 +13,7 @@ globalThis.DOMParser=class extends XmldomParser{
 const{parseGPX,optionalNumber,validCoordinates}=await import('../app/js/gpx-parser.js');
 const{parseTCX}=await import('../app/js/tcx-parser.js');
 const{speedStats,heartZones,slopeStats}=await import('../app/js/metrics.js');
-const{splitRouteSegments}=await import('../app/js/map.js');
+const{splitRouteSegments,createMap}=await import('../app/js/map.js');
 const{splitChartSegments}=await import('../app/js/charts.js');
 
 const time=second=>`2026-10-07T10:00:${String(second).padStart(2,'0')}Z`;
@@ -79,6 +79,38 @@ test('GPX: separate trkseg groups do not add bridge distance or bridge elevation
   assert.ok(activity.ascent<20,'the altitude jump between trkseg groups must not count as ascent');
   assert.equal(splitRouteSegments(activity.points).length,2);
   assert.equal(splitChartSegments(activity.points.map(p=>[p.d/1000,p.ele,p.breakBefore])).length,2);
+});
+
+test('map: adds each route part as its own Leaflet polyline and fits all coordinates',()=>{
+  const points=[
+    {lat:20,lon:-100,segmentId:0,breakBefore:true},
+    {lat:20.001,lon:-100,segmentId:0,breakBefore:false},
+    {lat:21,lon:-101,segmentId:1,breakBefore:true},
+    {lat:21.001,lon:-101,segmentId:1,breakBefore:false}
+  ];
+  const originalWindow=globalThis.window,originalDocument=globalThis.document;
+  const calls={lines:[],bounds:null};
+  const map={remove(){},fitBounds(bounds){calls.bounds=bounds},invalidateSize(){}};
+  const marker=()=>({addTo(){return this},bindTooltip(){return this},setLatLng(){return this},setStyle(){return this}});
+  const host={innerHTML:''},engine={innerHTML:''},status={textContent:''};
+  globalThis.document={getElementById:id=>id==='map'?host:id==='engine'?engine:id==='mapStatus'?status:null};
+  globalThis.window={L:{
+    map:()=>map,
+    tileLayer:()=>({addTo(){return this}}),
+    polyline:coords=>{calls.lines.push(coords);return{addTo(){return this}}},
+    circleMarker:marker,
+    latLngBounds:coords=>coords,
+    featureGroup:()=>{throw Error('createMap must not use FeatureGroup')}
+  }};
+  try{
+    createMap(points);
+    assert.equal(calls.lines.length,2);
+    assert.deepEqual(calls.lines.map(line=>line.length),[2,2]);
+    assert.equal(calls.bounds.length,4);
+  }finally{
+    if(originalWindow===undefined)delete globalThis.window;else globalThis.window=originalWindow;
+    if(originalDocument===undefined)delete globalThis.document;else globalThis.document=originalDocument;
+  }
 });
 
 test('TCX: absent Position/AltitudeMeters is not treated as coordinates or altitude zero',()=>{

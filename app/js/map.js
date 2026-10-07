@@ -48,8 +48,7 @@ export function createMap(points,id='map'){
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     maxZoom:19,attribution:'© OpenStreetMap contributors'
   }).addTo(map);
-  const lines=chunks.map(coords=>L.polyline(coords,{color:'#2a9b69',weight:5,opacity:.9}));
-  const route=L.featureGroup(lines).addTo(map);
+  chunks.forEach(coords=>L.polyline(coords,{color:'#2a9b69',weight:5,opacity:.9}).addTo(map));
   const coords=points.filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
   L.circleMarker([coords[0].lat,coords[0].lon],{
     radius:6,color:'#fff',weight:2,fillColor:'#2a9b69',fillOpacity:1
@@ -60,7 +59,7 @@ export function createMap(points,id='map'){
   markers[id]=L.circleMarker([coords[0].lat,coords[0].lon],{
     radius:8,color:'#fff',weight:2,fillColor:'#ff9f43',fillOpacity:0,opacity:0
   }).addTo(map);
-  map.fitBounds(route.getBounds(),{padding:[28,28]});
+  map.fitBounds(L.latLngBounds(chunks.flat()),{padding:[28,28]});
   if(id==='map'){setEngine('OpenStreetMap','Leaflet');setStatus('OpenStreetMap');}
   else setStatus('OpenStreetMap','videoMapStatus');
   if(window.ResizeObserver){
