@@ -49,11 +49,11 @@ function render(){
   $('details').innerHTML=`<div class="detail-block"><div class="detail-label">Archivo</div><div class="detail-value">${esc(a.file)}</div><div class="detail-muted">${a.type} · análisis local</div></div>
     <div class="detail-block"><div class="detail-label">Altitud</div><div class="detail-value">${eles.length?fmt(Math.min(...eles))+' – '+fmt(Math.max(...eles))+' m':'No disponible'}</div><div class="detail-muted">Desnivel − ${fmt(a.descent)} m</div></div>
     <div class="detail-block"><div class="detail-label">Motor de mapa</div><div class="engine" id="engine"><span class="tag">Iniciando</span></div><div class="detail-muted">Ruta y gráficas sincronizadas</div></div>`;
-  drawChart('elevationChart',points.map(p=>[p.d/1000,p.ele]),'#2a9b69','Altitud (m)',k=>{const p=nearest(k);showPoint(p);return p},hidePoint);
+  drawChart('elevationChart',points.map(p=>[p.d/1000,p.ele,p.breakBefore]),'#2a9b69','Altitud (m)',k=>{const p=nearest(k);showPoint(p);return p},hidePoint);
   $('elevationStats').innerHTML=`<table><thead><tr><th>Pendiente máx. +</th><th>Pendiente máx. −</th><th>Pendiente media</th></tr></thead><tbody><tr><td>${slopes.maxUp!==null?fmt(slopes.maxUp)+' %':'—'}</td><td>${slopes.maxDown!==null?fmt(slopes.maxDown)+' %':'—'}</td><td>${slopes.avgUp!==null?fmt(slopes.avgUp)+' %':'—'}</td></tr></tbody></table>`;
-  drawChart('heartChart',points.map(p=>[p.d/1000,p.hr]),'#ee5c73','Frecuencia cardiaca (lpm)',k=>{const p=nearest(k);showPoint(p);return p},hidePoint);
+  drawChart('heartChart',points.map(p=>[p.d/1000,p.hr,p.breakBefore]),'#ee5c73','Frecuencia cardiaca (lpm)',k=>{const p=nearest(k);showPoint(p);return p},hidePoint);
   $('heartStats').innerHTML=zones.length?`<table><thead><tr><th>Zona</th><th>Rango</th><th>Tiempo</th></tr></thead><tbody>${zones.map(z=>`<tr><td>Z${z.zone}</td><td>${Math.round(z.min)}–${Math.round(z.max)} lpm</td><td>${duration(z.time)}</td></tr>`).join('')}</tbody></table>`:'<div class="chart-empty">No hay datos de tiempo y frecuencia cardiaca suficientes.</div>'; 
-  drawChart('speedChart',points.map(p=>[p.d/1000,p.speed]),'#397de8','Velocidad (km/h)',k=>{const p=nearest(k);showPoint(p);return p},hidePoint);
+  drawChart('speedChart',points.map(p=>[p.d/1000,p.speed,p.breakBefore]),'#397de8','Velocidad (km/h)',k=>{const p=nearest(k);showPoint(p);return p},hidePoint);
   $('speedStats').innerHTML=`<table><thead><tr><th>Velocidad máxima</th><th>Velocidad media</th></tr></thead><tbody><tr><td>${maxSpeed!==null?fmt(maxSpeed)+' km/h':'—'}</td><td>${avgSpeed!==null?fmt(avgSpeed)+' km/h':'—'}</td></tr></tbody></table>`;
   renderSegments();if(compareActivity)renderComparison();createMap(points);
 }
