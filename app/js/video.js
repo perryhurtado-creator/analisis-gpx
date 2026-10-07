@@ -13,7 +13,7 @@ function drawProfile(id,points,field,label,unit){
   const vals=points.map(pt=>[x((Number(pt.d)||0)/1000),y(Number(pt[field]))]).filter(v=>Number.isFinite(v[1]));
   const path=vals.map((v,i)=>(i?'L':'M')+v[0].toFixed(1)+' '+v[1].toFixed(1)).join('');
   const area=path+` L ${vals.at(-1)[0]} ${H-p.b} L ${vals[0][0]} ${H-p.b} Z`;
-  host.innerHTML=`<div class="video-chart-head"><span>${label}</span><b id="${id}Value">—</b></div><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="${label}"><defs><linearGradient id="vg-${id}" x1="0" x2="0" y1="0" y2="1"><stop class="video-grad-start" offset="0"/><stop class="video-grad-end" offset="1"/></linearGradient></defs><line x1="${p.l}" x2="${W-p.r}" y1="${p.t}" y2="${p.t}" stroke="#e5eae6"/><line x1="${p.l}" x2="${W-p.r}" y1="${H-p.b}" y2="${H-p.b}" stroke="#e5eae6"/><path class="video-chart-area" d="${area}" fill="url(#vg-${id})"/><path class="video-chart-line" d="${path}"/><line class="video-chart-cursor" id="${id}Cursor" x1="${p.l}" x2="${p.l}" y1="${p.t}" y2="${H-p.b}"/><text class="video-chart-readout" id="${id}Readout" x="${p.l+7}" y="${p.t+14}">—</text><text x="2" y="${p.t+6}" font-size="11" fill="#718178">${fmt(hi)}</text><text x="2" y="${H-p.b}" font-size="11" fill="#718178">${fmt(lo)}</text><text x="${p.l}" y="${H-6}" font-size="11" fill="#718178">0 km</text><text x="${W-55}" y="${H-6}" font-size="11" fill="#718178">${fmt(xMax)} km</text></svg>`;
+  host.innerHTML=`<div class="video-chart-head"><span>${label}</span><b id="${id}Value">—</b></div><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="${label}"><defs><linearGradient id="vg-${id}" x1="0" x2="0" y1="0" y2="1"><stop class="video-grad-start" offset="0"/><stop class="video-grad-end" offset="1"/></linearGradient></defs><line x1="${p.l}" x2="${W-p.r}" y1="${p.t}" y2="${p.t}" stroke="#e5eae6"/><line x1="${p.l}" x2="${W-p.r}" y1="${H-p.b}" y2="${H-p.b}" stroke="#e5eae6"/><path class="video-chart-area" d="${area}" fill="url(#vg-${id})"/><path class="video-chart-line" d="${path}"/><line class="video-chart-cursor" id="${id}Cursor" x1="${p.l}" x2="${p.l}" y1="${p.t}" y2="${H-p.b}"/><circle class="video-chart-dot" id="${id}Dot" cx="${p.l}" cy="${H-p.b}" r="4"/><text class="video-chart-readout" id="${id}Readout" x="${p.l+7}" y="${p.t+14}">—</text><text x="2" y="${p.t+6}" font-size="11" fill="#718178">${fmt(hi)}</text><text x="2" y="${H-p.b}" font-size="11" fill="#718178">${fmt(lo)}</text><text x="${p.l}" y="${H-6}" font-size="11" fill="#718178">0 km</text><text x="${W-55}" y="${H-6}" font-size="11" fill="#718178">${fmt(xMax)} km</text></svg>`;
   profileState[field]={coords:points.map(pt=>[x((Number(pt.d)||0)/1000),y(Number(pt[field]))]),min:rawMin,max:rawMax,unit,x};
 }
 function updateProfile(field,index){
@@ -24,6 +24,8 @@ function updateProfile(field,index){
   const valueEl=document.getElementById(field==='ele'?'videoElevationValue':'videoSpeedValue');
   const coord=state.coords[i];
   if(cursor&&coord){cursor.setAttribute('x1',coord[0]);cursor.setAttribute('x2',coord[0])}
+  const dot=document.getElementById(field==='ele'?'videoElevationDot':'videoSpeedDot');
+  if(dot&&coord){dot.setAttribute('cx',coord[0]);dot.setAttribute('cy',coord[1])}
   const read=document.getElementById(field==='ele'?'videoElevationReadout':'videoSpeedReadout');
   if(valueEl&&Number.isFinite(value))valueEl.textContent=field==='ele'?Math.round(value)+' m':value.toFixed(1)+' km/h';
   if(read&&Number.isFinite(value))read.textContent=field==='ele'?Math.round(value)+' m':value.toFixed(1)+' km/h';
