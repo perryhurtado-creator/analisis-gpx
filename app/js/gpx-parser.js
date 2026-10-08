@@ -38,7 +38,7 @@ export function appendRuns(groups,parsePoint){
 function parsePoint(node){
   const lat=optionalNumber(node.getAttribute('lat'));
   const lon=optionalNumber(node.getAttribute('lon'));
-  if(lat===null||lon===null)return null;
+  if(lat===null||lon===null||lat < -90||lat > 90||lon < -180||lon > 180)return null;
   const ele=optionalNumber(childText(node,'ele'));
   const timeRaw=childText(node,'time');
   const parsedTime=timeRaw?Date.parse(timeRaw):NaN;

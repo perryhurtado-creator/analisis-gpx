@@ -13,3 +13,7 @@
 .video-chart-line{fill:none;stroke:var(--green);stroke-width:2.5;stroke-linejoin:round}.video-profile-bottom .video-chart-line{stroke:var(--blue)}.video-chart-area{opacity:.9}.video-grad-start{stop-color:var(--green);stop-opacity:.24}.video-grad-end{stop-color:var(--green);stop-opacity:0}.video-profile-bottom .video-grad-start{stop-color:var(--blue)}.video-chart-cursor{stroke:var(--orange);stroke-width:2;stroke-dasharray:4 4}.video-chart-readout{font-size:12px;font-weight:800;fill:var(--ink)}
 
 .video-chart-dot{fill:var(--orange);stroke:#fff;stroke-width:2;vector-effect:non-scaling-stroke}
+
+/* Logo original de la comunidad */
+.brand-logo{display:block;width:64px;height:auto;flex:0 0 64px;object-fit:contain}.brand>div{min-width:0}
+@media(max-width:760px){.sidebar .brand{display:flex;padding:10px 16px;gap:12px}.brand-logo{width:48px;flex-basis:48px}.brand strong{font-size:14px}}

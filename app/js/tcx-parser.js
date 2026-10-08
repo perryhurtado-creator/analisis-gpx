@@ -4,7 +4,7 @@ function parsePoint(node){
   const pos=all(node,'Position')[0];
   const lat=optionalNumber(childText(pos||node,'LatitudeDegrees'));
   const lon=optionalNumber(childText(pos||node,'LongitudeDegrees'));
-  if(lat===null||lon===null)return null;
+  if(lat===null||lon===null||lat < -90||lat > 90||lon < -180||lon > 180)return null;
   const ele=optionalNumber(childText(node,'AltitudeMeters'));
   const timeRaw=childText(node,'Time');
   const parsedTime=timeRaw?Date.parse(timeRaw):NaN;
