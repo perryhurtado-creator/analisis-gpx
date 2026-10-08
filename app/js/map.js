@@ -41,4 +41,20 @@ export function showPoint(p){show('map',p)}
 export function showVideoPoint(p){show('videoMap',p)}
 export function hidePoint(){if(markers.map)markers.map.setStyle({opacity:0,fillOpacity:0})}
 export function hideVideoPoint(){if(markers.videoMap)markers.videoMap.setStyle({opacity:0,fillOpacity:0})}
-export function getCanvas(){return null}
+export function videoMapSnapshot(points){
+  const map=maps.videoMap;
+  if(!map)throw Error('Carga la ruta en el mapa antes de guardar el vídeo.');
+  const size=map.getSize(),zoom=map.getZoom(),bounds=map.getPixelBounds();
+  if(size.x<=0||size.y<=0)throw Error('Abre la página Generar vídeo para guardar el recorrido.');
+  const tiles=[],count=2**zoom;
+  for(let y=Math.floor(bounds.min.y/256);y<=Math.floor((bounds.max.y-1)/256);y++){
+    if(y<0||y>=count)continue;
+    for(let x=Math.floor(bounds.min.x/256);x<=Math.floor((bounds.max.x-1)/256);x++){
+      tiles.push({url:`https://tile.openstreetmap.org/${zoom}/${((x%count)+count)%count}/${y}.png`,x:x*256-bounds.min.x,y:y*256-bounds.min.y});
+    }
+  }
+  return {width:size.x,height:size.y,tiles,positions:points.map(p=>{
+    const pixel=map.project([p.lat,p.lon],zoom);
+    return {x:pixel.x-bounds.min.x,y:pixel.y-bounds.min.y};
+  })};
+}
