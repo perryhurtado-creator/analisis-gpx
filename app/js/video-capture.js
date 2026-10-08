@@ -1,5 +1,6 @@
 import {videoMapSnapshot} from './map.js';
 import {fmt} from './metrics.js';
+import {createVideoTimeline,samplePoint,videoRouteChunks} from './video-timeline.js';
 
 function loadTile(url,signal){
   return new Promise((resolve,reject)=>{
@@ -28,10 +29,10 @@ function marker(ctx,position,color,radius){
   ctx.beginPath();ctx.arc(position.x,position.y,radius,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
 }
 
-function drawProfile(ctx,points,field,index,state,width,height,color,label){
+function drawProfile(ctx,points,field,sample,state,width,height,color,label){
   ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);
   ctx.font='bold 18px sans-serif';ctx.fillStyle='#16231e';ctx.fillText(label,16,23);
-  const value=points[index][field],text=Number.isFinite(value)?(field==='ele'?`${Math.round(value)} m`:`${fmt(value)} km/h`):'—';
+  const value=sample.point[field],text=Number.isFinite(value)?(field==='ele'?`${Math.round(value)} m`:`${fmt(value)} km/h`):'—';
   ctx.textAlign='right';ctx.fillText(text,width-18,23);ctx.textAlign='left';
   if(!state){ctx.font='16px sans-serif';ctx.fillText('Esta actividad no incluye este dato.',48,80);return}
   ctx.strokeStyle='#e4e9e4';ctx.lineWidth=1;
@@ -45,13 +46,16 @@ function drawProfile(ctx,points,field,index,state,width,height,color,label){
     previous=true;
   });
   ctx.stroke();
-  const c=state.coords[index];ctx.strokeStyle='#ff9f43';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(c.x,state.top);ctx.lineTo(c.x,state.bottom);ctx.stroke();
+  const a=state.coords[sample.index],b=state.coords[sample.nextIndex];
+  const c={x:a.x+(b.x-a.x)*sample.mix,y:Number.isFinite(value)&&a.y!==null&&(sample.mix===0||b.y!==null)?a.y+((b.y??a.y)-a.y)*sample.mix:null};
+  ctx.strokeStyle='#ff9f43';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(c.x,state.top);ctx.lineTo(c.x,state.bottom);ctx.stroke();
   if(c.y!==null)marker(ctx,c,'#ff9f43',5);
   ctx.font='12px sans-serif';ctx.fillStyle='#6d7d75';ctx.fillText(`${fmt(state.max)}`,4,state.top+10);ctx.fillText(`${fmt(state.min)}`,4,state.bottom);
   ctx.fillText('0 km',state.left,height-7);ctx.textAlign='right';ctx.fillText(`${fmt(points.at(-1).d/1000)} km`,state.right,height-7);ctx.textAlign='left';
 }
 
-export async function createVideoScene(activity,signal){
+export async function createVideoScene(activity,signal,options={}){
+  const timeline=createVideoTimeline(activity.points,options);
   const snapshot=videoMapSnapshot(activity.points);
   const tiles=await Promise.all(snapshot.tiles.map(async tile=>({...tile,img:await loadTile(tile.url,signal)})));
   if(signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
@@ -65,18 +69,28 @@ export async function createVideoScene(activity,signal){
   const scale=Math.min(1280/snapshot.width,560/snapshot.height),offsetX=(1280-snapshot.width*scale)/2,offsetY=(560-snapshot.height*scale)/2;
   base.save();base.translate(offsetX,offsetY);base.scale(scale,scale);base.beginPath();base.rect(0,0,snapshot.width,snapshot.height);base.clip();
   for(const tile of tiles)base.drawImage(tile.img,tile.x,tile.y,256,256);
-  base.strokeStyle='#2a9b69';base.lineWidth=5/scale;base.lineJoin='round';base.lineCap='round';base.beginPath();
+  base.strokeStyle='#8da99b';base.globalAlpha=.55;base.lineWidth=5/scale;base.lineJoin='round';base.lineCap='round';base.beginPath();
   activity.points.forEach((p,i)=>{const c=snapshot.positions[i];if(i===0||p.breakBefore||p.segmentId!==activity.points[i-1].segmentId)base.moveTo(c.x,c.y);else base.lineTo(c.x,c.y)});base.stroke();
-  marker(base,snapshot.positions[0],'#2a9b69',6/scale);marker(base,snapshot.positions.at(-1),'#ee5c73',6/scale);base.restore();
+  base.globalAlpha=1;marker(base,snapshot.positions[0],'#2a9b69',6/scale);marker(base,snapshot.positions.at(-1),'#ee5c73',6/scale);base.restore();
   // Detectar imágenes que no permiten exportarse antes de iniciar MediaRecorder.
   base.getImageData(0,0,1,1);
   const elevation=profile(activity.points,'ele',1280,170),speed=profile(activity.points,'speed',1280,170);
-  return {canvas,draw(index){
+  const pixels=new Map(activity.points.map((p,i)=>[p,snapshot.positions[i]]));
+  function drawRuns(chunks,color,width){
+    ctx.strokeStyle=color;ctx.lineWidth=width/scale;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();
+    for(const run of chunks)run.forEach((p,i)=>{const c=pixels.get(p)||snapshot.project(p);if(i===0)ctx.moveTo(c.x,c.y);else ctx.lineTo(c.x,c.y)});
+    ctx.stroke();
+  }
+  return {canvas,timeline,draw(frame){
+    const sample=typeof frame==='number'?samplePoint(activity.points,Math.min(activity.points.length-1,Math.max(0,frame))):frame;
     ctx.fillStyle='#10251f';ctx.fillRect(0,0,1280,960);ctx.fillStyle='#fff';ctx.font='bold 21px sans-serif';ctx.fillText('Perros en Bicicleta',20,29);ctx.font='16px sans-serif';ctx.fillText(String(activity.name||'Actividad').slice(0,90),270,29);
-    ctx.save();ctx.translate(0,48);drawProfile(ctx,activity.points,'ele',index,elevation,1280,170,'#2a9b69','Altimetría');ctx.restore();
+    ctx.save();ctx.translate(0,48);drawProfile(ctx,activity.points,'ele',sample,elevation,1280,170,'#2a9b69','Altimetría');ctx.restore();
     ctx.drawImage(background,0,218);
-    const position=snapshot.positions[index];marker(ctx,{x:offsetX+position.x*scale,y:218+offsetY+position.y*scale},'#ff9f43',8);
-    ctx.save();ctx.translate(0,778);drawProfile(ctx,activity.points,'speed',index,speed,1280,170,'#397de8','Velocidad');ctx.restore();
+    ctx.save();ctx.translate(offsetX,218+offsetY);ctx.scale(scale,scale);ctx.beginPath();ctx.rect(0,0,snapshot.width,snapshot.height);ctx.clip();
+    drawRuns(videoRouteChunks(activity.points,sample),'#2a9b69',5);
+    if(timeline.tailSeconds>0)drawRuns(videoRouteChunks(activity.points,sample,timeline.trailStart(sample)),'#ff9f43',7);
+    const position=snapshot.project(sample.point);marker(ctx,position,'#ff9f43',8/scale);ctx.restore();
+    ctx.save();ctx.translate(0,778);drawProfile(ctx,activity.points,'speed',sample,speed,1280,170,'#397de8','Velocidad');ctx.restore();
     ctx.fillStyle='#fff';ctx.font='10px sans-serif';ctx.fillText('© OpenStreetMap contributors',12,959);
   }};
 }
@@ -106,11 +120,11 @@ export async function encodeVideoScene(scene,activity,signal,onFrame,webmOnly=fa
   try{
     if(signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
     await output.start();
-    const frames=270;
+    const frames=scene.timeline.duration*30;
     for(let frame=0;frame<frames;frame++){
       if(signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
-      const index=Math.floor(frame/(frames-1)*(activity.points.length-1));
-      scene.draw(index);onFrame(index,Math.round((frame+1)/frames*100),extension);
+      const sample=scene.timeline.at(frame/(frames-1));
+      scene.draw(sample);onFrame(sample,Math.round((frame+1)/frames*100),extension);
       await source.add(frame/30,1/30);
       if(frame%5===0)await new Promise(resolve=>setTimeout(resolve,0));
     }

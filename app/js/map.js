@@ -1,10 +1,12 @@
+import {videoRouteChunks} from './video-timeline.js';
 const maps={map:null,videoMap:null};
+let videoLayers=null;
 const markers={map:null,videoMap:null};
 const observers={};
 function engineEl(){return document.getElementById('engine')}
 function setEngine(main,fallback=''){const el=engineEl();if(el)el.innerHTML='<span class="tag">'+main+'</span>'+(fallback?'<span class="tag fallback">'+fallback+'</span>':'')}
 function setStatus(text,id='mapStatus'){const el=document.getElementById(id);if(el)el.textContent=text}
-function destroyMap(id){if(maps[id]){maps[id].remove();maps[id]=null}markers[id]=null;if(observers[id]){observers[id].disconnect();delete observers[id]}const host=document.getElementById(id);if(host)host.innerHTML=''}
+function destroyMap(id){if(maps[id]){maps[id].remove();maps[id]=null}markers[id]=null;if(id==='videoMap')videoLayers=null;if(observers[id]){observers[id].disconnect();delete observers[id]}const host=document.getElementById(id);if(host)host.innerHTML=''}
 export function clearMap(){destroyMap('map')}
 export function createMap(points,id='map'){
   destroyMap(id);
@@ -24,7 +26,11 @@ export function createMap(points,id='map'){
   }
   const lines=chunks.filter(chunk=>chunk.length>=2).map(chunk=>L.polyline(chunk,{color:'#2a9b69',weight:5,opacity:.9}));
   const routeLayer=L.featureGroup(lines).addTo(map);
-  if(lines.length){
+  if(id==='videoMap'){
+    routeLayer.setStyle({color:'#8da99b',opacity:.55});
+    videoLayers={progress:L.polyline([],{color:'#2a9b69',weight:5,opacity:1}).addTo(map),tail:L.polyline([],{color:'#ff9f43',weight:7,opacity:.85}).addTo(map)};
+  }
+  if(lines.length||id==='videoMap'){
     const first=points[0],last=points.at(-1);
     L.circleMarker([first.lat,first.lon],{radius:6,color:'#fff',weight:2,fillColor:'#2a9b69',fillOpacity:1}).addTo(map).bindTooltip('Inicio');
     L.circleMarker([last.lat,last.lon],{radius:6,color:'#fff',weight:2,fillColor:'#ee5c73',fillOpacity:1}).addTo(map).bindTooltip('Final');
@@ -39,6 +45,14 @@ export function fitVideoRoute(points){const map=maps.videoMap;if(map&&points?.le
 function show(id,p){const marker=markers[id];if(p&&marker)marker.setLatLng([p.lat,p.lon]).setStyle({opacity:1,fillOpacity:1})}
 export function showPoint(p){show('map',p)}
 export function showVideoPoint(p){show('videoMap',p)}
+export function showVideoFrame(points,sample,trailStart){
+  if(videoLayers){
+    const coords=chunks=>chunks.map(run=>run.map(p=>[p.lat,p.lon]));
+    videoLayers.progress.setLatLngs(coords(videoRouteChunks(points,sample)));
+    videoLayers.tail.setLatLngs(trailStart?coords(videoRouteChunks(points,sample,trailStart)):[]);
+  }
+  showVideoPoint(sample.point);
+}
 export function hidePoint(){if(markers.map)markers.map.setStyle({opacity:0,fillOpacity:0})}
 export function hideVideoPoint(){if(markers.videoMap)markers.videoMap.setStyle({opacity:0,fillOpacity:0})}
 export function videoMapSnapshot(points){
@@ -53,8 +67,9 @@ export function videoMapSnapshot(points){
       tiles.push({url:`https://tile.openstreetmap.org/${zoom}/${((x%count)+count)%count}/${y}.png`,x:x*256-bounds.min.x,y:y*256-bounds.min.y});
     }
   }
-  return {width:size.x,height:size.y,tiles,positions:points.map(p=>{
+  const project=p=>{
     const pixel=map.project([p.lat,p.lon],zoom);
     return {x:pixel.x-bounds.min.x,y:pixel.y-bounds.min.y};
-  })};
+  };
+  return {width:size.x,height:size.y,tiles,project,positions:points.map(project)};
 }
