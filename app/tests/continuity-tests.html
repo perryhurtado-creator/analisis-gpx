@@ -57,7 +57,7 @@ run('GPX mantiene elevación ausente como null',()=>{
 });
 
 run('GPX continuo conserva distancia, velocidad y desnivel',()=>{
-  const xml=gpx('<trkseg>'+pt('0','0','100',t0)+pt('0','0.001','110','2026-10-08T18:00:10Z')+pt('0','0.002','120','2026-10-08T18:00:20Z')+'</trkseg>');
+  const xml=gpx('<trkseg>'+pt('0','0','100',t0)+pt('0','0.001','110','2026-10-08T18:00:10Z')+pt('0','0.002','120','2026-10-08T18:00:20Z')+pt('0','0.003','130','2026-10-08T18:00:30Z')+pt('0','0.004','140','2026-10-08T18:00:40Z')+'</trkseg>');
   const a=parseGPX(xml,'continuo.gpx');
   const speed=speedStats(a.points);
   const slope=slopeStats(a.points);
