@@ -29,6 +29,7 @@ function renderPoster(){
 }
 function navigate(hash){
   const id=(hash||'#resumen').replace('#','');
+  if(id!=='video'&&videoModule)videoModule.stopRouteAnimation();
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active-page',p.id===id));
   document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+id));
   const titles={resumen:'Resumen',video:'Generar vídeo',cartel:'Elabora tu cartel',trazar:'Traza una ruta'};
@@ -78,6 +79,7 @@ function readFile(file,callback){
 }
 function loadFile(file){
   if(!file)return;setFileMessage('Leyendo '+file.name+'…');
+  if(videoModule)videoModule.stopRouteAnimation();
   readFile(file,(parsed,error)=>{if(error){console.error(error);setFileMessage(error.message||'No fue posible analizar el archivo.','error');return}activity=parsed;points=parsed.points;render();setFileMessage('Actividad cargada correctamente.','ok')});
 }
 function loadCompare(file){
@@ -99,7 +101,7 @@ function choose(){$('fileInput').click()}
 $('chooseFile').onclick=e=>{e.preventDefault();choose()};$('topLoad').onclick=()=>{resetActivity();location.hash='resumen';choose()};$('sideLoad').onclick=()=>{resetActivity();location.hash='resumen';choose()};
 $('fileInput').onchange=()=>loadFile($('fileInput').files[0]);$('compareLoad').onclick=()=>$('compareInput').click();$('compareInput').onchange=()=>loadCompare($('compareInput').files[0]);
 $('playRoute').onclick=async()=>{if(!activity)return;try{const v=await getVideoModule();v.prepareVideoMap(points);v.playRoute(points)}catch(e){console.error(e);$('videoState').textContent='No se pudo iniciar la reproducción.'}};
-$('makeVideo').onclick=async()=>{if(!activity)return;try{const v=await getVideoModule();v.prepareVideoMap(points);v.makeVideo(activity)}catch(e){console.error(e);$('videoState').textContent='No se pudo iniciar la generación del vídeo.'}};$('fitRoute').onclick=()=>fitRoute(points);
+$('makeVideo').onclick=async()=>{if(!activity)return;try{const v=await getVideoModule();v.prepareVideoMap(points);await v.makeVideo(activity)}catch(e){console.error(e);$('videoState').textContent='No se pudo iniciar la generación del vídeo.'}};$('fitRoute').onclick=()=>fitRoute(points);
 ['dragenter','dragover'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.add('over')}));
 ['dragleave','drop'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.remove('over')}));
 $('dropZone').addEventListener('drop',e=>loadFile(e.dataTransfer.files[0]));

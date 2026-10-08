@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Prueba de captura completa de vídeo</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="../css/app.css">
+  <style>body{padding:24px;max-width:1000px;margin:auto}#videoMap{height:360px}.video-profile svg{height:110px}video,canvas{max-width:100%;display:block}.fail{color:#b42318}.ok{color:#167447}</style>
+</head>
+<body>
+  <h1>Captura de mapa, ruta y gráficas</h1>
+  <p>Prueba con puntos sintéticos: incluye un corte de segmento y datos ausentes. Pulsa Guardar vídeo y mantén esta página visible durante la grabación.</p>
+  <button id="playRoute">Reproducir</button><button id="makeVideo">Guardar vídeo y comprobar</button>
+  <p id="videoState" role="status"></p><p id="summary" role="status">Listo para comprobar la exportación real del navegador.</p>
+  <div class="video-profile"><div id="videoElevationChart"></div></div>
+  <div id="videoMap"></div><span id="videoMapStatus"></span>
+  <div class="video-profile video-profile-bottom"><div id="videoSpeedChart"></div></div>
+  <h2>Vídeo exportado</h2><video id="result" controls playsinline></video>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module">
+    import {prepareVideoMap,playRoute,makeVideo,stopRouteAnimation} from '../js/video.js';
+    const points=Array.from({length:31},(_,i)=>({lat:20.6+i*.0001,lon:-100.4+Math.sin(i/4)*.001,ele:i===12?null:100+i*2,speed:i===0||i===20?null:15+Math.sin(i/3)*5,d:i*20,segmentId:i<16?0:1,breakBefore:i===0||i===16}));
+    const activity={name:'Prueba de captura',points};
+    const summary=document.getElementById('summary'),video=document.getElementById('result');
+    let exported=null;
+    const createURL=URL.createObjectURL.bind(URL);
+    URL.createObjectURL=blob=>{if(blob.type.startsWith('video/'))exported=blob;return createURL(blob)};
+    prepareVideoMap(points);
+    document.getElementById('playRoute').onclick=()=>playRoute(points);
+    document.getElementById('makeVideo').onclick=async()=>{
+      exported=null;summary.className='';summary.textContent='Comprobando grabación y descarga…';
+      await makeVideo(activity);
+      if(!exported){summary.className='fail';summary.textContent='FAIL: '+document.getElementById('videoState').textContent;return}
+      const url=createURL(exported);
+      try{
+        await new Promise((resolve,reject)=>{
+          const timer=setTimeout(()=>reject(Error('No se pudo decodificar el archivo exportado.')),15000);
+          video.onloadedmetadata=()=>{clearTimeout(timer);resolve()};
+          video.onerror=()=>{clearTimeout(timer);reject(Error('El navegador no puede reproducir el archivo exportado.'))};
+          video.src=url;
+        });
+        if(video.videoWidth!==1280||video.videoHeight!==960||exported.size<1024)throw Error('Dimensiones o tamaño de vídeo inválidos.');
+        summary.className='ok';summary.textContent=`PASS: descarga y decodificación reales, ${exported.type}, ${exported.size} bytes, ${video.videoWidth} × ${video.videoHeight}. Reproduce el archivo para comprobar mapa y gráficas.`;
+      }catch(e){summary.className='fail';summary.textContent='FAIL: '+e.message}
+    };
+    window.addEventListener('pagehide',stopRouteAnimation);
+  </script>
+</body>
+</html>
