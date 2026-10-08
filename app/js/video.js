@@ -86,7 +86,7 @@ export async function makeVideo(activity){
   stopRouteAnimation();
   if(videoPoints!==activity.points)prepareVideoMap(activity.points);
   const controller=new AbortController(),buttons=['playRoute','makeVideo'].map(id=>document.getElementById(id));
-  let recorder,stream,rejectRecording,watchdog;
+  let recorder,stream,rejectRecording,watchdog,preview;
   const job={cancel(){controller.abort();if(recorder?.state==='recording')recorder.stop();rejectRecording?.(new DOMException('Grabación cancelada.','AbortError'))}};
   capture=job;buttons.forEach(button=>{if(button)button.disabled=true});
   const hidden=()=>{if(document.hidden)job.cancel()};
@@ -95,6 +95,10 @@ export async function makeVideo(activity){
     const format=recordingFormat();
     state.textContent='Preparando mapa y gráficas para grabar…';
     const scene=await createVideoScene(activity,controller.signal);
+    preview=scene.canvas;
+    preview.setAttribute('aria-label','Vista de la grabación: mapa y gráficas sincronizadas');
+    preview.style.cssText='display:block;width:100%;max-width:1280px;height:auto;margin-top:16px';
+    (document.querySelector('.video-map-panel')||document.body).appendChild(preview);
     if(!scene.canvas.captureStream)throw Error('Este navegador no permite capturar el vídeo de la escena.');
     scene.draw(0);stream=scene.canvas.captureStream(30);
     const videoTrack=stream.getVideoTracks()[0];
@@ -126,6 +130,7 @@ export async function makeVideo(activity){
     if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;
     if(recorder?.state==='recording')recorder.stop();
     stream?.getTracks().forEach(track=>track.stop());
+    preview?.remove();
     controller.abort();document.removeEventListener('visibilitychange',hidden);
     if(capture===job)capture=null;
     buttons.forEach(button=>{if(button)button.disabled=false});
