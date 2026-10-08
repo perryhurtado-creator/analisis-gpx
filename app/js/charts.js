@@ -8,8 +8,19 @@ export function drawChart(id,pairs,color,label,onHover,onLeave){
   const W=900,H=240,p={l:48,r:15,t:15,b:28},xMax=Math.max(...vals.map(x=>x[0]))||1;
   const rawMin=Math.min(...vals.map(x=>x[1])),rawMax=Math.max(...vals.map(x=>x[1])),pad=Math.max(1,(rawMax-rawMin)*.12),lo=rawMin-pad,hi=rawMax+pad;
   const x=v=>p.l+v/xMax*(W-p.l-p.r),y=v=>H-p.b-(v-lo)/(hi-lo)*(H-p.t-p.b);
-  const path=vals.map((v,i)=>(i?'L':'M')+x(v[0]).toFixed(1)+' '+y(v[1]).toFixed(1)).join('');
-  const area=path+` L ${x(vals.at(-1)[0])} ${H-p.b} L ${x(vals[0][0])} ${H-p.b} Z`;
+  const paths=[];
+  let current=[];
+  for(const v of vals){
+    if(v[2]?.breakBefore&&current.length){paths.push(current);current=[]}
+    current.push(v);
+  }
+  if(current.length)paths.push(current);
+  const pathFor=run=>run.map((v,i)=>(i?'L':'M')+x(v[0]).toFixed(1)+' '+y(v[1]).toFixed(1)).join('');
+  const path=paths.map(pathFor).join('');
+  const area=paths.filter(run=>run.length>1).map(run=>{
+    const d=pathFor(run);
+    return d+` L ${x(run.at(-1)[0])} ${H-p.b} L ${x(run[0][0])} ${H-p.b} Z`;
+  }).join(' ');
   host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}">
     <defs><linearGradient id="g-${id}" x1="0" x2="0" y1="0" y2="1"><stop stop-color="${color}" stop-opacity=".24"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
     <line x1="${p.l}" x2="${W-p.r}" y1="${p.t}" y2="${p.t}" stroke="#e5eae6"/>
