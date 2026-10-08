@@ -42,16 +42,16 @@
         <section id="analysis">
           <div class="route-head"><div><h2 id="routeName">Actividad</h2><p id="routeMeta">Archivo analizado localmente</p></div><button class="tiny-btn route-fit" id="fitRoute">Encuadrar ruta</button></div>
           <div id="metrics" class="metrics"></div>
-          <div class="layout">
-            <section class="panel"><div class="panel-title"><h3>Recorrido</h3><span id="mapStatus">Preparando mapa</span></div><div class="map-wrap"><div id="map" class="map-host"></div></div></section>
+          <div class="layout activity-layout">
+            <section class="panel route-map-panel"><div class="panel-title"><h3>Recorrido</h3><span id="mapStatus">Preparando mapa</span></div><div class="map-wrap"><div id="map" class="map-host"></div></div></section>
             <aside class="chart-stack">
               <section class="panel"><div class="panel-title"><h3>Altimetría</h3><span>m</span></div><div id="elevationChart" class="chart"></div><div id="elevationStats" class="chart-stats"></div></section>
               <section class="panel"><div class="panel-title"><h3>Frecuencia cardiaca</h3><span>lpm</span></div><div id="heartChart" class="chart"></div><div id="heartStats" class="chart-stats"></div></section>
               <section class="panel"><div class="panel-title"><h3>Velocidad</h3><span>km/h</span></div><div id="speedChart" class="chart"></div><div id="speedStats" class="chart-stats"></div></section>
             </aside>
+            <section class="panel detail-panel activity-details"><div class="panel-title"><h3>Detalles</h3><span>Actividad</span></div><div class="details" id="details"></div></section>
+            <section class="panel detail-panel activity-segments"><div class="panel-title"><h3>Segmentos de la actividad</h3><span>5 tramos</span></div><div class="table-wrap"><table><thead><tr><th>Segmento</th><th>Distancia</th><th>Tiempo</th><th>Vel. media</th><th>FC media</th></tr></thead><tbody id="segments"></tbody></table></div></section>
           </div>
-          <section class="panel detail-panel"><div class="panel-title"><h3>Detalles</h3><span>Actividad</span></div><div class="details" id="details"></div></section>
-          <section class="panel detail-panel"><div class="panel-title"><h3>Segmentos de la actividad</h3><span>5 tramos</span></div><div class="table-wrap"><table><thead><tr><th>Segmento</th><th>Distancia</th><th>Tiempo</th><th>Vel. media</th><th>Desnivel +</th><th>FC media</th><th>Cadencia</th></tr></thead><tbody id="segments"></tbody></table></div></section>
           <section class="panel detail-panel" id="comparar"><div class="panel-title"><h3>Comparar rutas</h3><span>Actividad actual vs. otra ruta</span></div><p class="feature-copy">Carga una segunda actividad para contrastar distancia, tiempo, velocidad, desnivel y frecuencia cardiaca.</p><input id="compareInput" type="file" accept=".gpx,.tcx,application/gpx+xml,application/xml,text/xml" hidden><div class="action-row"><button class="action-btn" id="compareLoad">+ Elegir ruta para comparar</button><span class="action-state" id="compareState">Aún no has elegido una segunda ruta.</span></div><div class="table-wrap compare-wrap"><table id="compareTable" hidden><thead><tr><th>Métrica</th><th id="mainRouteHeader">Actual</th><th id="compareRouteHeader">Comparación</th></tr></thead><tbody id="compareBody"></tbody></table></div></section>
         </section>
       </section>
