@@ -15,8 +15,13 @@ export function summary(a){
     cadence:cads.length?Math.round(avg(cads))+' rpm':'—'};
 }
 function smoothedElevation(points,i){
-  const start=Math.max(0,i-2),end=Math.min(points.length-1,i+2);
-  const vals=points.slice(start,end+1).map(p=>p.ele).filter(Number.isFinite);
+  const segmentId=points[i]?.segmentId;
+  if(segmentId==null)return null;
+  const vals=[];
+  for(let j=Math.max(0,i-2);j<=Math.min(points.length-1,i+2);j++){
+    if(points[j].segmentId!==segmentId)continue;
+    if(Number.isFinite(points[j].ele))vals.push(points[j].ele);
+  }
   return vals.length?avg(vals):null;
 }
 export function slopeStats(points){
@@ -24,50 +29,48 @@ export function slopeStats(points){
   let positiveGain=0,positiveDistance=0;
   for(let i=0;i<points.length;i++){
     const cur=points[i];
-    if(!Number.isFinite(cur.ele)||cur.d<windowM)continue;
+    if(cur.breakBefore||!Number.isFinite(cur.ele))continue;
+    const segmentId=cur.segmentId;
     let j=i-1;
-    while(j>0&&cur.d-points[j].d<windowM)j--;
-    const dd=cur.d-points[j].d;
+    while(j>=0&&points[j].segmentId===segmentId&&cur.d-points[j].d<windowM)j--;
+    const start=j+1;
+    if(start>=i)continue;
+    const dd=cur.d-points[start].d;
     if(dd<20)continue;
-    const e1=smoothedElevation(points,j),e2=smoothedElevation(points,i);
+    const e1=smoothedElevation(points,start),e2=smoothedElevation(points,i);
     if(Number.isFinite(e1)&&Number.isFinite(e2)){
       const slope=(e2-e1)/dd*100;
       slopes.push(slope);
       if(e2>e1){positiveGain+=e2-e1;positiveDistance+=dd;}
     }
   }
-  const totalDistance=points.at(-1)?.d||0;
   const avgUp=positiveDistance>0?positiveGain/positiveDistance*100:null;
-  return {
-    maxUp:slopes.length?Math.max(...slopes):null,
-    maxDown:slopes.length?Math.min(...slopes):null,
-    avgUp:avgUp
-  };
+  return {maxUp:slopes.length?Math.max(...slopes):null,maxDown:slopes.length?Math.min(...slopes):null,avgUp};
 }
 export function speedStats(points){
   const intervals=[];
   for(let i=1;i<points.length;i++){
     const a=points[i-1],b=points[i];
-    if(!a.time||!b.time)continue;
+    if(b.breakBefore||a.segmentId!==b.segmentId||!a.time||!b.time)continue;
     const dt=b.time-a.time,dd=b.d-a.d;
     if(dt<1000||dt>15000||dd<1)continue;
     const speed=dd/(dt/3600000)/1000;
-    if(Number.isFinite(speed)&&speed>=0&&speed<=100)intervals.push({i,speed});
+    if(Number.isFinite(speed)&&speed>=0&&speed<=100)intervals.push({i,speed,dt,dd});
   }
   if(!intervals.length)return {max:null,avg:null};
   const rolling=[];
   for(const item of intervals){
-    const end=points[item.i].time;
+    const end=points[item.i].time,segmentId=points[item.i].segmentId;
     let j=item.i-1;
-    while(j>0&&end-points[j].time<3000)j--;
-    const dt=points[item.i].time-points[j].time,dd=points[item.i].d-points[j].d;
-    if(dt>=3000&&dd>0)rolling.push(dd/(dt/3600000)/1000);
+    while(j>=0&&points[j].segmentId===segmentId&&points[j].time&&end-points[j].time<3000)j--;
+    const start=j+1;
+    if(start<item.i&&points[start].time){
+      const dt=points[item.i].time-points[start].time,dd=points[item.i].d-points[start].d;
+      if(dt>=3000&&dd>0)rolling.push(dd/(dt/3600000)/1000);
+    }
   }
-  const totalTime=points.at(-1).time-points[0].time,totalDistance=points.at(-1).d;
-  return {
-    max:Math.max(...(rolling.length?rolling:intervals.map(x=>x.speed))),
-    avg:totalTime>0?totalDistance/1000/(totalTime/3600000):avg(intervals.map(x=>x.speed))
-  };
+  const totalTime=intervals.reduce((s,x)=>s+x.dt,0),totalDistance=intervals.reduce((s,x)=>s+x.dd,0);
+  return {max:Math.max(...(rolling.length?rolling:intervals.map(x=>x.speed))),avg:totalTime>0?totalDistance/1000/(totalTime/3600000):avg(intervals.map(x=>x.speed))};
 }
 export function heartZones(points){
   const valid=points.filter(p=>Number.isFinite(p.hr));
@@ -77,7 +80,7 @@ export function heartZones(points){
   const ms=[0,0,0,0,0];
   for(let i=0;i<points.length-1;i++){
     const p=points[i],n=points[i+1];
-    if(!Number.isFinite(p.hr)||!p.time||!n.time)continue;
+    if(n.breakBefore||p.segmentId!==n.segmentId||!Number.isFinite(p.hr)||!p.time||!n.time)continue;
     const dt=n.time-p.time;
     if(dt<=0||dt>120000)continue;
     let z=0;
