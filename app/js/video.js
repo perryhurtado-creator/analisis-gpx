@@ -97,6 +97,7 @@ export async function makeVideo(activity){
     const scene=await createVideoScene(activity,controller.signal);
     if(!scene.canvas.captureStream)throw Error('Este navegador no permite capturar el vídeo de la escena.');
     scene.draw(0);stream=scene.canvas.captureStream(30);
+    const videoTrack=stream.getVideoTracks()[0];
     recorder=new MediaRecorder(stream,{mimeType:format.mime,videoBitsPerSecond:8000000});
     const chunks=[];
     await new Promise((resolve,reject)=>{
@@ -105,15 +106,16 @@ export async function makeVideo(activity){
       recorder.onerror=e=>reject(e.error||Error('No se pudo grabar el vídeo.'));
       recorder.onstop=()=>controller.signal.aborted?reject(new DOMException('Grabación cancelada.','AbortError')):resolve();
       recorder.start(1000);
+      videoTrack?.requestFrame?.();
       watchdog=setTimeout(()=>{job.cancel()},30000);
       playRoute(activity.points,()=>{if(recorder.state==='recording')recorder.stop()},index=>{
-        try{scene.draw(index)}catch(e){reject(e);if(recorder.state==='recording')recorder.stop();return}
+        try{scene.draw(index);videoTrack?.requestFrame?.()}catch(e){reject(e);if(recorder.state==='recording')recorder.stop();return}
         state.textContent=`Grabando ${format.extension.toUpperCase()}… ${Math.round(index/Math.max(1,activity.points.length-1)*100)} %`;
       });
     });
     if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
     const blob=new Blob(chunks,{type:recorder.mimeType||format.mime});
-    if(blob.size<1024)throw Error('La grabación quedó vacía. Inténtalo de nuevo.');
+    if(blob.size<1024)throw Error(`La grabación quedó vacía (${blob.size} bytes). Inténtalo de nuevo.`);
     download(blob,activity.name,format.extension);
     state.textContent=`Vídeo ${format.extension.toUpperCase()} descargado con mapa y gráficas sincronizadas.`;
   }catch(e){
