@@ -81,10 +81,10 @@ export async function createVideoScene(activity,signal){
   }};
 }
 
-export function recordingFormat(){
+export function recordingFormat(webmOnly=false){
   if(typeof MediaRecorder==='undefined')throw Error('Este navegador no permite grabar vídeo. Abre la app en un navegador compatible.');
   const types=['video/mp4;codecs=avc1.42E01E','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
-  const mime=types.find(type=>MediaRecorder.isTypeSupported(type));
+  const mime=types.find(type=>(!webmOnly||type.startsWith('video/webm'))&&MediaRecorder.isTypeSupported(type));
   if(!mime)throw Error('Este navegador no ofrece un formato de vídeo compatible.');
   return {mime,extension:mime.startsWith('video/mp4')?'mp4':'webm'};
 }

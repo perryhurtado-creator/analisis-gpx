@@ -79,20 +79,20 @@ function download(blob,name,extension){
   a.href=url;a.download=(name||'ruta').replace(/[^a-z0-9áéíóúñ_-]/gi,'_')+'.'+extension;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),5000);
 }
-export async function makeVideo(activity){
+export async function makeVideo(activity,webmOnly=false){
   if(capture||!activity?.points?.length)return;
   const state=document.getElementById('videoState');
   if(location.protocol==='file:'){state.textContent='Para guardar el vídeo abre la app desde su dirección web o con INICIAR_APP.bat.';return}
   stopRouteAnimation();
   if(videoPoints!==activity.points)prepareVideoMap(activity.points);
   const controller=new AbortController(),buttons=['playRoute','makeVideo'].map(id=>document.getElementById(id));
-  let recorder,stream,rejectRecording,watchdog,preview;
+  let recorder,stream,rejectRecording,watchdog,preview,format,retryWebm=false,recordingStarted=false;
   const job={cancel(){controller.abort();if(recorder?.state==='recording')recorder.stop();rejectRecording?.(new DOMException('Grabación cancelada.','AbortError'))}};
   capture=job;buttons.forEach(button=>{if(button)button.disabled=true});
   const hidden=()=>{if(document.hidden)job.cancel()};
   document.addEventListener('visibilitychange',hidden);
   try{
-    const format=recordingFormat();
+    format=recordingFormat(webmOnly);
     state.textContent='Preparando mapa y gráficas para grabar…';
     const scene=await createVideoScene(activity,controller.signal);
     preview=scene.canvas;
@@ -110,6 +110,7 @@ export async function makeVideo(activity){
       recorder.onerror=e=>reject(e.error||Error('No se pudo grabar el vídeo.'));
       recorder.onstop=()=>controller.signal.aborted?reject(new DOMException('Grabación cancelada.','AbortError')):resolve();
       recorder.start(1000);
+      recordingStarted=true;
       videoTrack?.requestFrame?.();
       watchdog=setTimeout(()=>{job.cancel()},30000);
       playRoute(activity.points,()=>{if(recorder.state==='recording')recorder.stop()},index=>{
@@ -123,8 +124,9 @@ export async function makeVideo(activity){
     download(blob,activity.name,format.extension);
     state.textContent=`Vídeo ${format.extension.toUpperCase()} descargado con mapa y gráficas sincronizadas.`;
   }catch(e){
-    console.error(e);
-    state.textContent=e.name==='AbortError'?'Grabación cancelada. Puedes volver a guardar la ruta.':`No se pudo guardar el vídeo: ${e.message||'error desconocido'}`;
+    retryWebm=!webmOnly&&format?.extension==='mp4'&&recordingStarted&&!controller.signal.aborted&&e.name!=='AbortError';
+    if(retryWebm){state.textContent='MP4 no disponible. Preparando la descarga en WebM…'}
+    else{console.error(e);state.textContent=e.name==='AbortError'?'Grabación cancelada. Puedes volver a guardar la ruta.':`No se pudo guardar el vídeo: ${e.message||'error desconocido'}`}
   }finally{
     clearTimeout(watchdog);rejectRecording=null;
     if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;
@@ -136,4 +138,5 @@ export async function makeVideo(activity){
     buttons.forEach(button=>{if(button)button.disabled=false});
     const playButton=document.getElementById('playRoute');if(playButton)playButton.textContent='▷ Reproducir ruta';
   }
+  if(retryWebm)await makeVideo(activity,true);
 }
