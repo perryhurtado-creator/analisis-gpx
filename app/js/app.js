@@ -59,7 +59,7 @@ function render(){
 }
 function renderSegments(){
   const rows=segments(activity);
-  $('segments').innerHTML=rows.map(r=>`<tr><td><span class="seg-bullet"></span>Tramo ${r.index}</td><td>${fmt(r.distance)} km</td><td>${duration(r.time)}</td><td>${r.speed?fmt(r.speed)+' km/h':'—'}</td><td>+${fmt(r.up)} m</td><td>${r.hr?Math.round(r.hr)+' lpm':'—'}</td><td>${r.cad?Math.round(r.cad)+' rpm':'—'}</td></tr>`).join('')||'<tr><td colspan="7">No hay suficientes datos para calcular segmentos.</td></tr>';
+  $('segments').innerHTML=rows.map(r=>`<tr><td><span class="seg-bullet"></span>Tramo ${r.index}</td><td>${fmt(r.distance)} km</td><td>${duration(r.time)}</td><td>${r.speed?fmt(r.speed)+' km/h':'—'}</td><td>${r.hr?Math.round(r.hr)+' lpm':'—'}</td></tr>`).join('')||'<tr><td colspan="5">No hay suficientes datos para calcular segmentos.</td></tr>';
 }
 function renderComparison(){
   if(!activity||!compareActivity)return;
