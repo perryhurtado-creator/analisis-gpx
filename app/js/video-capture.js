@@ -88,3 +88,37 @@ export function recordingFormat(webmOnly=false){
   if(!mime)throw Error('Este navegador no ofrece un formato de vídeo compatible.');
   return {mime,extension:mime.startsWith('video/mp4')?'mp4':'webm'};
 }
+
+export async function encodeVideoScene(scene,activity,signal,onFrame){
+  const {Output,BufferTarget,CanvasSource,Mp4OutputFormat,WebMOutputFormat,canEncodeVideo}=await import('./vendor/video-encoder.js');
+  const settings={width:scene.canvas.width,height:scene.canvas.height,bitrate:8000000,frameRate:30};
+  let codec=null;
+  for(const candidate of ['avc','vp9','vp8']){
+    if(await canEncodeVideo(candidate,settings)){codec=candidate;break}
+  }
+  if(!codec)throw Error('Este navegador no tiene un codificador de vídeo compatible.');
+  const extension=codec==='avc'?'mp4':'webm',target=new BufferTarget();
+  const output=new Output({format:extension==='mp4'?new Mp4OutputFormat():new WebMOutputFormat(),target});
+  const source=new CanvasSource(scene.canvas,{codec,bitrate:settings.bitrate});
+  output.addVideoTrack(source,{frameRate:30});
+  const aborted=()=>{output.cancel().catch(()=>{})};
+  signal.addEventListener('abort',aborted,{once:true});
+  try{
+    if(signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
+    await output.start();
+    const frames=270;
+    for(let frame=0;frame<frames;frame++){
+      if(signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
+      const index=Math.floor(frame/(frames-1)*(activity.points.length-1));
+      scene.draw(index);onFrame(index,Math.round((frame+1)/frames*100),extension);
+      await source.add(frame/30,1/30);
+      if(frame%5===0)await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    await output.finalize();
+    if(signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
+    const blob=new Blob([target.buffer],{type:extension==='mp4'?'video/mp4':'video/webm'});
+    if(blob.size<1024)throw Error('No se generó un archivo de vídeo completo.');
+    return {blob,extension};
+  }catch(e){await output.cancel().catch(()=>{});throw e}
+  finally{signal.removeEventListener('abort',aborted)}
+}

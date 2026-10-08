@@ -1,6 +1,6 @@
 import {showVideoPoint,createMap,fitVideoRoute} from './map.js';
 import {fmt} from './metrics.js';
-import {createVideoScene,recordingFormat} from './video-capture.js';
+import {createVideoScene,recordingFormat,encodeVideoScene} from './video-capture.js';
 
 let playFrame=null,videoPoints=[],profileState={ele:null,speed:null},capture=null;
 export function stopRouteAnimation(){if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;if(capture)capture.cancel();}
@@ -92,13 +92,22 @@ export async function makeVideo(activity,webmOnly=false){
   const hidden=()=>{if(document.hidden)job.cancel()};
   document.addEventListener('visibilitychange',hidden);
   try{
-    format=recordingFormat(webmOnly);
     state.textContent='Preparando mapa y gráficas para grabar…';
     const scene=await createVideoScene(activity,controller.signal);
     preview=scene.canvas;
     preview.setAttribute('aria-label','Vista de la grabación: mapa y gráficas sincronizadas');
     preview.style.cssText='display:block;width:100%;max-width:1280px;height:auto;margin-top:16px';
     (document.querySelector('.video-map-panel')||document.body).appendChild(preview);
+    if(typeof VideoEncoder==='function'){
+      const result=await encodeVideoScene(scene,activity,controller.signal,(index,percent,extension)=>{
+        showVideoPoint(activity.points[index]);updateProfile('ele',index);updateProfile('speed',index);
+        state.textContent=`Generando ${extension.toUpperCase()}… ${percent} %`;
+      });
+      download(result.blob,activity.name,result.extension);
+      state.textContent=`Vídeo ${result.extension.toUpperCase()} descargado con mapa y gráficas sincronizadas.`;
+      return;
+    }
+    format=recordingFormat(webmOnly);
     if(!scene.canvas.captureStream)throw Error('Este navegador no permite capturar el vídeo de la escena.');
     scene.draw(0);stream=scene.canvas.captureStream(30);
     const videoTrack=stream.getVideoTracks()[0];
