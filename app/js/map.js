@@ -13,9 +13,11 @@ export function createMap(points,id='map'){
   const map=L.map(host,{zoomControl:true,attributionControl:true});maps[id]=map;
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
   const chunks=[];
+  let previous=null;
   for(const p of points){
-    if(!chunks.length||p.breakBefore)chunks.push([]);
+    if(!chunks.length||p.breakBefore||p.segmentId!==previous.segmentId)chunks.push([]);
     chunks[chunks.length-1].push([p.lat,p.lon]);
+    previous=p;
   }
   const lines=chunks.filter(chunk=>chunk.length>=2).map(chunk=>L.polyline(chunk,{color:'#2a9b69',weight:5,opacity:.9}));
   const routeLayer=L.featureGroup(lines).addTo(map);
@@ -24,7 +26,7 @@ export function createMap(points,id='map'){
     L.circleMarker([first.lat,first.lon],{radius:6,color:'#fff',weight:2,fillColor:'#2a9b69',fillOpacity:1}).addTo(map).bindTooltip('Inicio');
     L.circleMarker([last.lat,last.lon],{radius:6,color:'#fff',weight:2,fillColor:'#ee5c73',fillOpacity:1}).addTo(map).bindTooltip('Final');
     markers[id]=L.circleMarker([first.lat,first.lon],{radius:8,color:'#fff',weight:2,fillColor:'#ff9f43',fillOpacity:0,opacity:0}).addTo(map);
-    map.fitBounds(routeLayer.getBounds(),{padding:[28,28]});
+    map.fitBounds(window.L.latLngBounds(points.map(p=>[p.lat,p.lon])),{padding:[28,28]});
   }
   if(id==='map'){setEngine('OpenStreetMap','Leaflet');setStatus('OpenStreetMap')}else setStatus('OpenStreetMap','videoMapStatus');
   if(window.ResizeObserver){observers[id]=new ResizeObserver(()=>maps[id]?.invalidateSize());observers[id].observe(host)}

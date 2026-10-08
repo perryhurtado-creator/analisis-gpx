@@ -9,17 +9,39 @@ export const stamp=ms=>new Date(ms).toLocaleString('es-MX',{dateStyle:'medium',t
 export function summary(a){
   const ps=a.points,hrs=ps.map(p=>p.hr).filter(Number.isFinite),cads=ps.map(p=>p.cad).filter(Number.isFinite);
   const speeds=ps.map(p=>p.speed).filter(Number.isFinite),km=a.distance/1000;
-  const sp=a.duration?km/(a.duration/3600000):avg(speeds);
+  const sp=continuousSpeed(ps)??avg(speeds);
   return {distance:fmt(km)+' km',time:duration(a.duration),speed:sp?fmt(sp)+' km/h':'—',
     ascent:'+'+fmt(a.ascent)+' m',heart:hrs.length?Math.round(avg(hrs))+' lpm':'—',
     cadence:cads.length?Math.round(avg(cads))+' rpm':'—'};
+}
+function runStart(points,i){
+  while(i>0&&!points[i].breakBefore&&points[i-1].segmentId===points[i].segmentId)i--;
+  return i;
+}
+function continuousTime(points){
+  let ms=0;
+  for(let i=1;i<points.length;i++){
+    const a=points[i-1],b=points[i];
+    if(!b.breakBefore&&a.segmentId===b.segmentId&&Number.isFinite(a.time)&&Number.isFinite(b.time)&&b.time>a.time)ms+=b.time-a.time;
+  }
+  return ms||null;
+}
+export function continuousSpeed(points){
+  let ms=0,d=0;
+  for(let i=1;i<points.length;i++){
+    const a=points[i-1],b=points[i];
+    if(b.breakBefore||a.segmentId!==b.segmentId||!Number.isFinite(a.time)||!Number.isFinite(b.time)||b.time<=a.time)continue;
+    ms+=b.time-a.time;d+=b.d-a.d;
+  }
+  return ms?d/ms*3600:null;
 }
 function smoothedElevation(points,i){
   const segmentId=points[i]?.segmentId;
   if(segmentId==null)return null;
   const vals=[];
-  for(let j=Math.max(0,i-2);j<=Math.min(points.length-1,i+2);j++){
+  for(let j=Math.max(runStart(points,i),i-2);j<=Math.min(points.length-1,i+2);j++){
     if(points[j].segmentId!==segmentId)continue;
+    if(j>i&&points[j].breakBefore)break;
     if(Number.isFinite(points[j].ele))vals.push(points[j].ele);
   }
   return vals.length?avg(vals):null;
@@ -31,9 +53,9 @@ export function slopeStats(points){
     const cur=points[i];
     if(cur.breakBefore||!Number.isFinite(cur.ele))continue;
     const segmentId=cur.segmentId;
-    let j=i-1;
-    while(j>=0&&points[j].segmentId===segmentId&&cur.d-points[j].d<windowM)j--;
-    const start=j+1;
+    const first=runStart(points,i);
+    let start=i-1;
+    while(start>first&&cur.d-points[start].d<windowM)start--;
     if(start>=i)continue;
     const dd=cur.d-points[start].d;
     if(dd<20)continue;
@@ -61,9 +83,9 @@ export function speedStats(points){
   const rolling=[];
   for(const item of intervals){
     const end=points[item.i].time,segmentId=points[item.i].segmentId;
-    let j=item.i-1;
-    while(j>=0&&points[j].segmentId===segmentId&&points[j].time&&end-points[j].time<3000)j--;
-    const start=j+1;
+    const first=runStart(points,item.i);
+    let start=item.i-1;
+    while(start>first&&Number.isFinite(points[start].time)&&end-points[start].time<3000)start--;
     if(start<item.i&&points[start].time){
       const dt=points[item.i].time-points[start].time,dd=points[item.i].d-points[start].d;
       if(dt>=3000&&dd>0)rolling.push(dd/(dt/3600000)/1000);
@@ -96,8 +118,8 @@ export function segments(activity){
     const seg=points.filter(p=>p.d>=min&&(i===4?p.d<=max:p.d<max));
     if(seg.length<2)continue;
     const first=seg[0],last=seg.at(-1),hrs=seg.map(p=>p.hr).filter(Number.isFinite),cads=seg.map(p=>p.cad).filter(Number.isFinite);
-    const elapsed=first.time&&last.time?last.time-first.time:null;
-    const sp=elapsed?(last.d-first.d)/1000/(elapsed/3600000):avg(seg.map(p=>p.speed).filter(Number.isFinite));
+    const elapsed=continuousTime(seg);
+    const sp=continuousSpeed(seg)??avg(seg.map(p=>p.speed).filter(Number.isFinite));
     rows.push({index:i+1,distance:(last.d-first.d)/1000,time:elapsed,speed:sp,up:Math.max(0,last.up-first.up),
       hr:hrs.length?avg(hrs):null,cad:cads.length?avg(cads):null});
   }
