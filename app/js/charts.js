@@ -3,18 +3,21 @@ import {fmt} from './metrics.js';
 const charts = new Map();
 
 export function drawChart(id,pairs,color,label,onHover,onLeave){
-  const host=document.getElementById(id),vals=pairs.filter(p=>Number.isFinite(p[1]));
+  const host=document.getElementById(id);
+  const rawRuns=[];
+  let rawRun=[];
+  for(const pair of pairs){
+    if(pair[2]?.breakBefore&&rawRun.length){rawRuns.push(rawRun);rawRun=[]}
+    rawRun.push(pair);
+  }
+  if(rawRun.length)rawRuns.push(rawRun);
+  const runs=rawRuns.map(run=>run.filter(p=>Number.isFinite(p[1]))).filter(run=>run.length);
+  const vals=runs.flat();
   if(vals.length<2){host.innerHTML='<div class="chart-empty">Este archivo no incluye este dato.</div>';return}
   const W=900,H=240,p={l:48,r:15,t:15,b:28},xMax=Math.max(...vals.map(x=>x[0]))||1;
   const rawMin=Math.min(...vals.map(x=>x[1])),rawMax=Math.max(...vals.map(x=>x[1])),pad=Math.max(1,(rawMax-rawMin)*.12),lo=rawMin-pad,hi=rawMax+pad;
   const x=v=>p.l+v/xMax*(W-p.l-p.r),y=v=>H-p.b-(v-lo)/(hi-lo)*(H-p.t-p.b);
-  const paths=[];
-  let current=[];
-  for(const v of vals){
-    if(v[2]?.breakBefore&&current.length){paths.push(current);current=[]}
-    current.push(v);
-  }
-  if(current.length)paths.push(current);
+  const paths=runs;
   const pathFor=run=>run.map((v,i)=>(i?'L':'M')+x(v[0]).toFixed(1)+' '+y(v[1]).toFixed(1)).join('');
   const path=paths.map(pathFor).join('');
   const area=paths.filter(run=>run.length>1).map(run=>{
