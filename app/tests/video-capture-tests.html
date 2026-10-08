@@ -11,6 +11,7 @@
   <h1>Captura de mapa, ruta y gráficas</h1>
   <p>Prueba con puntos sintéticos: incluye un corte de segmento y datos ausentes. Pulsa Guardar vídeo y mantén esta página visible durante la grabación.</p>
   <button id="playRoute">Reproducir</button><button id="makeVideo">Guardar vídeo y comprobar</button>
+  <button id="cancelCapture">Cancelar prueba</button><label><input id="webmOnly" type="checkbox">Comprobar WebM</label>
   <p id="videoState" role="status"></p><p id="summary" role="status">Listo para comprobar la exportación real del navegador.</p>
   <div class="video-profile"><div id="videoElevationChart"></div></div>
   <div id="videoMap"></div><span id="videoMapStatus"></span>
@@ -27,10 +28,11 @@
     URL.createObjectURL=blob=>{if(blob.type.startsWith('video/'))exported=blob;return createURL(blob)};
     prepareVideoMap(points);
     document.getElementById('playRoute').onclick=()=>playRoute(points);
+    document.getElementById('cancelCapture').onclick=stopRouteAnimation;
     document.getElementById('makeVideo').onclick=async()=>{
       exported=null;summary.className='';summary.textContent='Comprobando grabación y descarga…';
-      await makeVideo(activity);
-      if(!exported){summary.className='fail';summary.textContent='FAIL: '+document.getElementById('videoState').textContent;return}
+      await makeVideo(activity,document.getElementById('webmOnly').checked);
+      if(!exported){const message=document.getElementById('videoState').textContent;const canceled=message.startsWith('Grabación cancelada');summary.className=canceled?'ok':'fail';summary.textContent=(canceled?'PASS: cancelación sin descargar un archivo incompleto. ':'FAIL: ')+message;return}
       const url=createURL(exported);
       try{
         await new Promise((resolve,reject)=>{
@@ -39,8 +41,8 @@
           video.onerror=()=>{clearTimeout(timer);reject(Error('El navegador no puede reproducir el archivo exportado.'))};
           video.src=url;
         });
-        if(video.videoWidth!==1280||video.videoHeight!==960||exported.size<1024)throw Error('Dimensiones o tamaño de vídeo inválidos.');
-        summary.className='ok';summary.textContent=`PASS: descarga y decodificación reales, ${exported.type}, ${exported.size} bytes, ${video.videoWidth} × ${video.videoHeight}. Reproduce el archivo para comprobar mapa y gráficas.`;
+        if(video.videoWidth!==1280||video.videoHeight!==960||Math.abs(video.duration-9)>.1||exported.size<1024)throw Error('Dimensiones, duración o tamaño de vídeo inválidos.');
+        summary.className='ok';summary.textContent=`PASS: descarga y decodificación reales, ${exported.type}, ${exported.size} bytes, ${video.videoWidth} × ${video.videoHeight}, ${video.duration} s. Reproduce el archivo para comprobar mapa y gráficas.`;
       }catch(e){summary.className='fail';summary.textContent='FAIL: '+e.message}
     };
     window.addEventListener('pagehide',stopRouteAnimation);

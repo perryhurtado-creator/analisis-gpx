@@ -102,7 +102,7 @@ export async function makeVideo(activity,webmOnly=false){
       const result=await encodeVideoScene(scene,activity,controller.signal,(index,percent,extension)=>{
         showVideoPoint(activity.points[index]);updateProfile('ele',index);updateProfile('speed',index);
         state.textContent=`Generando ${extension.toUpperCase()}… ${percent} %`;
-      });
+      },webmOnly);
       download(result.blob,activity.name,result.extension);
       state.textContent=`Vídeo ${result.extension.toUpperCase()} descargado con mapa y gráficas sincronizadas.`;
       return;

@@ -89,11 +89,11 @@ export function recordingFormat(webmOnly=false){
   return {mime,extension:mime.startsWith('video/mp4')?'mp4':'webm'};
 }
 
-export async function encodeVideoScene(scene,activity,signal,onFrame){
+export async function encodeVideoScene(scene,activity,signal,onFrame,webmOnly=false){
   const {Output,BufferTarget,CanvasSource,Mp4OutputFormat,WebMOutputFormat,canEncodeVideo}=await import('./vendor/video-encoder.js');
   const settings={width:scene.canvas.width,height:scene.canvas.height,bitrate:8000000,frameRate:30};
   let codec=null;
-  for(const candidate of ['avc','vp9','vp8']){
+  for(const candidate of (webmOnly?['vp9','vp8']:['avc','vp9','vp8'])){
     if(await canEncodeVideo(candidate,settings)){codec=candidate;break}
   }
   if(!codec)throw Error('Este navegador no tiene un codificador de vídeo compatible.');
