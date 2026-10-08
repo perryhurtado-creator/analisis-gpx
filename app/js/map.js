@@ -11,6 +11,9 @@ export function createMap(points,id='map'){
   const host=document.getElementById(id),L=window.L;
   if(!host||!Array.isArray(points)||points.length<2||!L)return;
   const map=L.map(host,{zoomControl:true,attributionControl:true});maps[id]=map;
+  // Inicializar la vista antes de añadir paths: Leaflet necesita los límites
+  // del renderer para proyectar y recortar las líneas.
+  map.fitBounds(L.latLngBounds(points.map(p=>[p.lat,p.lon])),{padding:[28,28]});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
   const chunks=[];
   let previous=null;
@@ -26,7 +29,6 @@ export function createMap(points,id='map'){
     L.circleMarker([first.lat,first.lon],{radius:6,color:'#fff',weight:2,fillColor:'#2a9b69',fillOpacity:1}).addTo(map).bindTooltip('Inicio');
     L.circleMarker([last.lat,last.lon],{radius:6,color:'#fff',weight:2,fillColor:'#ee5c73',fillOpacity:1}).addTo(map).bindTooltip('Final');
     markers[id]=L.circleMarker([first.lat,first.lon],{radius:8,color:'#fff',weight:2,fillColor:'#ff9f43',fillOpacity:0,opacity:0}).addTo(map);
-    map.fitBounds(window.L.latLngBounds(points.map(p=>[p.lat,p.lon])),{padding:[28,28]});
   }
   if(id==='map'){setEngine('OpenStreetMap','Leaflet');setStatus('OpenStreetMap')}else setStatus('OpenStreetMap','videoMapStatus');
   if(window.ResizeObserver){observers[id]=new ResizeObserver(()=>maps[id]?.invalidateSize());observers[id].observe(host)}

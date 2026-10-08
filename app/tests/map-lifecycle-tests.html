@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Pruebas de carga del mapa con Leaflet real</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>body{font:16px system-ui;margin:24px}.map-host{width:800px;max-width:100%;height:400px}.ok{color:green}.fail{color:#b42318}</style>
+</head>
+<body>
+  <h1>Carga y cambio de ruta con Leaflet real</h1>
+  <p id="summary">Ejecutando…</p><ol id="results"></ol>
+  <div id="map" class="map-host"></div><div id="mapStatus"></div>
+  <div id="videoMap" class="map-host"></div><div id="videoMapStatus"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module">
+    import {createMap,clearMap,fitRoute,fitVideoRoute,showPoint,hidePoint,showVideoPoint,hideVideoPoint} from '../js/map.js';
+    const results=[];
+    function assert(condition,message){if(!condition)throw Error(message)}
+    function run(name,fn){try{fn();results.push({name,ok:true})}catch(e){results.push({name,ok:false,error:e.stack||e.message})}}
+    function route(offset=0){return [
+      {lat:20+offset,lon:-100,segmentId:0,breakBefore:true},
+      {lat:20.001+offset,lon:-100.001,segmentId:0,breakBefore:false},
+      {lat:21+offset,lon:-99,segmentId:1,breakBefore:true},
+      {lat:21.001+offset,lon:-99.001,segmentId:1,breakBefore:false}
+    ]}
+    function check(id){
+      const host=document.getElementById(id);
+      assert(host.querySelectorAll('path[stroke="#2a9b69"]').length===2,'deben dibujarse las dos líneas independientes');
+      assert(host.querySelectorAll('.leaflet-map-pane').length===1,'solo debe existir un mapa activo');
+    }
+    run('Primera carga dibuja los segmentos con Leaflet 1.9.4',()=>{createMap(route());check('map');fitRoute(route());showPoint(route()[1]);hidePoint()});
+    run('Cambiar de ruta repetidamente elimina el mapa anterior sin errores',()=>{for(let i=0;i<20;i++){createMap(route(i*.001));check('map')}});
+    run('Limpiar y volver a cargar dibuja la ruta',()=>{clearMap();assert(!document.querySelector('#map .leaflet-map-pane'),'mapa anterior eliminado');createMap(route());check('map')});
+    run('Mapa de vídeo permite cargar y reemplazar la ruta',()=>{createMap(route(),'videoMap');check('videoMap');createMap(route(.01),'videoMap');check('videoMap');fitVideoRoute(route(.01));showVideoPoint(route(.01)[1]);hideVideoPoint()});
+    run('Puntos aislados por cortes se encuadran sin unirlos',()=>{createMap([route()[0],route()[2]]);assert(document.querySelectorAll('#map path[stroke="#2a9b69"]').length===0,'no se debe inventar una línea entre puntos aislados')});
+    for(const result of results){const li=document.createElement('li');li.className=result.ok?'ok':'fail';li.textContent=`${result.ok?'PASS':'FAIL'}: ${result.name}${result.error?' — '+result.error:''}`;document.getElementById('results').appendChild(li)}
+    document.getElementById('summary').textContent=`${results.filter(r=>r.ok).length}/${results.length} pruebas correctas`;
+    clearMap();
+  </script>
+</body>
+</html>
