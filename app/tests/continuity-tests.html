@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pruebas de continuidad GPX/TCX</title>
+<style>body{font:16px system-ui,sans-serif;max-width:900px;margin:40px auto;padding:0 20px}li{margin:8px 0}.ok{color:#167447}.fail{color:#b42318}pre{white-space:pre-wrap;background:#f5f6f5;padding:16px;border-radius:8px}</style>
+</head>
+<body>
+<h1>Pruebas de continuidad GPX/TCX</h1>
+<p id="summary">Ejecutando…</p><ol id="results"></ol>
+<script type="module">
+import {parseGPX,optionalNumber} from '../js/gpx-parser.js';
+import {parseTCX} from '../js/tcx-parser.js';
+import {speedStats,slopeStats} from '../js/metrics.js';
+
+const results=[];
+function assert(condition,message){if(!condition)throw new Error(message)}
+function run(name,fn){
+  try{fn();results.push({name,ok:true})}
+  catch(e){results.push({name,ok:false,error:e.message})}
+}
+function gpx(body){return `<?xml version="1.0"?><gpx version="1.1" creator="tests"><trk><name>Test</name>${body}</trk></gpx>`}
+function pt(lat,lon,ele,time){return `<trkpt lat="${lat}" lon="${lon}">${ele===undefined?'':`<ele>${ele}</ele>`}${time?`<time>${time}</time>`:''}</trkpt>`}
+const t0='2026-10-08T18:00:00Z';
+
+run('optionalNumber conserva vacíos como null',()=>{
+  assert(optionalNumber('')===null,'vacío no debe convertirse en 0');
+  assert(optionalNumber('   ')===null,'espacios no deben convertirse en 0');
+  assert(optionalNumber(null)===null,'null debe conservarse como null');
+  assert(optionalNumber('12.5')===12.5,'número válido esperado');
+});
+
+run('GPX no crea salto entre trkseg separados',()=>{
+  const xml=gpx('<trkseg>'+pt('20','-100','100',t0)+pt('20','-99.999','110','',)+'</trkseg><trkseg>'+pt('21','-99','500',t0)+pt('21','-98.999','510',t0)+'</trkseg>');
+  const a=parseGPX(xml,'separados.gpx');
+  assert(a.points.length===4,'deben quedar 4 puntos válidos');
+  assert(a.points[2].breakBefore===true,'el segundo trkseg debe iniciar con breakBefore');
+  assert(a.points[2].segmentId!==a.points[1].segmentId,'los trkseg deben conservar segmentId distinto');
+  assert(a.distance<5000,'la distancia no debe incluir el salto geográfico entre segmentos');
+  assert(a.ascent<100,'el desnivel no debe calcularse cruzando segmentos');
+  assert(a.points[2].speed===null,'no debe calcularse velocidad cruzando segmentos');
+});
+
+run('GPX descarta coordenadas inválidas y parte el recorrido',()=>{
+  const xml=gpx('<trkseg>'+pt('0','0','100',t0)+'<trkpt lat="" lon="0.001"><ele>110</ele></trkpt>'+pt('0','0.002','120',t0)+'</trkseg>');
+  const a=parseGPX(xml,'invalidas.gpx');
+  assert(a.points.length===2,'el punto con coordenada vacía debe descartarse');
+  assert(a.points[0].lat!==0||a.points[0].lon!==0,'no debe aparecer un punto artificial en 0,0');
+  assert(a.points[1].breakBefore===true,'el punto posterior a una coordenada inválida debe iniciar un nuevo run');
+  assert(a.distance<500,'la distancia debe corresponder al tramo válido, no a un salto artificial');
+});
+
+run('GPX mantiene elevación ausente como null',()=>{
+  const xml=gpx('<trkseg>'+pt('0','0',undefined,t0)+pt('0','0.001','100',t0)+'</trkseg>');
+  const a=parseGPX(xml,'sin-ele.gpx');
+  assert(a.points[0].ele===null,'elevación ausente debe ser null');
+  assert(Number.isFinite(a.distance)&&a.distance>0,'la distancia debe seguir funcionando');
+  assert(a.ascent===0,'no debe inventarse desnivel desde elevación ausente');
+});
+
+run('GPX continuo conserva distancia, velocidad y desnivel',()=>{
+  const xml=gpx('<trkseg>'+pt('0','0','100',t0)+pt('0','0.001','110','2026-10-08T18:00:10Z')+pt('0','0.002','120','2026-10-08T18:00:20Z')+'</trkseg>');
+  const a=parseGPX(xml,'continuo.gpx');
+  const speed=speedStats(a.points);
+  const slope=slopeStats(a.points);
+  assert(a.points.every((p,i)=>i===0||p.segmentId===0),'todos deben pertenecer al mismo segmento');
+  assert(a.distance>200&&a.distance<250,'distancia continua esperada');
+  assert(a.points[1].speed>0,'velocidad continua debe calcularse');
+  assert(speed.avg>30&&speed.avg<50,'speedStats debe calcular velocidad continua');
+  assert(slope.maxUp!==null,'slopeStats debe calcular pendiente dentro del segmento');
+  assert(a.ascent>0,'debe conservarse el desnivel positivo');
+});
+
+run('TCX no une Track separados',()=>{
+  const tcx=`<?xml version="1.0"?><TrainingCenterDatabase><Activities><Activity><Lap><Track>
+  <Trackpoint><Time>${t0}</Time><Position><LatitudeDegrees>20</LatitudeDegrees><LongitudeDegrees>-100</LongitudeDegrees></Position><AltitudeMeters>100</AltitudeMeters></Trackpoint>
+  <Trackpoint><Time>2026-10-08T18:00:10Z</Time><Position><LatitudeDegrees>20</LatitudeDegrees><LongitudeDegrees>-99.999</LongitudeDegrees></Position><AltitudeMeters>110</AltitudeMeters></Trackpoint>
+  </Track>
+  <Track>
+  <Trackpoint><Time>2026-10-08T18:00:20Z</Time><Position><LatitudeDegrees>21</LatitudeDegrees><LongitudeDegrees>-99</LongitudeDegrees></Position><AltitudeMeters>500</AltitudeMeters></Trackpoint>
+  <Trackpoint><Time>2026-10-08T18:00:30Z</Time><Position><LatitudeDegrees>21</LatitudeDegrees><LongitudeDegrees>-98.999</LongitudeDegrees></Position><AltitudeMeters>510</AltitudeMeters></Trackpoint>
+  </Track></Lap></Activity></Activities></TrainingCenterDatabase>`;
+  const a=parseTCX(tcx,'separados.tcx');
+  assert(a.points.length===4,'TCX debe conservar los 4 puntos válidos');
+  assert(a.points[2].breakBefore===true,'el segundo Track debe iniciar un nuevo segmento');
+  assert(a.distance<5000,'TCX no debe sumar el salto entre Track');
+  assert(a.points[2].speed===null,'TCX no debe calcular velocidad cruzando Track');
+});
+
+const list=document.getElementById('results');
+for(const r of results){
+  const li=document.createElement('li');
+  li.className=r.ok?'ok':'fail';
+  li.textContent=(r.ok?'PASS: ':'FAIL: ')+r.name+(r.error?' — '+r.error:'');
+  list.appendChild(li);
+}
+const passed=results.filter(r=>r.ok).length;
+document.getElementById('summary').textContent=`${passed}/${results.length} pruebas correctas`;
+if(passed!==results.length)document.getElementById('summary').className='fail';
+</script>
+</body></html>
