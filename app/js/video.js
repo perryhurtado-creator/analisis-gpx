@@ -66,7 +66,7 @@ export function playRoute(points,onDone=()=>{},onFrame=()=>{}){
   onFrame(0);
   const start=performance.now(),total=9000;
   function step(now){
-    const ratio=Math.min(1,(now-start)/total),index=Math.min(points.length-1,Math.floor(ratio*(points.length-1)));
+    const ratio=Math.max(0,Math.min(1,(now-start)/total)),index=Math.min(points.length-1,Math.floor(ratio*(points.length-1)));
     showVideoPoint(points[index]);updateProfile('ele',index);updateProfile('speed',index);
     onFrame(index);
     if(ratio<1)playFrame=requestAnimationFrame(step);
