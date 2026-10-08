@@ -15,6 +15,7 @@
 .video-chart-dot{fill:var(--orange);stroke:#fff;stroke-width:2;vector-effect:non-scaling-stroke}
 
 .video-controls{margin-bottom:16px}
+.video-settings{display:flex;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:10px}.video-settings label{display:grid;gap:5px;color:var(--muted);font-size:12px;font-weight:700}.video-settings select,.video-settings input{font:inherit;color:var(--ink);background:white;border:1px solid var(--line);border-radius:7px;padding:8px}.video-settings input{width:80px}.video-settings :disabled{opacity:.6}.action-btn:disabled{opacity:.6;cursor:wait}
 .activity-layout{grid-template-areas:"map charts" "segments charts" "details details";grid-template-rows:auto 1fr auto}
 .activity-layout .route-map-panel{grid-area:map}
 .activity-layout .chart-stack{grid-area:charts}

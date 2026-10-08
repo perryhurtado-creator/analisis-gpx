@@ -1,9 +1,30 @@
-import {showVideoPoint,createMap,fitVideoRoute} from './map.js';
+import {showVideoFrame,createMap,fitVideoRoute} from './map.js';
 import {fmt} from './metrics.js';
 import {createVideoScene,recordingFormat,encodeVideoScene} from './video-capture.js';
+import {createVideoTimeline,videoSettings} from './video-timeline.js';
 
 let playFrame=null,videoPoints=[],profileState={ele:null,speed:null},capture=null;
 export function stopRouteAnimation(){if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;if(capture)capture.cancel();}
+function readSettings(){
+  const options=videoSettings({duration:document.getElementById('videoDuration')?.value??9,mode:document.getElementById('videoMode')?.value,tailSeconds:document.getElementById('videoTail')?.value??2});
+  const input=document.getElementById('videoDuration');if(input)input.value=options.duration;
+  return options;
+}
+function timingNote(timeline){
+  const note=document.getElementById('videoTimingNote');if(!note)return;
+  const fallback=timeline.requestedMode==='time'&&timeline.mode!=='time'?'Este archivo no tiene tiempos completos y ordenados. ':'';
+  note.textContent=fallback+(timeline.mode==='time'?'Avance por tiempo: conserva las pausas del archivo.':timeline.mode==='distance'?'Avance por distancia: movimiento uniforme.':'Ruta sin distancia acumulada: avance por puntos.')+` Reproducción y vídeo: ${timeline.duration} segundos.`;
+}
+function updateFrame(timeline,sample){
+  showVideoFrame(videoPoints,sample,timeline.tailSeconds>0?timeline.trailStart(sample):null);
+  updateProfile('ele',sample);updateProfile('speed',sample);
+}
+for(const id of ['videoDuration','videoMode','videoTail'])document.getElementById(id)?.addEventListener('change',()=>{
+  stopRouteAnimation();
+  if(videoPoints.length){const timeline=createVideoTimeline(videoPoints,readSettings());timingNote(timeline);updateFrame(timeline,timeline.at(0))}
+  const state=document.getElementById('videoState');if(state)state.textContent='Configuración lista. Vuelve a reproducir para verla.';
+  const button=document.getElementById('playRoute');if(button)button.textContent='▷ Reproducir ruta';
+});
 function drawProfile(id,points,field,label,unit){
   const host=document.getElementById(id);
   profileState[field]=null;
@@ -27,15 +48,15 @@ function drawProfile(id,points,field,label,unit){
   const path=runs.map(pathFor).join(' ');
   const area=runs.filter(run=>run.length>1).map(run=>pathFor(run)+` L ${run.at(-1)[0]} ${H-p.b} L ${run[0][0]} ${H-p.b} Z`).join(' ');
   host.innerHTML=`<div class="video-chart-head"><span>${label}</span><b id="${id}Value">—</b></div><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="${label}"><defs><linearGradient id="vg-${id}" x1="0" x2="0" y1="0" y2="1"><stop class="video-grad-start" offset="0"/><stop class="video-grad-end" offset="1"/></linearGradient></defs><line x1="${p.l}" x2="${W-p.r}" y1="${p.t}" y2="${p.t}" stroke="#e5eae6"/><line x1="${p.l}" x2="${W-p.r}" y1="${H-p.b}" y2="${H-p.b}" stroke="#e5eae6"/><path class="video-chart-area" d="${area}" fill="url(#vg-${id})"/><path class="video-chart-line" d="${path}"/><line class="video-chart-cursor" id="${id}Cursor" x1="${p.l}" x2="${p.l}" y1="${p.t}" y2="${H-p.b}"/><circle class="video-chart-dot" id="${id}Dot" cx="${p.l}" cy="${H-p.b}" r="4"/><text class="video-chart-readout" id="${id}Readout" x="${p.l+7}" y="${p.t+14}">—</text><text x="2" y="${p.t+6}" font-size="11" fill="#718178">${fmt(hi)}</text><text x="2" y="${H-p.b}" font-size="11" fill="#718178">${fmt(lo)}</text><text x="${p.l}" y="${H-6}" font-size="11" fill="#718178">0 km</text><text x="${W-55}" y="${H-6}" font-size="11" fill="#718178">${fmt(xMax)} km</text></svg>`;
-  profileState[field]={id,coords:points.map(pt=>[x(pt.d/1000),Number.isFinite(pt[field])?y(pt[field]):null]),unit};
+  profileState[field]={id,x,y,unit};
 }
-function updateProfile(field,index){
+function updateProfile(field,sample){
   const state=profileState[field],points=videoPoints;
   if(!state||!points.length)return;
-  const i=Math.max(0,Math.min(points.length-1,index)),p=points[i],value=p[field];
+  const p=typeof sample==='number'?points[Math.max(0,Math.min(points.length-1,sample))]:sample.point,value=p[field];
   const cursor=document.getElementById(`${state.id}Cursor`);
   const valueEl=document.getElementById(`${state.id}Value`);
-  const coord=state.coords[i];
+  const coord=[state.x(p.d/1000),Number.isFinite(value)?state.y(value):null];
   if(cursor&&coord){cursor.setAttribute('x1',coord[0]);cursor.setAttribute('x2',coord[0])}
   const dot=document.getElementById(`${state.id}Dot`);
   if(dot){dot.setAttribute('visibility',Number.isFinite(value)&&coord?'visible':'hidden');if(Number.isFinite(value)&&coord){dot.setAttribute('cx',coord[0]);dot.setAttribute('cy',coord[1])}}
@@ -53,22 +74,21 @@ export function prepareVideoMap(points){
     profileState={ele:null,speed:null};
     drawProfile('videoElevationChart',points,'ele','Altimetría','m');
     drawProfile('videoSpeedChart',points,'speed','Velocidad','km/h');
-    updateProfile('ele',0);updateProfile('speed',0);
+    const timeline=createVideoTimeline(points,readSettings());timingNote(timeline);updateFrame(timeline,timeline.at(0));
   }
 }
-export function playRoute(points,onDone=()=>{},onFrame=()=>{}){
+export function playRoute(points,onDone=()=>{},onFrame=()=>{},timeline=null,startTime=null){
   if(!points?.length)return;
   if(videoPoints!==points)prepareVideoMap(points);
+  timeline=timeline||createVideoTimeline(points,readSettings());timingNote(timeline);
   const state=document.getElementById('videoState'),button=document.getElementById('playRoute');
   state.textContent='Reproduciendo ruta…';button.textContent='↻ Reiniciar';
   if(playFrame)cancelAnimationFrame(playFrame);
-  showVideoPoint(points[0]);updateProfile('ele',0);updateProfile('speed',0);
-  onFrame(0);
-  const start=performance.now(),total=9000;
+  const initial=timeline.at(0);updateFrame(timeline,initial);onFrame(initial);
+  const start=startTime??performance.now(),total=timeline.duration*1000;
   function step(now){
-    const ratio=Math.max(0,Math.min(1,(now-start)/total)),index=Math.min(points.length-1,Math.floor(ratio*(points.length-1)));
-    showVideoPoint(points[index]);updateProfile('ele',index);updateProfile('speed',index);
-    onFrame(index);
+    const ratio=Math.max(0,Math.min(1,(now-start)/total)),sample=timeline.at(ratio);
+    updateFrame(timeline,sample);onFrame(sample);
     if(ratio<1)playFrame=requestAnimationFrame(step);
     else{state.textContent='Reproducción terminada.';button.textContent='▷ Reproducir';playFrame=null;onDone()}
   }
@@ -85,7 +105,8 @@ export async function makeVideo(activity,webmOnly=false){
   if(location.protocol==='file:'){state.textContent='Para guardar el vídeo abre la app desde su dirección web o con INICIAR_APP.bat.';return}
   stopRouteAnimation();
   if(videoPoints!==activity.points)prepareVideoMap(activity.points);
-  const controller=new AbortController(),buttons=['playRoute','makeVideo'].map(id=>document.getElementById(id));
+  const options=readSettings();
+  const controller=new AbortController(),buttons=['playRoute','makeVideo','videoDuration','videoMode','videoTail'].map(id=>document.getElementById(id));
   let recorder,stream,rejectRecording,watchdog,preview,format,retryWebm=false,recordingStarted=false;
   const job={cancel(){controller.abort();if(recorder?.state==='recording')recorder.stop();rejectRecording?.(new DOMException('Grabación cancelada.','AbortError'))}};
   capture=job;buttons.forEach(button=>{if(button)button.disabled=true});
@@ -93,14 +114,14 @@ export async function makeVideo(activity,webmOnly=false){
   document.addEventListener('visibilitychange',hidden);
   try{
     state.textContent='Preparando mapa y gráficas para grabar…';
-    const scene=await createVideoScene(activity,controller.signal);
+    const scene=await createVideoScene(activity,controller.signal,options);timingNote(scene.timeline);
     preview=scene.canvas;
     preview.setAttribute('aria-label','Vista de la grabación: mapa y gráficas sincronizadas');
     preview.style.cssText='display:block;width:100%;max-width:1280px;height:auto;margin-top:16px';
     (document.querySelector('.video-map-panel')||document.body).appendChild(preview);
     if(typeof VideoEncoder==='function'){
-      const result=await encodeVideoScene(scene,activity,controller.signal,(index,percent,extension)=>{
-        showVideoPoint(activity.points[index]);updateProfile('ele',index);updateProfile('speed',index);
+      const result=await encodeVideoScene(scene,activity,controller.signal,(sample,percent,extension)=>{
+        updateFrame(scene.timeline,sample);
         state.textContent=`Generando ${extension.toUpperCase()}… ${percent} %`;
       },webmOnly);
       download(result.blob,activity.name,result.extension);
@@ -109,23 +130,36 @@ export async function makeVideo(activity,webmOnly=false){
     }
     format=recordingFormat(webmOnly);
     if(!scene.canvas.captureStream)throw Error('Este navegador no permite capturar el vídeo de la escena.');
-    scene.draw(0);stream=scene.canvas.captureStream(30);
+    scene.draw(scene.timeline.at(0));stream=scene.canvas.captureStream(0);
+    if(typeof stream.getVideoTracks()[0]?.requestFrame!=='function'){
+      stream.getTracks().forEach(track=>track.stop());stream=scene.canvas.captureStream(30);
+    }
     const videoTrack=stream.getVideoTracks()[0];
     recorder=new MediaRecorder(stream,{mimeType:format.mime,videoBitsPerSecond:8000000});
-    const chunks=[];
+    const chunks=[];let recordingStartTime;
     await new Promise((resolve,reject)=>{
       rejectRecording=reject;
       recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};
       recorder.onerror=e=>reject(e.error||Error('No se pudo grabar el vídeo.'));
       recorder.onstop=()=>controller.signal.aborted?reject(new DOMException('Grabación cancelada.','AbortError')):resolve();
-      recorder.start(1000);
+      recorder.onstart=()=>{
+        if(controller.signal.aborted){if(recorder.state==='recording')recorder.stop();return}
+        let lastFrame=-1;
+        playRoute(activity.points,()=>{
+          // Give the final requested canvas frame time to reach the recorder.
+          requestAnimationFrame(()=>requestAnimationFrame(()=>{if(recorder.state==='recording')recorder.stop()}));
+        },sample=>{
+          const frame=Math.floor(sample.progress*scene.timeline.duration*30);
+          if(frame===lastFrame)return;lastFrame=frame;
+          try{scene.draw(sample);videoTrack?.requestFrame?.()}catch(e){reject(e);if(recorder.state==='recording')recorder.stop();return}
+          state.textContent=`Grabando ${format.extension.toUpperCase()}… ${Math.round(sample.progress*100)} %`;
+        },scene.timeline,recordingStartTime);
+      };
+      recordingStartTime=performance.now();recorder.start(1000);
       recordingStarted=true;
+      scene.draw(scene.timeline.at(0));
       videoTrack?.requestFrame?.();
-      watchdog=setTimeout(()=>{job.cancel()},30000);
-      playRoute(activity.points,()=>{if(recorder.state==='recording')recorder.stop()},index=>{
-        try{scene.draw(index);videoTrack?.requestFrame?.()}catch(e){reject(e);if(recorder.state==='recording')recorder.stop();return}
-        state.textContent=`Grabando ${format.extension.toUpperCase()}… ${Math.round(index/Math.max(1,activity.points.length-1)*100)} %`;
-      });
+      watchdog=setTimeout(()=>{job.cancel()},(scene.timeline.duration+20)*1000);
     });
     if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
     const blob=new Blob(chunks,{type:recorder.mimeType||format.mime});

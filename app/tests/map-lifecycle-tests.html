@@ -25,7 +25,8 @@
     ]}
     function check(id){
       const host=document.getElementById(id);
-      assert(host.querySelectorAll('path[stroke="#2a9b69"]').length===2,'deben dibujarse las dos líneas independientes');
+      const color=id==='videoMap'?'#8da99b':'#2a9b69';
+      assert(host.querySelectorAll(`path[stroke="${color}"]`).length===2,'deben dibujarse las dos líneas independientes');
       assert(host.querySelectorAll('.leaflet-map-pane').length===1,'solo debe existir un mapa activo');
     }
     run('Primera carga dibuja los segmentos con Leaflet 1.9.4',()=>{createMap(route());check('map');fitRoute(route());showPoint(route()[1]);hidePoint()});

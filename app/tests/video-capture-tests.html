@@ -13,6 +13,10 @@
   <button id="playRoute">Reproducir</button><button id="makeVideo">Guardar vídeo y comprobar</button>
   <button id="cancelCapture">Cancelar prueba</button><label><input id="webmOnly" type="checkbox">Comprobar WebM</label>
   <p id="videoState" role="status"></p><p id="summary" role="status">Listo para comprobar la exportación real del navegador.</p>
+  <label>Duración <input id="videoDuration" type="number" min="3" max="120" value="9"></label>
+  <label>Avance <select id="videoMode"><option value="distance">Distancia</option><option value="time">Tiempo</option></select></label>
+  <label>Estela <select id="videoTail"><option value="2">2 segundos</option><option value="0">Sin estela</option><option value="5">5 segundos</option></select></label>
+  <p id="videoTimingNote"></p>
   <div class="video-profile"><div id="videoElevationChart"></div></div>
   <div id="videoMap"></div><span id="videoMapStatus"></span>
   <div class="video-profile video-profile-bottom"><div id="videoSpeedChart"></div></div>
@@ -20,7 +24,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module">
     import {prepareVideoMap,playRoute,makeVideo,stopRouteAnimation} from '../js/video.js';
-    const points=Array.from({length:31},(_,i)=>({lat:20.6+i*.0001,lon:-100.4+Math.sin(i/4)*.001,ele:i===12?null:100+i*2,speed:i===0||i===20?null:15+Math.sin(i/3)*5,d:i*20,segmentId:i<16?0:1,breakBefore:i===0||i===16}));
+    const points=Array.from({length:31},(_,i)=>({lat:20.6+i*.0001,lon:-100.4+Math.sin(i/4)*.001,ele:i===12?null:100+i*2,speed:i===0||i===20?null:15+Math.sin(i/3)*5,d:i*20,time:Date.UTC(2026,0,1)+i*i*1000,segmentId:i<16?0:1,breakBefore:i===0||i===16}));
     const activity={name:'Prueba de captura',points};
     const summary=document.getElementById('summary'),video=document.getElementById('result');
     let exported=null;
@@ -31,6 +35,7 @@
     document.getElementById('cancelCapture').onclick=stopRouteAnimation;
     document.getElementById('makeVideo').onclick=async()=>{
       exported=null;summary.className='';summary.textContent='Comprobando grabación y descarga…';
+      const expectedDuration=Number(document.getElementById('videoDuration').value);
       await makeVideo(activity,document.getElementById('webmOnly').checked);
       if(!exported){const message=document.getElementById('videoState').textContent;const canceled=message.startsWith('Grabación cancelada');summary.className=canceled?'ok':'fail';summary.textContent=(canceled?'PASS: cancelación sin descargar un archivo incompleto. ':'FAIL: ')+message;return}
       const url=createURL(exported);
@@ -41,7 +46,15 @@
           video.onerror=()=>{clearTimeout(timer);reject(Error('El navegador no puede reproducir el archivo exportado.'))};
           video.src=url;
         });
-        if(video.videoWidth!==1280||video.videoHeight!==960||Math.abs(video.duration-9)>.1||exported.size<1024)throw Error('Dimensiones, duración o tamaño de vídeo inválidos.');
+        // MediaRecorder WebM may omit duration metadata until the decoder reaches the end.
+        if(!Number.isFinite(video.duration)){
+          await new Promise((resolve,reject)=>{
+            const timer=setTimeout(()=>reject(Error('No se pudo determinar la duración del vídeo.')),15000);
+            video.onseeked=()=>{clearTimeout(timer);resolve()};video.currentTime=1e6;
+          });
+        }
+        if(video.videoWidth!==1280||video.videoHeight!==960||Math.abs(video.duration-expectedDuration)>.25||exported.size<1024)throw Error(`Dimensiones, duración o tamaño de vídeo inválidos: ${video.videoWidth} × ${video.videoHeight}, ${video.duration} s, ${exported.size} bytes.`);
+        video.currentTime=0;
         summary.className='ok';summary.textContent=`PASS: descarga y decodificación reales, ${exported.type}, ${exported.size} bytes, ${video.videoWidth} × ${video.videoHeight}, ${video.duration} s. Reproduce el archivo para comprobar mapa y gráficas.`;
       }catch(e){summary.className='fail';summary.textContent='FAIL: '+e.message}
     };

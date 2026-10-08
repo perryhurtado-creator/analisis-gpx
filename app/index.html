@@ -58,6 +58,12 @@
 
       <section class="page" id="video">
         <section class="panel video-map-panel">
+  <div class="video-settings">
+    <label for="videoDuration">Duración del vídeo <span><input id="videoDuration" type="number" min="3" max="120" step="1" value="9"> segundos</span></label>
+    <label for="videoMode">Avance del recorrido <select id="videoMode"><option value="distance">Por distancia · movimiento uniforme</option><option value="time">Por tiempo · conserva las pausas</option></select></label>
+    <label for="videoTail">Estela <select id="videoTail"><option value="0">Sin estela</option><option value="2" selected>2 segundos</option><option value="5">5 segundos</option></select></label>
+  </div>
+  <p id="videoTimingNote" class="feature-copy" role="status">La duración se aplica tanto a la reproducción como al vídeo guardado.</p>
   <div class="action-row video-controls"><button class="action-btn" id="playRoute">▷ Reproducir ruta</button><button class="action-btn secondary" id="makeVideo">⬇ Guardar vídeo</button><span class="action-state" id="videoState" role="status">Listo para animar tu recorrido.</span></div>
   <div class="panel-title"><h3>Recorrido sincronizado</h3><span id="videoMapStatus">OpenStreetMap</span></div>
   <div class="video-profile video-profile-top"><div id="videoElevationChart"></div></div>
