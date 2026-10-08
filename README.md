@@ -29,7 +29,8 @@ app/
 - `metrics.js`: métricas y segmentos.
 - `map.js`: Mapbox, Leaflet y marcador de recorrido.
 - `charts.js`: gráficas SVG.
-- `video.js`: reproducción y exportación MP4.
+- `video.js`: reproducción y coordinación de la exportación.
+- `video-capture.js`: composición del mapa, ruta, marcador y gráficas; codificación del vídeo.
 - `css/app.css`: estilos.
 - `assets/`: recursos gráficos de la marca.
 
@@ -44,7 +45,7 @@ app/
 - Comparación de rutas.
 - Mapbox con fallback a OpenStreetMap/Leaflet.
 - Reproducción de ruta.
-- Grabación WebM y conversión local a MP4 mediante FFmpeg.wasm.
+- Exportación local de una escena completa (1280 × 960, 9 segundos, 30 fps) con mapa OpenStreetMap, ruta, marcador y gráficas sincronizadas. Genera MP4/H.264 si está disponible, o WebM/VP9/VP8 como alternativa. Usa WebCodecs y Mediabunny; conserva MediaRecorder como alternativa para navegadores sin WebCodecs. No requiere FFmpeg.wasm.
 - Token Mapbox almacenado en `localStorage`.
 
 ## Ejecución
@@ -52,6 +53,10 @@ app/
 No abras `index.html` directamente si vas a utilizar la exportación de video.
 
 Usa el servidor/local launcher que ya utilizabas para la versión funcional, o un servidor HTTP local.
+
+Para guardar, abre Generar vídeo y pulsa Guardar vídeo. Mantén la página visible hasta que termine; cambiar de sección, cargar otra ruta o pasar a otra pestaña cancela la exportación. Las imágenes del mapa requieren conexión y permiso CORS del proveedor. El archivo se genera localmente, sin subir la actividad a un servidor de vídeo.
+
+La página `app/tests/video-capture-tests.html` comprueba una descarga real con puntos sintéticos, dimensiones, duración y decodificación del archivo. Incluye opciones para comprobar WebM y cancelar una exportación.
 
 ## Nota sobre el logo
 
