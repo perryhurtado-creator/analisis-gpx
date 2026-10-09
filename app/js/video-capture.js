@@ -69,22 +69,24 @@ function drawProfile(ctx,points,field,index,state,width,height,color,label,sampl
   ctx.fillText('0 km',state.left,height-12);ctx.textAlign='right';ctx.fillText(`${fmt(points.at(-1).d/1000)} km`,state.right,height-12);ctx.textAlign='left';
 }
 
-export async function createVideoScene(activity,signal){
-  const snapshot=videoMapSnapshot(activity.points);
-  const tiles=await Promise.all(snapshot.tiles.map(async tile=>({...tile,img:await loadTile(tile.url,signal)})));
+export async function createVideoScene(activity,signal,options={}){
+  const snapshot=options.mapSource?null:videoMapSnapshot(activity.points);
+  const tiles=await Promise.all((snapshot?.tiles||[]).map(async tile=>({...tile,img:await loadTile(tile.url,signal)})));
   if(signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
   const canvas=document.createElement('canvas');canvas.width=VIDEO_WIDTH;canvas.height=VIDEO_HEIGHT;
   const ctx=canvas.getContext('2d');
   if(!ctx)throw Error('No se pudo crear la superficie de grabación.');
-  const background=document.createElement('canvas');background.width=snapshot.width;background.height=snapshot.height;
+  const background=document.createElement('canvas');background.width=snapshot?.width||1080;background.height=snapshot?.height||1190;
   const base=background.getContext('2d');
   if(!base)throw Error('No se pudo preparar el mapa para la grabación.');
-  base.fillStyle='#e7eee7';base.fillRect(0,0,snapshot.width,snapshot.height);
+  base.fillStyle='#e7eee7';base.fillRect(0,0,background.width,background.height);
+  if(snapshot){
   for(const tile of tiles)base.drawImage(tile.img,tile.x,tile.y,256,256);
   base.strokeStyle='#2a9b69';base.lineWidth=6;base.lineJoin='round';base.lineCap='round';base.beginPath();
   activity.points.forEach((p,i)=>{const c=snapshot.positions[i];if(i===0||p.breakBefore||p.segmentId!==activity.points[i-1].segmentId)base.moveTo(c.x,c.y);else base.lineTo(c.x,c.y)});base.stroke();
   marker(base,snapshot.positions[0],'#2a9b69',9);marker(base,snapshot.positions.at(-1),'#ee5c73',9);
   base.getImageData(0,0,1,1);
+  }
   const logo=await loadTile(new URL('../assets/logo-perros-en-bicicleta.png',import.meta.url).href,signal);
   const elevation=profile(activity.points,'ele',1080,230),speed=profile(activity.points,'speed',1080,230);
   // Preparar los trazos una sola vez para reducir trabajo por fotograma en móviles.
@@ -107,13 +109,16 @@ export async function createVideoScene(activity,signal){
     for(const word of words){if(ctx.measureText(line+word).width>880&&line){ctx.fillText(line,160,y);y+=36;line='';if(y>150)break}line+=word+' '}
     ctx.fillText(line,160,y,880);
     ctx.save();ctx.translate(0,180);drawProfile(ctx,activity.points,'ele',index,elevation,1080,230,'#2a9b69','Altimetría',sample);ctx.restore();
+    if(options.mapSource)ctx.drawImage(options.mapSource.canvas,0,410,1080,1190);
+    else {
     ctx.drawImage(background,0,410);
     const a=snapshot.positions[index],b=snapshot.positions[sample.next];
     marker(ctx,{x:a.x+(b.x-a.x)*sample.mix,y:410+a.y+(b.y-a.y)*sample.mix},'#ff9f43',12);
+    }
     ctx.save();ctx.translate(0,1600);drawProfile(ctx,activity.points,'speed',index,speed,1080,230,'#397de8','Velocidad',sample);ctx.restore();
     ctx.fillStyle='#fff';ctx.font='bold 30px sans-serif';ctx.fillText(`${fmt(sample.point.d/1000)} / ${fmt(activity.points.at(-1).d/1000)} km`,24,1872);
     ctx.textAlign='right';ctx.fillText(`${Math.round(progress*100)} %`,1056,1872);ctx.textAlign='left';
-    ctx.font='20px sans-serif';ctx.fillText('© OpenStreetMap contributors',24,1910);
+    ctx.font='20px sans-serif';ctx.fillText(options.credit||'© OpenStreetMap contributors',24,1910,1032);
   }};
 }
 
@@ -127,7 +132,8 @@ export function recordingFormat(webmOnly=false){
 
 export async function encodeVideoScene(scene,activity,signal,onFrame,webmOnly=false){
   const {Output,BufferTarget,CanvasSource,Mp4OutputFormat,WebMOutputFormat,canEncodeVideo}=await import('./vendor/video-encoder.js');
-  const settings={width:scene.canvas.width,height:scene.canvas.height,bitrate:8000000,frameRate:VIDEO_FPS};
+  const fps=scene.fps||VIDEO_FPS,seconds=scene.seconds||VIDEO_SECONDS;
+  const settings={width:scene.canvas.width,height:scene.canvas.height,bitrate:scene.bitrate||8000000,frameRate:fps};
   let codec=null;
   for(const candidate of (webmOnly?['vp8','vp9']:['avc','vp8','vp9'])){
     if(await canEncodeVideo(candidate,settings)){codec=candidate;break}
@@ -136,18 +142,18 @@ export async function encodeVideoScene(scene,activity,signal,onFrame,webmOnly=fa
   const extension=codec==='avc'?'mp4':'webm',target=new BufferTarget();
   const output=new Output({format:extension==='mp4'?new Mp4OutputFormat():new WebMOutputFormat(),target});
   const source=new CanvasSource(scene.canvas,{codec,bitrate:settings.bitrate});
-  output.addVideoTrack(source,{frameRate:VIDEO_FPS});
+  output.addVideoTrack(source,{frameRate:fps});
   const aborted=()=>{output.cancel().catch(()=>{})};
   signal.addEventListener('abort',aborted,{once:true});
   try{
     if(signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
     await output.start();
-    const frames=VIDEO_FPS*VIDEO_SECONDS;
+    const frames=fps*seconds;
     for(let frame=0;frame<frames;frame++){
       if(signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
       const index=Math.floor(frame/(frames-1)*(activity.points.length-1));
-      scene.draw(index,frame/(frames-1));onFrame(index,Math.round((frame+1)/frames*100),extension,frame/(frames-1));
-      await source.add(frame/VIDEO_FPS,1/VIDEO_FPS);
+      await scene.draw(index,frame/(frames-1));onFrame(index,Math.round((frame+1)/frames*100),extension,frame/(frames-1));
+      await source.add(frame/fps,1/fps);
       if(frame%5===0)await new Promise(resolve=>setTimeout(resolve,0));
     }
     await output.finalize();

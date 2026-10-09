@@ -1,10 +1,11 @@
+import {playVideo3D,makeVideo3D,stopVideo3D,video3DBusy} from './video-3d.js';
 import {showVideoPoint,createMap,fitVideoRoute} from './map.js';
 import {completeWebmDuration} from './webm-duration.js';
 import {fmt} from './metrics.js';
 import {createVideoScene,recordingFormat,encodeVideoScene,VIDEO_SECONDS,VIDEO_FPS,sampleVideoPoint} from './video-capture.js';
 
 let playFrame=null,videoPoints=[],profileState={ele:null,speed:null},capture=null;
-export function stopRouteAnimation(){if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;if(capture)capture.cancel();}
+export function stopRouteAnimation(){stopVideo3D();if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;if(capture)capture.cancel();}
 function drawProfile(id,points,field,label,unit){
   const host=document.getElementById(id);
   profileState[field]=null;
@@ -57,6 +58,7 @@ export function prepareVideoMap(points){
     drawProfile('videoElevationChart',points,'ele','Altimetría','m');
     drawProfile('videoSpeedChart',points,'speed','Velocidad','km/h');
     updateProfile('ele',0);updateProfile('speed',0);
+    applyVideoMode();
   }
 }
 export function playRoute(points,onDone=()=>{},onFrame=()=>{}){
@@ -83,6 +85,8 @@ function download(blob,name,extension){
   setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
 export async function makeVideo(activity,webmOnly=false){
+  if(video3DBusy())return;
+  if(document.getElementById('videoMode')?.value==='3d'){stopRouteAnimation();return makeVideo3D(activity)}
   if(capture||!activity?.points?.length)return;
   const state=document.getElementById('videoState');
   if(location.protocol==='file:'){state.textContent='Para guardar el vídeo abre la app desde su dirección web o con INICIAR_APP.bat.';return}
@@ -158,3 +162,25 @@ export async function makeVideo(activity,webmOnly=false){
   if(retryWebm)await makeVideo(activity,true);
 }
 
+
+export function playActivity(activity){
+  if(capture||video3DBusy())return;
+  if(document.getElementById('videoMode')?.value==='3d'){stopRouteAnimation();return playVideo3D(activity)}
+  return playRoute(activity.points);
+}
+function applyVideoMode(){
+  const is3D=document.getElementById('videoMode')?.value==='3d';
+  const stage2D=document.getElementById('video2DStage'),stage3D=document.getElementById('video3DStage');
+  if(stage2D)stage2D.hidden=is3D;if(stage3D)stage3D.hidden=!is3D;
+  const mapStatus=document.getElementById('videoMapStatus');if(mapStatus)mapStatus.textContent=is3D?'CesiumJS · Relieve Esri':'OpenStreetMap';
+}
+const mode=document.getElementById('videoMode');
+if(mode){
+  applyVideoMode();
+  mode.addEventListener('change',()=>{
+    stopRouteAnimation();applyVideoMode();
+    document.getElementById('videoState').textContent=mode.value==='3d'?'Vista aérea 3D lista para preparar.':'Listo para animar tu recorrido.';
+  });
+}
+
+const cancel3D=document.getElementById('cancelVideo3D');if(cancel3D)cancel3D.onclick=stopRouteAnimation;

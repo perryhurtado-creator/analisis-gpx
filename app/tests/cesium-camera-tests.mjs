@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {routeChunks,terrainSampleIndices,cameraPose} from '../js/cesium-camera.js';
+const points=[{lat:20,lon:-100,d:0,segmentId:0,breakBefore:true},{lat:20.1,lon:-100.1,d:100,segmentId:0},{lat:21,lon:-101,d:100,segmentId:1,breakBefore:true},{lat:21.1,lon:-101.1,d:200,segmentId:1}];
+assert.deepEqual(routeChunks(points).map(p=>p.length),[2,2]);
+const samples=points.map((p,i)=>({index:i,height:2000+i*10}));
+const first=cameraPose(points,0,samples),last=cameraPose(points,1,samples);
+assert.equal(first.lat,20);assert.equal(first.height,2020);assert.equal(last.lat,21.1);assert.equal(last.height,2050);
+const gap=cameraPose(points,.5,samples);assert.equal(gap.lat,20.1,'No interpolar cámara a través del corte');assert.equal(gap.height,2030);
+const mid=cameraPose(points,1/6,samples);assert.equal(mid.lat,20.05);assert.equal(mid.height,2025);assert(mid.pitch<0&&mid.range>=500);
+const long=Array.from({length:10000},(_,i)=>({lat:20,lon:-100,d:i,segmentId:i<5051?0:1,breakBefore:i===0||i===5051}));
+const indices=terrainSampleIndices(long);assert(indices.includes(0)&&indices.includes(9999)&&indices.includes(5050)&&indices.includes(5051));assert(indices.length<=100);
+assert.equal(cameraPose(long,1,indices.map(i=>({index:i,height:2000}))).range,2000);
+console.log('PASS: cámara aérea interpolada, alturas de terreno independientes del GPX, cortes y muestreo acotado.');

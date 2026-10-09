@@ -100,7 +100,7 @@ function choose(){$('fileInput').click()}
 
 $('chooseFile').onclick=e=>{e.preventDefault();choose()};$('topLoad').onclick=()=>{resetActivity();location.hash='resumen';choose()};$('sideLoad').onclick=()=>{resetActivity();location.hash='resumen';choose()};
 $('fileInput').onchange=()=>loadFile($('fileInput').files[0]);$('compareLoad').onclick=()=>$('compareInput').click();$('compareInput').onchange=()=>loadCompare($('compareInput').files[0]);
-$('playRoute').onclick=async()=>{if(!activity)return;try{const v=await getVideoModule();v.prepareVideoMap(points);v.playRoute(points)}catch(e){console.error(e);$('videoState').textContent='No se pudo iniciar la reproducción.'}};
+$('playRoute').onclick=async()=>{if(!activity)return;try{const v=await getVideoModule();v.prepareVideoMap(points);v.playActivity(activity)}catch(e){console.error(e);$('videoState').textContent='No se pudo iniciar la reproducción.'}};
 $('makeVideo').onclick=async()=>{if(!activity)return;try{const v=await getVideoModule();v.prepareVideoMap(points);await v.makeVideo(activity)}catch(e){console.error(e);$('videoState').textContent='No se pudo iniciar la generación del vídeo.'}};$('fitRoute').onclick=()=>fitRoute(points);
 ['dragenter','dragover'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.add('over')}));
 ['dragleave','drop'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.remove('over')}));
@@ -111,3 +111,4 @@ window.addEventListener('hashchange',()=>navigate(location.hash));
 document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();location.hash=a.getAttribute('href').slice(1)}));
 $('makePoster').onclick=()=>{if(!activity)return; $('posterStatus').textContent='Cartel preparado para la siguiente etapa de diseño.'};
 navigate(location.hash||'#resumen');
+

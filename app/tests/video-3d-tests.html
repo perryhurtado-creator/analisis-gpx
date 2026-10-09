@@ -1,0 +1,20 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Prueba de exportación CesiumJS</title><link rel="stylesheet" href="../css/app.css"></head><body style="padding:20px"><h1>Prueba de video aéreo 3D</h1><p>Ruta sintética en Querétaro para verificar terreno, cámara, composición, codificación y cancelación.</p><button id="run">Exportar prueba</button><button id="cancel">Cancelar</button><p id="status" role="status">Listo</p><div id="preview"></div><video id="result" controls playsinline style="width:360px;max-width:100%"></video><script type="module">
+import {createCesiumVideoScene} from '../js/cesium-scene.js';
+import {encodeVideoScene} from '../js/video-capture.js';
+const points=Array.from({length:25},(_,i)=>({lat:20.55+i*.0001,lon:-100.34+Math.sin(i/6)*.001,ele:2100+i*4,speed:i===0?0:15+Math.sin(i/3)*5,d:i*25,segmentId:i<13?0:1,breakBefore:i===0||i===13}));
+const activity={name:'Prueba aérea de Querétaro',points};let controller;
+const status=text=>document.getElementById('status').textContent=text;
+window.test3D=async()=>{
+ controller=new AbortController();let scene;
+ try{
+  scene=await createCesiumVideoScene(activity,controller.signal,status);document.getElementById('preview').replaceChildren(scene.canvas);
+  await scene.draw(0,0);window.firstFrame=scene.canvas.toDataURL();
+  const exported=await encodeVideoScene(scene,activity,controller.signal,(_,percent)=>status(`Exportando ${percent} %`));window.exported3D=exported;
+  const video=document.getElementById('result');video.src=URL.createObjectURL(exported.blob);
+  await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=()=>reject(Error('No se pudo decodificar el video'))});
+  if(video.videoWidth!==720||video.videoHeight!==1280||Math.abs(video.duration-15)>.1)throw Error('Dimensiones o duración incorrectas');
+  status(`PASS: ${video.videoWidth} × ${video.videoHeight}, ${video.duration} s, ${exported.extension}, ${exported.blob.size} bytes.`);
+ }catch(e){status(e.name==='AbortError'?'PASS: cancelación sin descargar video incompleto.':'FAIL: '+e.message);throw e}finally{scene?.dispose();controller.abort()}
+};
+document.getElementById('run').onclick=()=>window.test3D().catch(console.error);document.getElementById('cancel').onclick=()=>controller?.abort();
+</script></body></html>
