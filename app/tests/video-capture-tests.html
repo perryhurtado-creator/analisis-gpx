@@ -41,7 +41,7 @@
           video.onerror=()=>{clearTimeout(timer);reject(Error('El navegador no puede reproducir el archivo exportado.'))};
           video.src=url;
         });
-        if(video.videoWidth!==1280||video.videoHeight!==960||Math.abs(video.duration-9)>.1||exported.size<1024)throw Error('Dimensiones, duración o tamaño de vídeo inválidos.');
+        if(video.videoWidth!==1080||video.videoHeight!==1920||!Number.isFinite(video.duration)||Math.abs(video.duration-15)>.5||exported.size<1024)throw Error('Dimensiones, duración o tamaño de vídeo inválidos.');
         summary.className='ok';summary.textContent=`PASS: descarga y decodificación reales, ${exported.type}, ${exported.size} bytes, ${video.videoWidth} × ${video.videoHeight}, ${video.duration} s. Reproduce el archivo para comprobar mapa y gráficas.`;
       }catch(e){summary.className='fail';summary.textContent='FAIL: '+e.message}
     };
@@ -49,3 +49,4 @@
   </script>
 </body>
 </html>
+

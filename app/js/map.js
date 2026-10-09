@@ -44,8 +44,21 @@ export function hideVideoPoint(){if(markers.videoMap)markers.videoMap.setStyle({
 export function videoMapSnapshot(points){
   const map=maps.videoMap;
   if(!map)throw Error('Carga la ruta en el mapa antes de guardar el vídeo.');
-  const size=map.getSize(),zoom=map.getZoom(),bounds=map.getPixelBounds();
-  if(size.x<=0||size.y<=0)throw Error('Abre la página Generar vídeo para guardar el recorrido.');
+  const width=1080,height=1190,padding=80;
+  // El encuadre de exportación no depende de la pantalla ni del zoom del usuario.
+  let zoom=19,projected,bounds;
+  for(;zoom>=0;zoom--){
+    projected=points.map(p=>map.project([p.lat,p.lon],zoom));
+    const extent=projected.reduce((b,p)=>({minX:Math.min(b.minX,p.x),maxX:Math.max(b.maxX,p.x),minY:Math.min(b.minY,p.y),maxY:Math.max(b.maxY,p.y)}),{minX:Infinity,maxX:-Infinity,minY:Infinity,maxY:-Infinity});
+    const {minX,maxX,minY,maxY}=extent;
+    if(maxX-minX<=width-2*padding&&maxY-minY<=height-2*padding){
+      const centerX=(minX+maxX)/2,centerY=(minY+maxY)/2;
+      bounds={min:{x:Math.floor(centerX-width/2),y:Math.floor(centerY-height/2)}};
+      bounds.max={x:bounds.min.x+width,y:bounds.min.y+height};
+      break;
+    }
+  }
+  if(!bounds)throw Error('La ruta es demasiado extensa para encuadrarla.');
   const tiles=[],count=2**zoom;
   for(let y=Math.floor(bounds.min.y/256);y<=Math.floor((bounds.max.y-1)/256);y++){
     if(y<0||y>=count)continue;
@@ -53,8 +66,9 @@ export function videoMapSnapshot(points){
       tiles.push({url:`https://tile.openstreetmap.org/${zoom}/${((x%count)+count)%count}/${y}.png`,x:x*256-bounds.min.x,y:y*256-bounds.min.y});
     }
   }
-  return {width:size.x,height:size.y,tiles,positions:points.map(p=>{
+  return {width,height,tiles,positions:points.map(p=>{
     const pixel=map.project([p.lat,p.lon],zoom);
     return {x:pixel.x-bounds.min.x,y:pixel.y-bounds.min.y};
   })};
 }
+
