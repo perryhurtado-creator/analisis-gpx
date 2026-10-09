@@ -1,3 +1,4 @@
+import {currentLocation} from './device-location.js';
 import {elevationProfile,elevationSVG} from './planner-elevation.js';
 import {addPlannerLayers} from './planner-layers.js';
 let map=null,markers=[],routeLayer=null,route=null,controller=null,revision=0,observer=null,editMode=null;
@@ -62,6 +63,13 @@ function setupPlaceSearch(target){
   const search=searches[target],get=suffix=>$(`planner${target}${suffix}`);
   get('Search').onsubmit=async e=>{
     e.preventDefault();cancelPlaceSearch(target);const q=get('Query').value.trim();
+    if(!q){
+      const current=search.revision;get('SearchButton').disabled=true;get('SearchStatus').textContent='Solicitando permiso para acceder a la ubicación del dispositivo…';
+      try{const place=await currentLocation();if(current===search.revision)selectPlace(target,place)}
+      catch(error){if(current===search.revision)get('SearchStatus').textContent=error.message}
+      finally{if(current===search.revision)get('SearchButton').disabled=false}
+      return;
+    }
     if(q.length<3||q.length>160){get('SearchStatus').textContent='Escribe una localidad de entre 3 y 160 caracteres.';return}
     const current=search.revision;search.controller=new AbortController();get('SearchButton').disabled=true;get('SearchStatus').textContent='Buscando localidades…';
     const center=map.getCenter(),params=new URLSearchParams({q,lat:String(center.lat),lon:String(center.lng)});
@@ -81,13 +89,16 @@ function setupPlaceSearch(target){
   get('Query').oninput=()=>cancelPlaceSearch(target);
   get('Results').onclick=e=>{
     const button=e.target.closest('[data-place-index]');if(!button)return;const place=search.results[Number(button.dataset.placeIndex)];if(!place)return;
-    if(target==='Destination'&&!markers.length){get('SearchStatus').textContent='Selecciona primero el inicio A y después elige este destino.';return}
+    selectPlace(target,place);
+  };
+}
+function selectPlace(target,place){
+    if(target==='Destination'&&!markers.length){$(`planner${target}SearchStatus`).textContent='Selecciona primero el inicio A y después elige este destino.';return}
     const point={lat:place.lat,lng:place.lon};editMode=null;invalidateRoute();
     if(target==='Origin'){if(markers.length)markers[0].setLatLng(point);else markers.push(marker(point))}
     else if(markers.length>=2)markers.at(-1).setLatLng(point);else markers.push(marker(point));
-    labels();invalidateRoute();map.setView(point,13);cancelPlaceSearch(target);get('SearchStatus').textContent=(target==='Origin'?'Inicio: ':'Destino: ')+place.label;
+    labels();invalidateRoute();map.setView(point,place.zoom||13);cancelPlaceSearch(target);$(`planner${target}SearchStatus`).textContent=(target==='Origin'?'Inicio: ':'Destino: ')+place.label;
     if(markers.length>=2)calculate();else status('Inicio seleccionado. Toca el mapa o busca una localidad para marcar B · Destino.');
-  };
 }
 export function routeGPX(data){
   const nodes=data.geometry.coordinates.map(c=>`<trkpt lat="${c[1]}" lon="${c[0]}">${Number.isFinite(c[2])?`<ele>${c[2]}</ele>`:''}</trkpt>`).join('\n');
