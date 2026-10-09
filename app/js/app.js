@@ -1,3 +1,4 @@
+import {setPosterActivity,generatePoster,downloadPoster} from './poster.js';
 import {parseGPX} from './gpx-parser.js';
 import {parseTCX} from './tcx-parser.js';
 import {avg,fmt,duration,stamp,summary,segments,slopeStats,speedStats,heartZones,continuousSpeed} from './metrics.js';
@@ -17,16 +18,7 @@ function nearest(km){
   const prev=points[Math.max(0,lo-1)],next=points[lo];
   return Math.abs(prev.d-target)<Math.abs(next.d-target)?prev:next;
 }
-function renderPoster(){
-  const box=$('posterData'),preview=$('posterPreview'),status=$('posterStatus'),button=$('makePoster');
-  if(!activity){box.innerHTML='<div class="poster-empty"><b>Sin actividad</b><span>Carga primero una ruta desde Resumen.</span></div>';preview.innerHTML='<div class="poster-empty"><b>Aún no hay una ruta cargada</b><span>Sube una actividad desde Resumen para preparar tu cartel.</span></div>';status.textContent='Esperando ruta';button.disabled=true;return}
-  const km=activity.distance/1000, d=activity.ascent;
-  const distancePts=km<=15?1:km<=25?2:km<=40?3:km<=60?4:km<=80?5:6;
-  const elevationPts=d<=200?1:d<=500?2:d<=900?3:d<=1400?4:d<=2000?5:6;
-  box.innerHTML=`<div class="poster-route-name">${esc(activity.name)}</div><div class="poster-grid"><div><span>Distancia</span><b>${fmt(km)} km</b></div><div><span>Desnivel +</span><b>${fmt(d)} m</b></div><div><span>Puntos distancia</span><b>${distancePts}</b></div><div><span>Puntos desnivel</span><b>${elevationPts}</b></div></div><div class="poster-note">La clasificación final utilizará también terreno/técnica, calor/exposición y duración según el sistema oficial.</div>`;
-  preview.innerHTML=`<div class="poster-card"><div class="poster-card-top">PERROS EN BICICLETA</div><div class="poster-card-map">Ruta cargada</div><div class="poster-card-title">${esc(activity.name)}</div><div class="poster-card-stats"><span>${fmt(km)} km</span><span>+${fmt(d)} m</span><span>${duration(activity.duration)}</span></div><div class="poster-card-level">CLASIFICACIÓN MTB</div></div>`;
-  status.textContent='Ruta preparada';button.disabled=false;
-}
+function renderPoster(){setPosterActivity(activity)}
 function navigate(hash){
   const id=(hash||'#resumen').replace('#','');
   if(id!=='video'&&videoModule)videoModule.stopRouteAnimation();
@@ -80,7 +72,7 @@ function readFile(file,callback){
 function loadFile(file){
   if(!file)return;setFileMessage('Leyendo '+file.name+'…');
   if(videoModule)videoModule.stopRouteAnimation();
-  readFile(file,(parsed,error)=>{if(error){console.error(error);setFileMessage(error.message||'No fue posible analizar el archivo.','error');return}activity=parsed;points=parsed.points;render();setFileMessage('Actividad cargada correctamente.','ok')});
+  readFile(file,(parsed,error)=>{if(error){console.error(error);setFileMessage(error.message||'No fue posible analizar el archivo.','error');return}activity=parsed;points=parsed.points;renderPoster();render();setFileMessage('Actividad cargada correctamente.','ok')});
 }
 function loadCompare(file){
   if(!file)return;$('compareState').textContent='Analizando '+file.name+'…';
@@ -109,6 +101,7 @@ window.addEventListener('error',e=>console.error('App error:',e.error||e.message
 
 window.addEventListener('hashchange',()=>navigate(location.hash));
 document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();location.hash=a.getAttribute('href').slice(1)}));
-$('makePoster').onclick=()=>{if(!activity)return; $('posterStatus').textContent='Cartel preparado para la siguiente etapa de diseño.'};
+$('makePoster').onclick=generatePoster;
+$('downloadPoster').onclick=downloadPoster;
 navigate(location.hash||'#resumen');
 

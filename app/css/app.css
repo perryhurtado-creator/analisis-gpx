@@ -33,3 +33,5 @@
 #video3DPreview canvas{display:block;width:100%;max-width:420px;height:auto;margin:16px auto;background:#10251f}
 .cesium-render-host{position:fixed;left:-10000px;top:0;width:720px;height:794px;pointer-events:none}
 [hidden]{display:none!important}
+
+.poster-field{display:flex;flex-direction:column;gap:7px;margin:16px 0;font-size:12px;font-weight:800}.poster-field input,.poster-field select{width:100%;min-width:0;padding:12px;border:1px solid var(--line);border-radius:9px;background:white;color:var(--ink);font:inherit;font-size:16px}.poster-actions{display:flex;flex-wrap:wrap;gap:10px}.poster-canvas{display:block;width:100%;height:auto}.poster-preview{min-width:0;align-self:start}.poster-builder{grid-template-columns:minmax(280px,1fr) minmax(280px,.8fr)}.poster-info .panel-title{flex-wrap:wrap;gap:7px}.poster-info #posterStatus{font-size:12px}.poster-info .action-btn:disabled{opacity:.45;cursor:default}@media(max-width:760px){.poster-builder{grid-template-columns:1fr}.poster-preview{min-height:0}.poster-preview:has(.poster-empty){min-height:320px}}
