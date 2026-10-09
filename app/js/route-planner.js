@@ -48,7 +48,7 @@ async function calculate(){
     const height=n=>Number.isFinite(n)?Math.round(n).toLocaleString('es-MX')+' m':'No disponible';
     $('plannerAscent').textContent=height(profile.ascent);$('plannerDescent').textContent=height(profile.descent);$('plannerAltitude').textContent=profile.min!==null?height(profile.min)+' – '+height(profile.max):'No disponible';
     $('plannerElevationChart').innerHTML=elevationSVG(profile);
-    $('plannerElevationStatus').textContent=data.elevation?.message||'Altimetría estimada del terreno SRTM. Gráfica y acumulados calculados con las mismas alturas.';
+    $('plannerElevationStatus').textContent=data.elevation?.message||'Altimetría estimada SRTM, filtrada para reducir ruido. Gráfica, acumulados y GPX usan las mismas alturas.';
     $('plannerDownload').disabled=false;status('Ruta lista. Arrastra cualquier punto para recalcular o pulsa Añadir punto intermedio.');
   }catch(error){if(current===revision&&error.name!=='AbortError')status(error.message)}finally{if(current===revision)controller=null}
 }

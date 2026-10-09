@@ -1,4 +1,4 @@
-import {terrainSamples,mergeTerrain} from '../js/terrain-profile.js';
+import {terrainSamples,mergeTerrain,TERRAIN_FILTER} from '../js/terrain-profile.js';
 import {elevationProfile} from '../js/planner-elevation.js';
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 export async function POST(request){
@@ -30,6 +30,6 @@ export async function POST(request){
     }catch(error){console.error('Terrain elevation failed:',error.name);elevationMessage='No se pudo obtener la altimetría del terreno. Pulsa Recalcular para volver a intentar.'}
     const profile=elevationProfile(elevated.coordinates,summary.distance);
     if(!profile.complete&&!elevationMessage)elevationMessage='Hay alturas ausentes o anómalas; no se muestra el acumulado incompleto.';
-    return json({geometry:elevated, distance:summary.distance,duration:summary.duration,elevation:{ascent:profile.ascent,descent:profile.descent,min:profile.min,max:profile.max,complete:profile.complete,source:'SRTM · openrouteservice elevation',spacing,message:elevationMessage},attribution:'© openrouteservice · © OpenStreetMap contributors'});
+    return json({geometry:elevated, distance:summary.distance,duration:summary.duration,elevation:{ascent:profile.ascent,descent:profile.descent,min:profile.min,max:profile.max,complete:profile.complete,source:'SRTM · openrouteservice elevation',filter:TERRAIN_FILTER,spacing,message:elevationMessage},attribution:'© openrouteservice · © OpenStreetMap contributors'});
   }catch(error){console.error('MTB routing failed:',error.name);return json({error:error.name==='TimeoutError'?'El cálculo tardó demasiado. Intenta de nuevo.':'No se pudo conectar con el servicio de rutas.'},502)}
 }

@@ -10,6 +10,50 @@ export function terrainSamples(coordinates){
   });
   return {originals,samples,spacing:length/(count-1)};
 }
+// Terrain grids contain short-scale vertical noise. Filter in metres, before
+// interpolating onto road vertices, so totals do not depend on vertex density.
+export const TERRAIN_FILTER={radius:100,tolerance:5};
+export function filterTerrain(samples,elevations){
+  const output=elevations.slice();
+  let begin=0;
+  while(begin<samples.length){
+    if(elevations[begin]===null){begin++;continue}
+    let end=begin;while(end+1<samples.length&&elevations[end+1]!==null)end++;
+    const smooth=elevations.slice(begin,end+1);
+    for(let i=begin+1;i<end;i++){
+      let sum=0,weight=0;
+      for(let j=i;j>=begin&&samples[i].d-samples[j].d<TERRAIN_FILTER.radius;j--){const w=1-(samples[i].d-samples[j].d)/TERRAIN_FILTER.radius;sum+=elevations[j]*w;weight+=w}
+      for(let j=i+1;j<=end&&samples[j].d-samples[i].d<TERRAIN_FILTER.radius;j++){const w=1-(samples[j].d-samples[i].d)/TERRAIN_FILTER.radius;sum+=elevations[j]*w;weight+=w}
+      smooth[i-begin]=sum/weight;
+    }
+    // Vertical-error simplification removes residual ripples. Keep the union
+    // of both traversal orders so reversing a route gives the same profile.
+    const anchors=new Set([begin,end]);
+    for(const reversed of [false,true]){
+      const stack=[[begin,end]];
+      while(stack.length){
+        const [a,b]=stack.pop();let worst=TERRAIN_FILTER.tolerance,index=-1;
+        for(let k=a+1;k<b;k++){
+          const i=reversed?b-(k-a):k;
+          const ratio=(samples[i].d-samples[a].d)/(samples[b].d-samples[a].d||1);
+          const error=Math.abs(smooth[i-begin]-(smooth[a-begin]+ratio*(smooth[b-begin]-smooth[a-begin])));
+          if(error>worst){worst=error;index=i}
+        }
+        if(index!==-1){anchors.add(index);stack.push([a,index],[index,b])}
+      }
+    }
+    const ordered=[...anchors].sort((a,b)=>a-b);
+    for(let k=1;k<ordered.length;k++){
+      const a=ordered[k-1],b=ordered[k];
+      for(let i=a;i<=b;i++){
+        const ratio=(samples[i].d-samples[a].d)/(samples[b].d-samples[a].d||1);
+        output[i]=smooth[a-begin]+ratio*(smooth[b-begin]-smooth[a-begin]);
+      }
+    }
+    begin=end+1;
+  }
+  return output;
+}
 export function mergeTerrain(plan,heights){
   if(heights.length!==plan.samples.length)throw Error('Elevation sample count mismatch');
   const elevations=heights.map(z=>Number.isFinite(z)&&z>=-500&&z<=9000?z:null);
@@ -19,10 +63,11 @@ export function mergeTerrain(plan,heights){
     const before=plan.samples[i].d-plan.samples[i-1].d,after=plan.samples[i+1].d-plan.samples[i].d;
     if(Math.abs(z-a)>150&&Math.abs(z-b)>150&&Math.abs(z-a)>2*before&&Math.abs(z-b)>2*after&&Math.abs(a-b)<50)elevations[i]=null;
   }
+  const filtered=filterTerrain(plan.samples,elevations);
   const nodes=[...plan.originals,...plan.samples].sort((a,b)=>a.d-b.d);let index=0,previous=-1;
   return nodes.filter(n=>{if(Math.abs(n.d-previous)<1e-6)return false;previous=n.d;return true}).map(n=>{
     while(index<plan.samples.length-2&&plan.samples[index+1].d<n.d-1e-6)index++;
-    const a=plan.samples[index],b=plan.samples[index+1],za=elevations[index],zb=elevations[index+1];
+    const a=plan.samples[index],b=plan.samples[index+1],za=filtered[index],zb=filtered[index+1];
     const ele=Math.abs(n.d-a.d)<1e-6?za:Math.abs(n.d-b.d)<1e-6?zb:za!==null&&zb!==null?za+(zb-za)*(n.d-a.d)/(b.d-a.d):null;
     return [...n.coordinate,ele];
   });

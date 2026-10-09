@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {terrainSamples,mergeTerrain} from '../js/terrain-profile.js';
+import {terrainSamples,mergeTerrain,filterTerrain} from '../js/terrain-profile.js';
 import {elevationProfile} from '../js/planner-elevation.js';
 const route=[[-100,20],[-100.005,20],[-100.005,20.005]];
 const plan=terrainSamples(route);assert.ok(plan.samples.length<=2000);assert.ok(plan.spacing<=30);assert.deepEqual(plan.samples[0].coordinate,route[0]);assert.deepEqual(plan.samples.at(-1).coordinate,route.at(-1));
@@ -10,3 +10,19 @@ const bad=plan.samples.map(()=>1800);bad[5]=0;const drop=mergeTerrain(plan,bad);
 const sea=mergeTerrain(plan,plan.samples.map(()=>0));assert.equal(elevationProfile(sea,1000).ascent,0);
 assert.throws(()=>mergeTerrain(plan,[]));
 console.log('Terrain checks passed: regular sampling, 2000 limit, preserved corners, same-series totals, reversed ascent/descent, zero dropouts, true sea level, count validation');
+
+const samples=Array.from({length:101},(_,i)=>({d:i*30}));
+const noise=samples.map((_,i)=>1800+(i===0||i===100?0:i%2?4:-4));
+const cleaned=filterTerrain(samples,noise);
+const total=zs=>zs.slice(1).reduce((sum,z,i)=>sum+Math.abs(z-zs[i]),0);
+assert.ok(total(cleaned)<1,'flat terrain noise must not become cumulative climbing');
+const hill=samples.map((p,i)=>1800+(i<=50?i:100-i)*2+(i===0||i===100?0:i%2?3:-3));
+const hillClean=filterTerrain(samples,hill);
+assert.ok(Math.max(...hillClean)>1890,'retain real 100 m hill');
+assert.ok(total(hillClean)>180&&total(hillClean)<210);
+const reversed=filterTerrain(samples,hill.toReversed()).toReversed();
+assert.ok(hillClean.every((z,i)=>Math.abs(z-reversed[i])<1e-9),'reverse route preserves profile');
+const gentle=filterTerrain(samples,samples.map(p=>1800+p.d/300));
+assert.ok(Math.abs(total(gentle)-10)<1e-8,'a gradual 10 m climb counts');
+const gap=hill.slice();gap[50]=null;const gapClean=filterTerrain(samples,gap);assert.equal(gapClean[50],null);assert.equal(gapClean[49],gap[49]);assert.equal(gapClean[51],gap[51]);
+console.log('Noise filtering checks passed: flat noise, real hill, gentle climb, reversal symmetry, missing-height gaps');
