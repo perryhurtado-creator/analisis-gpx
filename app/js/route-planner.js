@@ -7,7 +7,7 @@ function invalidateRoute(){
   revision++;controller?.abort();controller=null;route=null;
   if(routeLayer){routeLayer.remove();routeLayer=null}
   $('plannerDistance').textContent='—';$('plannerDuration').textContent='—';
-  $('plannerAscent').textContent='—';$('plannerDescent').textContent='—';$('plannerAltitude').textContent='—';$('plannerElevationChart').innerHTML='<div class="chart-empty">Calcula una ruta para ver la altimetría.</div>';$('plannerDownload').disabled=true;
+  $('plannerAscent').textContent='—';$('plannerDescent').textContent='—';$('plannerAltitude').textContent='—';$('plannerElevationStatus').textContent='';$('plannerElevationChart').innerHTML='<div class="chart-empty">Calcula una ruta para ver la altimetría.</div>';$('plannerDownload').disabled=true;
   $('plannerInvert').disabled=markers.length<2;$('plannerRetry').disabled=markers.length<2;
   $('plannerAdd').disabled=markers.length<2||markers.length>=50;$('plannerMoveOrigin').disabled=false;$('plannerMoveDestination').disabled=markers.length<2;
 }
@@ -43,10 +43,11 @@ async function calculate(){
     map.fitBounds(routeLayer.getBounds(),{padding:[30,30],maxZoom:16});
     $('plannerDistance').textContent=`${(data.distance/1000).toLocaleString('es-MX',{maximumFractionDigits:2})} km`;
     const minutes=Math.max(1,Math.round(data.duration/60));$('plannerDuration').textContent=minutes>=60?`${Math.floor(minutes/60)} h ${minutes%60} min`:`${minutes} min`;
-    const profile=elevationProfile(data.geometry.coordinates,data.distance,data.elevation?.ascent,data.elevation?.descent);
+    const profile=elevationProfile(data.geometry.coordinates,data.distance);
     const height=n=>Number.isFinite(n)?Math.round(n).toLocaleString('es-MX')+' m':'No disponible';
     $('plannerAscent').textContent=height(profile.ascent);$('plannerDescent').textContent=height(profile.descent);$('plannerAltitude').textContent=profile.min!==null?height(profile.min)+' – '+height(profile.max):'No disponible';
     $('plannerElevationChart').innerHTML=elevationSVG(profile);
+    $('plannerElevationStatus').textContent=data.elevation?.message||'Altimetría estimada del terreno SRTM. Gráfica y acumulados calculados con las mismas alturas.';
     $('plannerDownload').disabled=false;status('Ruta lista. Arrastra cualquier punto para recalcular o pulsa Añadir punto intermedio.');
   }catch(error){if(current===revision&&error.name!=='AbortError')status(error.message)}finally{if(current===revision)controller=null}
 }

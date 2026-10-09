@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {terrainSamples,mergeTerrain} from '../js/terrain-profile.js';
+import {elevationProfile} from '../js/planner-elevation.js';
+const route=[[-100,20],[-100.005,20],[-100.005,20.005]];
+const plan=terrainSamples(route);assert.ok(plan.samples.length<=2000);assert.ok(plan.spacing<=30);assert.deepEqual(plan.samples[0].coordinate,route[0]);assert.deepEqual(plan.samples.at(-1).coordinate,route.at(-1));
+const merged=mergeTerrain(plan,plan.samples.map((_,i)=>1800+i));assert.ok(merged.some(c=>c[0]===route[1][0]&&c[1]===route[1][1]));const profile=elevationProfile(merged,1000);assert.ok(Math.abs(profile.ascent-(plan.samples.length-1))<1e-8);assert.equal(profile.descent,0);
+const reversePlan=terrainSamples(route.toReversed());const reverse=mergeTerrain(reversePlan,plan.samples.map((_,i)=>1800+i).toReversed());const rp=elevationProfile(reverse,1000);assert.ok(Math.abs(rp.descent-profile.ascent)<1e-8);assert.equal(rp.ascent,0);
+const long=terrainSamples([[0,0],[5,5]]);assert.equal(long.samples.length,2000);
+const bad=plan.samples.map(()=>1800);bad[5]=0;const drop=mergeTerrain(plan,bad);assert.ok(drop.some(c=>c[2]===null));assert.equal(elevationProfile(drop,1000).ascent,null);
+const sea=mergeTerrain(plan,plan.samples.map(()=>0));assert.equal(elevationProfile(sea,1000).ascent,0);
+assert.throws(()=>mergeTerrain(plan,[]));
+console.log('Terrain checks passed: regular sampling, 2000 limit, preserved corners, same-series totals, reversed ascent/descent, zero dropouts, true sea level, count validation');
