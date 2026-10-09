@@ -1,3 +1,4 @@
+import {addPlannerLayers} from './planner-layers.js';
 let map=null,markers=[],routeLayer=null,route=null,controller=null,revision=0,observer=null,editMode=null;
 const $=id=>document.getElementById(id);
 const status=text=>{$('plannerStatus').textContent=text};
@@ -6,7 +7,7 @@ function invalidateRoute(){
   if(routeLayer){routeLayer.remove();routeLayer=null}
   $('plannerDistance').textContent='—';$('plannerDuration').textContent='—';$('plannerDownload').disabled=true;
   $('plannerInvert').disabled=markers.length<2;$('plannerRetry').disabled=markers.length<2;
-  $('plannerAdd').disabled=markers.length<2||markers.length>=50;$('plannerMoveOrigin').disabled=!markers.length;$('plannerMoveDestination').disabled=markers.length<2;
+  $('plannerAdd').disabled=markers.length<2||markers.length>=50;$('plannerMoveOrigin').disabled=false;$('plannerMoveDestination').disabled=markers.length<2;
 }
 function pinIcon(index){
   const end=markers.length>=2&&index===markers.length-1;
@@ -43,6 +44,39 @@ async function calculate(){
     $('plannerDownload').disabled=false;status('Ruta lista. Arrastra cualquier punto para recalcular o pulsa Añadir punto intermedio.');
   }catch(error){if(current===revision&&error.name!=='AbortError')status(error.message)}finally{if(current===revision)controller=null}
 }
+let placeController=null,placeRevision=0,placeResults=[];
+function cancelPlaceSearch(){
+  placeRevision++;placeController?.abort();placeController=null;placeResults=[];
+  $('plannerOriginResults').replaceChildren();$('plannerSearchStatus').textContent='';$('plannerOriginSearchButton').disabled=false;
+}
+function setupOriginSearch(){
+  $('plannerOriginSearch').onsubmit=async e=>{
+    e.preventDefault();cancelPlaceSearch();const q=$('plannerOriginQuery').value.trim();
+    if(q.length<3||q.length>160){$('plannerSearchStatus').textContent='Escribe una localidad de entre 3 y 160 caracteres.';return}
+    const current=placeRevision;placeController=new AbortController();$('plannerOriginSearchButton').disabled=true;$('plannerSearchStatus').textContent='Buscando localidades…';
+    const center=map.getCenter(),params=new URLSearchParams({q,lat:String(center.lat),lon:String(center.lng)});
+    try{
+      const response=await fetch('/api/places?'+params,{signal:placeController.signal});
+      const data=await response.json();if(current!==placeRevision)return;
+      if(!response.ok)throw Error(data.error||'No se pudo buscar la localidad.');
+      if(!Array.isArray(data.places))throw Error('El buscador devolvió una respuesta inválida.');
+      placeResults=data.places;
+      for(const [index,place] of placeResults.entries()){
+        const li=document.createElement('li'),button=document.createElement('button');button.type='button';button.className='planner-place-result';button.dataset.placeIndex=String(index);button.textContent=place.label;li.append(button);$('plannerOriginResults').append(li);
+      }
+      $('plannerSearchStatus').textContent=placeResults.length?'Selecciona una localidad para establecer el inicio.':'No se encontraron localidades. Prueba incluyendo municipio y estado.';
+    }catch(error){if(current===placeRevision&&error.name!=='AbortError')$('plannerSearchStatus').textContent=error.message}
+    finally{if(current===placeRevision){placeController=null;$('plannerOriginSearchButton').disabled=false}}
+  };
+  $('plannerOriginQuery').oninput=cancelPlaceSearch;
+  $('plannerOriginResults').onclick=e=>{
+    const button=e.target.closest('[data-place-index]');if(!button)return;const place=placeResults[Number(button.dataset.placeIndex)];if(!place)return;
+    const point={lat:place.lat,lng:place.lon};editMode=null;invalidateRoute();
+    if(markers.length)markers[0].setLatLng(point);else markers.push(marker(point));
+    labels();invalidateRoute();map.setView(point,13);cancelPlaceSearch();$('plannerSearchStatus').textContent='Inicio: '+place.label;
+    if(markers.length>=2)calculate();else status('Inicio seleccionado. Toca el mapa para marcar B · Destino.');
+  };
+}
 export function routeGPX(data){
   const nodes=data.geometry.coordinates.map(c=>`<trkpt lat="${c[1]}" lon="${c[0]}"></trkpt>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Perros en Bicicleta" xmlns="http://www.topografix.com/GPX/1/1"><metadata><name>Ruta MTB planificada</name><desc>Recorrido calculado por openrouteservice con datos de OpenStreetMap. Sin tiempos registrados.</desc></metadata><trk><name>Ruta MTB planificada</name><type>cycling</type><trkseg>${nodes}</trkseg></trk></gpx>`;
@@ -51,10 +85,11 @@ export function openPlanner(){
   if(map){requestAnimationFrame(()=>map.invalidateSize());return}
   const L=window.L;if(!L){status('No se pudo cargar Leaflet. Revisa tu conexión y recarga.');return}
   map=L.map('plannerMap').setView([20.5888,-100.3899],12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+  addPlannerLayers(map,L);
+  setupOriginSearch();
   map.on('click',e=>{
     if(editMode==='origin'||editMode==='destination'){
-      markers[editMode==='origin'?0:markers.length-1].setLatLng(e.latlng);editMode=null;labels();
+      if(!markers.length)markers.push(marker(e.latlng));else markers[editMode==='origin'?0:markers.length-1].setLatLng(e.latlng);editMode=null;labels();
       if(markers.length>=2)calculate();else status('Toca el mapa para marcar B · Destino.');return;
     }
     if(markers.length>=2){
@@ -66,14 +101,14 @@ export function openPlanner(){
     if(markers.length>=2)calculate();else status('Toca el mapa para marcar B · Destino.');
   });
   $('plannerAdd').onclick=()=>{if(markers.length<2||markers.length>=50)return;editMode='add';status('Toca el mapa para añadir un punto intermedio antes del destino B.')};
-  $('plannerMoveOrigin').onclick=()=>{if(!markers.length)return;editMode='origin';status('Toca el mapa para cambiar A · Origen.')};
+  $('plannerMoveOrigin').onclick=()=>{editMode='origin';$('plannerOriginQuery').focus();status('Busca una localidad o toca el mapa para elegir A · Origen.')};
   $('plannerMoveDestination').onclick=()=>{if(markers.length<2)return;editMode='destination';status('Toca el mapa para cambiar B · Destino.')};
   $('plannerWaypoints').onclick=e=>{
     const button=e.target.closest('[data-remove-waypoint]');if(!button)return;
     const index=Number(button.dataset.removeWaypoint);if(!Number.isInteger(index)||index<1||index>=markers.length-1)return;
     editMode=null;markers.splice(index,1)[0].remove();labels();calculate();
   };
-  $('plannerClear').onclick=()=>{editMode=null;invalidateRoute();markers.forEach(m=>m.remove());markers=[];labels();invalidateRoute();status('Toca el mapa para marcar A · Origen.')};
+  $('plannerClear').onclick=()=>{cancelPlaceSearch();editMode=null;invalidateRoute();markers.forEach(m=>m.remove());markers=[];labels();invalidateRoute();status('Toca el mapa para marcar A · Origen.')};
   $('plannerInvert').onclick=()=>{if(markers.length<2)return;editMode=null;markers.reverse();labels();calculate()};
   $('plannerRetry').onclick=calculate;
   $('plannerDownload').onclick=()=>{
