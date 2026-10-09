@@ -47,7 +47,7 @@ function parsePoint(node){
   const speed=optionalNumber(childText(node,'speed'));
   return {lat,lon,ele,time:Number.isFinite(parsedTime)?parsedTime:null,
     hr:hr!==null&&hr>0?hr:null,cad:cad!==null&&cad>0?cad:null,
-    speed:speed!==null&&speed>0?speed*3.6:null,d:0,up:0};
+    speed:speed!==null&&speed>=0?speed*3.6:null,d:0,up:0};
 }
 
 export function parseGPX(xmlText,file){
@@ -70,8 +70,9 @@ export function finalize(xml,p,type,file){
     if(cur.breakBefore||cur.segmentId!==prev.segmentId)continue;
     const dd=meters(prev,cur);
     cur.d=prev.d+dd;
-    const dt=cur.time&&prev.time?(cur.time-prev.time)/1000:null;
-    if(dt&&dt>0&&dt<=30&&dd>=1)cur.speed=dd/dt*3.6;
+    const dt=Number.isFinite(cur.time)&&Number.isFinite(prev.time)?(cur.time-prev.time)/1000:null;
+    // Una distancia inferior a 1 m sigue siendo válida: incluye marcha lenta y paradas.
+    if(dt!==null&&dt>0&&dt<=30)cur.speed=dd/dt*3.6;
   }
   const elevations=p.map((point,i)=>{
     if(!Number.isFinite(point.ele))return null;
@@ -104,3 +105,4 @@ export function finalize(xml,p,type,file){
     start:times.length?Math.min(...times):null};
 }
 export {all,childText};
+

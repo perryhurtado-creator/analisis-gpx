@@ -14,7 +14,7 @@ function parsePoint(node){
   const speed=optionalNumber(childText(node,'Speed'));
   return {lat,lon,ele,time:Number.isFinite(parsedTime)?parsedTime:null,
     hr:hr!==null&&hr>0?hr:null,cad:cad!==null&&cad>0?cad:null,
-    speed:speed!==null&&speed>0?speed*3.6:null,d:0,up:0};
+    speed:speed!==null&&speed>=0?speed*3.6:null,d:0,up:0};
 }
 
 export function parseTCX(xmlText,file){
@@ -26,3 +26,4 @@ export function parseTCX(xmlText,file){
   if(raw.length<2)throw Error('No encontré suficientes puntos de recorrido en este archivo.');
   return finalize(xml,appendRuns(groups,parsePoint),'TCX',file);
 }
+
