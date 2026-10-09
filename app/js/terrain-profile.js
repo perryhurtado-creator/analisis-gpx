@@ -12,7 +12,7 @@ export function terrainSamples(coordinates){
 }
 // Terrain grids contain short-scale vertical noise. Filter in metres, before
 // interpolating onto road vertices, so totals do not depend on vertex density.
-export const TERRAIN_FILTER={radius:100,tolerance:5};
+export const TERRAIN_FILTER={radius:100,tolerance:5,method:'bounded-variation-v1'};
 export function filterTerrain(samples,elevations){
   const output=elevations.slice();
   let begin=0;
@@ -26,30 +26,14 @@ export function filterTerrain(samples,elevations){
       for(let j=i+1;j<=end&&samples[j].d-samples[i].d<TERRAIN_FILTER.radius;j++){const w=1-(samples[j].d-samples[i].d)/TERRAIN_FILTER.radius;sum+=elevations[j]*w;weight+=w}
       smooth[i-begin]=sum/weight;
     }
-    // Vertical-error simplification removes residual ripples. Keep the union
-    // of both traversal orders so reversing a route gives the same profile.
-    const anchors=new Set([begin,end]);
-    for(const reversed of [false,true]){
-      const stack=[[begin,end]];
-      while(stack.length){
-        const [a,b]=stack.pop();let worst=TERRAIN_FILTER.tolerance,index=-1;
-        for(let k=a+1;k<b;k++){
-          const i=reversed?b-(k-a):k;
-          const ratio=(samples[i].d-samples[a].d)/(samples[b].d-samples[a].d||1);
-          const error=Math.abs(smooth[i-begin]-(smooth[a-begin]+ratio*(smooth[b-begin]-smooth[a-begin])));
-          if(error>worst){worst=error;index=i}
-        }
-        if(index!==-1){anchors.add(index);stack.push([a,index],[index,b])}
-      }
-    }
-    const ordered=[...anchors].sort((a,b)=>a-b);
-    for(let k=1;k<ordered.length;k++){
-      const a=ordered[k-1],b=ordered[k];
-      for(let i=a;i<=b;i++){
-        const ratio=(samples[i].d-samples[a].d)/(samples[b].d-samples[a].d||1);
-        output[i]=smooth[a-begin]+ratio*(smooth[b-begin]-smooth[a-begin]);
-      }
-    }
+    // Minimise total vertical variation inside a +/- 5 m uncertainty band.
+    // Clamping in both directions, then averaging, makes the result symmetric
+    // under route reversal. Endpoints stay fixed; a slow sustained climb still
+    // counts in full, while small alternating changes cannot inflate totals.
+    const forward=smooth.slice(),backward=smooth.slice();
+    for(let i=1;i<smooth.length-1;i++)forward[i]=Math.max(smooth[i]-TERRAIN_FILTER.tolerance,Math.min(smooth[i]+TERRAIN_FILTER.tolerance,forward[i-1]));
+    for(let i=smooth.length-2;i>0;i--)backward[i]=Math.max(smooth[i]-TERRAIN_FILTER.tolerance,Math.min(smooth[i]+TERRAIN_FILTER.tolerance,backward[i+1]));
+    for(let i=begin;i<=end;i++)output[i]=(forward[i-begin]+backward[i-begin])/2;
     begin=end+1;
   }
   return output;

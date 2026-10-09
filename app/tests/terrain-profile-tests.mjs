@@ -26,3 +26,20 @@ const gentle=filterTerrain(samples,samples.map(p=>1800+p.d/300));
 assert.ok(Math.abs(total(gentle)-10)<1e-8,'a gradual 10 m climb counts');
 const gap=hill.slice();gap[50]=null;const gapClean=filterTerrain(samples,gap);assert.equal(gapClean[50],null);assert.equal(gapClean[49],gap[49]);assert.equal(gapClean[51],gap[51]);
 console.log('Noise filtering checks passed: flat noise, real hill, gentle climb, reversal symmetry, missing-height gaps');
+
+const staircase=samples.map((p,i)=>1800+i+(i===0||i===100?0:i%2?4:-4));
+const steady=filterTerrain(samples,staircase);
+assert.ok(Math.abs(total(steady)-100)<1e-8,'a noisy sustained climb counts its entire net rise');
+assert.equal(steady[0],staircase[0]);assert.equal(steady.at(-1),staircase.at(-1));
+const densePlan={...plan,originals:plan.originals.flatMap((p,i)=>{
+  if(i===0)return [p];
+  const a=plan.originals[i-1];
+  return [{d:(a.d+p.d)/2,coordinate:a.coordinate.map((v,j)=>(v+p.coordinate[j])/2)},p];
+})};
+const baseHeights=plan.samples.map((_,i)=>1800+30*Math.sin(i/5)+3*(i%2?1:-1));
+const baseProfile=elevationProfile(mergeTerrain(plan,baseHeights),1000);
+const denseProfile=elevationProfile(mergeTerrain(densePlan,baseHeights),1000);
+assert.ok(Math.abs(baseProfile.ascent-denseProfile.ascent)<1e-8,'adding road vertices must not add ascent');
+assert.ok(Math.abs(baseProfile.descent-denseProfile.descent)<1e-8);
+assert.ok(Math.abs(baseProfile.ascent-baseProfile.descent-(baseHeights.at(-1)-baseHeights[0]))<1e-8,'gain minus loss equals endpoint height difference');
+console.log('Accumulation checks passed: noisy sustained climb, fixed endpoints, vertex density, net height conservation');
