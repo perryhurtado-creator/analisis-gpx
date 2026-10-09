@@ -1,3 +1,4 @@
+import {elevationProfile,elevationSVG} from './planner-elevation.js';
 import {addPlannerLayers} from './planner-layers.js';
 let map=null,markers=[],routeLayer=null,route=null,controller=null,revision=0,observer=null,editMode=null;
 const $=id=>document.getElementById(id);
@@ -5,7 +6,8 @@ const status=text=>{$('plannerStatus').textContent=text};
 function invalidateRoute(){
   revision++;controller?.abort();controller=null;route=null;
   if(routeLayer){routeLayer.remove();routeLayer=null}
-  $('plannerDistance').textContent='—';$('plannerDuration').textContent='—';$('plannerDownload').disabled=true;
+  $('plannerDistance').textContent='—';$('plannerDuration').textContent='—';
+  $('plannerAscent').textContent='—';$('plannerDescent').textContent='—';$('plannerAltitude').textContent='—';$('plannerElevationChart').innerHTML='<div class="chart-empty">Calcula una ruta para ver la altimetría.</div>';$('plannerDownload').disabled=true;
   $('plannerInvert').disabled=markers.length<2;$('plannerRetry').disabled=markers.length<2;
   $('plannerAdd').disabled=markers.length<2||markers.length>=50;$('plannerMoveOrigin').disabled=false;$('plannerMoveDestination').disabled=markers.length<2;
 }
@@ -41,44 +43,53 @@ async function calculate(){
     map.fitBounds(routeLayer.getBounds(),{padding:[30,30],maxZoom:16});
     $('plannerDistance').textContent=`${(data.distance/1000).toLocaleString('es-MX',{maximumFractionDigits:2})} km`;
     const minutes=Math.max(1,Math.round(data.duration/60));$('plannerDuration').textContent=minutes>=60?`${Math.floor(minutes/60)} h ${minutes%60} min`:`${minutes} min`;
+    const profile=elevationProfile(data.geometry.coordinates,data.distance,data.elevation?.ascent,data.elevation?.descent);
+    const height=n=>Number.isFinite(n)?Math.round(n).toLocaleString('es-MX')+' m':'No disponible';
+    $('plannerAscent').textContent=height(profile.ascent);$('plannerDescent').textContent=height(profile.descent);$('plannerAltitude').textContent=profile.min!==null?height(profile.min)+' – '+height(profile.max):'No disponible';
+    $('plannerElevationChart').innerHTML=elevationSVG(profile);
     $('plannerDownload').disabled=false;status('Ruta lista. Arrastra cualquier punto para recalcular o pulsa Añadir punto intermedio.');
   }catch(error){if(current===revision&&error.name!=='AbortError')status(error.message)}finally{if(current===revision)controller=null}
 }
-let placeController=null,placeRevision=0,placeResults=[];
-function cancelPlaceSearch(){
-  placeRevision++;placeController?.abort();placeController=null;placeResults=[];
-  $('plannerOriginResults').replaceChildren();$('plannerSearchStatus').textContent='';$('plannerOriginSearchButton').disabled=false;
+const searches={Origin:{controller:null,revision:0,results:[]},Destination:{controller:null,revision:0,results:[]}};
+function cancelPlaceSearch(target){
+  for(const name of target?[target]:Object.keys(searches)){
+    const search=searches[name];search.revision++;search.controller?.abort();search.controller=null;search.results=[];
+    $(`planner${name}Results`).replaceChildren();$(`planner${name}SearchStatus`).textContent='';$(`planner${name}SearchButton`).disabled=false;
+  }
 }
-function setupOriginSearch(){
-  $('plannerOriginSearch').onsubmit=async e=>{
-    e.preventDefault();cancelPlaceSearch();const q=$('plannerOriginQuery').value.trim();
-    if(q.length<3||q.length>160){$('plannerSearchStatus').textContent='Escribe una localidad de entre 3 y 160 caracteres.';return}
-    const current=placeRevision;placeController=new AbortController();$('plannerOriginSearchButton').disabled=true;$('plannerSearchStatus').textContent='Buscando localidades…';
+function setupPlaceSearch(target){
+  const search=searches[target],get=suffix=>$(`planner${target}${suffix}`);
+  get('Search').onsubmit=async e=>{
+    e.preventDefault();cancelPlaceSearch(target);const q=get('Query').value.trim();
+    if(q.length<3||q.length>160){get('SearchStatus').textContent='Escribe una localidad de entre 3 y 160 caracteres.';return}
+    const current=search.revision;search.controller=new AbortController();get('SearchButton').disabled=true;get('SearchStatus').textContent='Buscando localidades…';
     const center=map.getCenter(),params=new URLSearchParams({q,lat:String(center.lat),lon:String(center.lng)});
     try{
-      const response=await fetch('/api/places?'+params,{signal:placeController.signal});
-      const data=await response.json();if(current!==placeRevision)return;
+      const response=await fetch('/api/places?'+params,{signal:search.controller.signal});
+      const data=await response.json();if(current!==search.revision)return;
       if(!response.ok)throw Error(data.error||'No se pudo buscar la localidad.');
       if(!Array.isArray(data.places))throw Error('El buscador devolvió una respuesta inválida.');
-      placeResults=data.places;
-      for(const [index,place] of placeResults.entries()){
-        const li=document.createElement('li'),button=document.createElement('button');button.type='button';button.className='planner-place-result';button.dataset.placeIndex=String(index);button.textContent=place.label;li.append(button);$('plannerOriginResults').append(li);
+      search.results=data.places;
+      for(const [index,place] of search.results.entries()){
+        const li=document.createElement('li'),button=document.createElement('button');button.type='button';button.className='planner-place-result';button.dataset.placeIndex=String(index);button.textContent=place.label;li.append(button);get('Results').append(li);
       }
-      $('plannerSearchStatus').textContent=placeResults.length?'Selecciona una localidad para establecer el inicio.':'No se encontraron localidades. Prueba incluyendo municipio y estado.';
-    }catch(error){if(current===placeRevision&&error.name!=='AbortError')$('plannerSearchStatus').textContent=error.message}
-    finally{if(current===placeRevision){placeController=null;$('plannerOriginSearchButton').disabled=false}}
+      get('SearchStatus').textContent=search.results.length?`Selecciona una localidad para establecer ${target==='Origin'?'el inicio':'el destino'}.`:'No se encontraron localidades. Prueba incluyendo municipio y estado.';
+    }catch(error){if(current===search.revision&&error.name!=='AbortError')get('SearchStatus').textContent=error.message}
+    finally{if(current===search.revision){search.controller=null;get('SearchButton').disabled=false}}
   };
-  $('plannerOriginQuery').oninput=cancelPlaceSearch;
-  $('plannerOriginResults').onclick=e=>{
-    const button=e.target.closest('[data-place-index]');if(!button)return;const place=placeResults[Number(button.dataset.placeIndex)];if(!place)return;
+  get('Query').oninput=()=>cancelPlaceSearch(target);
+  get('Results').onclick=e=>{
+    const button=e.target.closest('[data-place-index]');if(!button)return;const place=search.results[Number(button.dataset.placeIndex)];if(!place)return;
+    if(target==='Destination'&&!markers.length){get('SearchStatus').textContent='Selecciona primero el inicio A y después elige este destino.';return}
     const point={lat:place.lat,lng:place.lon};editMode=null;invalidateRoute();
-    if(markers.length)markers[0].setLatLng(point);else markers.push(marker(point));
-    labels();invalidateRoute();map.setView(point,13);cancelPlaceSearch();$('plannerSearchStatus').textContent='Inicio: '+place.label;
-    if(markers.length>=2)calculate();else status('Inicio seleccionado. Toca el mapa para marcar B · Destino.');
+    if(target==='Origin'){if(markers.length)markers[0].setLatLng(point);else markers.push(marker(point))}
+    else if(markers.length>=2)markers.at(-1).setLatLng(point);else markers.push(marker(point));
+    labels();invalidateRoute();map.setView(point,13);cancelPlaceSearch(target);get('SearchStatus').textContent=(target==='Origin'?'Inicio: ':'Destino: ')+place.label;
+    if(markers.length>=2)calculate();else status('Inicio seleccionado. Toca el mapa o busca una localidad para marcar B · Destino.');
   };
 }
 export function routeGPX(data){
-  const nodes=data.geometry.coordinates.map(c=>`<trkpt lat="${c[1]}" lon="${c[0]}"></trkpt>`).join('\n');
+  const nodes=data.geometry.coordinates.map(c=>`<trkpt lat="${c[1]}" lon="${c[0]}">${Number.isFinite(c[2])?`<ele>${c[2]}</ele>`:''}</trkpt>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Perros en Bicicleta" xmlns="http://www.topografix.com/GPX/1/1"><metadata><name>Ruta MTB planificada</name><desc>Recorrido calculado por openrouteservice con datos de OpenStreetMap. Sin tiempos registrados.</desc></metadata><trk><name>Ruta MTB planificada</name><type>cycling</type><trkseg>${nodes}</trkseg></trk></gpx>`;
 }
 export function openPlanner(){
@@ -86,7 +97,7 @@ export function openPlanner(){
   const L=window.L;if(!L){status('No se pudo cargar Leaflet. Revisa tu conexión y recarga.');return}
   map=L.map('plannerMap').setView([20.5888,-100.3899],12);
   addPlannerLayers(map,L);
-  setupOriginSearch();
+  setupPlaceSearch('Origin');setupPlaceSearch('Destination');
   map.on('click',e=>{
     if(editMode==='origin'||editMode==='destination'){
       if(!markers.length)markers.push(marker(e.latlng));else markers[editMode==='origin'?0:markers.length-1].setLatLng(e.latlng);editMode=null;labels();
@@ -102,7 +113,7 @@ export function openPlanner(){
   });
   $('plannerAdd').onclick=()=>{if(markers.length<2||markers.length>=50)return;editMode='add';status('Toca el mapa para añadir un punto intermedio antes del destino B.')};
   $('plannerMoveOrigin').onclick=()=>{editMode='origin';$('plannerOriginQuery').focus();status('Busca una localidad o toca el mapa para elegir A · Origen.')};
-  $('plannerMoveDestination').onclick=()=>{if(markers.length<2)return;editMode='destination';status('Toca el mapa para cambiar B · Destino.')};
+  $('plannerMoveDestination').onclick=()=>{if(markers.length<2)return;editMode='destination';$('plannerDestinationQuery').focus();status('Busca una localidad o toca el mapa para cambiar B · Destino.')};
   $('plannerWaypoints').onclick=e=>{
     const button=e.target.closest('[data-remove-waypoint]');if(!button)return;
     const index=Number(button.dataset.removeWaypoint);if(!Number.isInteger(index)||index<1||index>=markers.length-1)return;
