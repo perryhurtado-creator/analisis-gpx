@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {POST} from '../api/route.mjs';
+const originalFetch=globalThis.fetch,originalKey=process.env.ORS_API_KEY;
+const request=coordinates=>new Request('https://example.test/api/route',{method:'POST',body:JSON.stringify({coordinates})});
+let count=0;
+try{
+ for(const invalid of [[],[[0,0]],[[0,0],[181,0]],[[0,0],[0,91]],[[0,0],[0,0]],[[null,0],[1,1]],[[0,0],[1,1],[2,2]]]){assert.equal((await POST(request(invalid))).status,400);count++}
+ delete process.env.ORS_API_KEY;assert.equal((await POST(request([[0,0],[1,1]]))).status,503);count++;
+ process.env.ORS_API_KEY='test-secret';
+ globalThis.fetch=async(url,options)=>{assert.equal(url,'https://api.openrouteservice.org/v2/directions/cycling-mountain/geojson');assert.equal(options.headers.Authorization,'test-secret');assert.deepEqual(JSON.parse(options.body).coordinates,[[-100.4,20.5],[-100.3,20.6]]);return Response.json({features:[{geometry:{type:'LineString',coordinates:[[-100.4,20.5],[-100.3,20.6]]},properties:{summary:{distance:15000,duration:3600}}}]})};
+ const result=await POST(request([[-100.4,20.5],[-100.3,20.6]]));assert.equal(result.status,200);const data=await result.json();assert.equal(data.distance,15000);assert.ok(!JSON.stringify(data).includes('test-secret'));count++;
+ for(const [code,expected] of [[400,422],[429,429],[403,503],[500,502]]){globalThis.fetch=async()=>new Response('',{status:code});assert.equal((await POST(request([[0,0],[1,1]]))).status,expected);count++}
+ globalThis.fetch=async()=>Response.json({features:[]});assert.equal((await POST(request([[0,0],[1,1]]))).status,502);count++;
+ globalThis.fetch=async()=>{throw new DOMException('timeout','TimeoutError')};assert.equal((await POST(request([[0,0],[1,1]]))).status,502);count++;
+ console.log(`${count} route API checks passed`);
+}finally{globalThis.fetch=originalFetch;if(originalKey===undefined)delete process.env.ORS_API_KEY;else process.env.ORS_API_KEY=originalKey}

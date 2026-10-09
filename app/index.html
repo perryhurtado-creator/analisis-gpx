@@ -76,8 +76,16 @@
       </section>
 
       <section class="page" id="trazar">
-        <section class="welcome"><div><h2>Traza una ruta</h2><p>Esta sección queda preparada para la siguiente etapa del proyecto.</p></div></section>
-        <section class="panel coming-soon"><div class="coming-icon">⌖</div><h3>Próximamente</h3><p>Aquí construiremos la herramienta para crear y trazar nuevas rutas.</p></section>
+        <section class="welcome"><div><h2>Traza una ruta</h2><p>Marca el origen y el destino para calcular una ruta por caminos disponibles.</p></div></section>
+        <section class="panel planner-panel">
+          <div class="planner-config"><span class="tag">MTB</span><span>2 puntos · Origen → Destino</span></div>
+          <div class="planner-points"><div><b>A · Origen</b><span id="plannerOrigin">Sin seleccionar</span></div><div><b>B · Destino</b><span id="plannerDestination">Sin seleccionar</span></div></div>
+          <p id="plannerStatus" class="planner-status" role="status" aria-live="polite">Toca el mapa para marcar A · Origen.</p>
+          <div class="map-wrap planner-map-wrap"><div id="plannerMap" class="map-host" aria-label="Mapa para seleccionar origen y destino"></div></div>
+          <div class="planner-results"><div><span>Distancia</span><b id="plannerDistance">—</b></div><div><span>Tiempo estimado</span><b id="plannerDuration">—</b></div></div>
+          <div class="action-row"><button type="button" class="action-btn secondary" id="plannerInvert" disabled>Invertir A ↔ B</button><button type="button" class="action-btn secondary" id="plannerClear">Limpiar</button><button type="button" class="action-btn secondary" id="plannerRetry" disabled>Recalcular</button><button type="button" class="action-btn" id="plannerDownload" disabled>↓ Descargar GPX</button></div>
+          <p class="planner-note">Cálculo: © openrouteservice · Datos: © OpenStreetMap contributors. El tiempo es una estimación. Los puntos se envían al servicio para calcular la ruta; el recorrido depende de los caminos registrados.</p>
+        </section>
       </section>
     </div>
   </main>
@@ -86,4 +94,5 @@
 <script type="module" src="./js/app.js"></script>
 </body>
 </html>
+
 

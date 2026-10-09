@@ -4,7 +4,7 @@ import {parseTCX} from './tcx-parser.js';
 import {avg,fmt,duration,stamp,summary,segments,slopeStats,speedStats,heartZones,continuousSpeed} from './metrics.js';
 import {drawChart} from './charts.js';
 import {createMap,fitRoute,showPoint,hidePoint,clearMap} from './map.js';
-let videoModule=null;
+let videoModule=null,plannerModule=null;
 
 const $=id=>document.getElementById(id);
 let activity=null,compareActivity=null,points=[],resizeObserver=null;
@@ -26,6 +26,7 @@ function navigate(hash){
   document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+id));
   const titles={resumen:'Resumen',video:'Generar vídeo',cartel:'Elabora tu cartel',trazar:'Traza una ruta'};
   $('pageTitle').textContent=titles[id]||'Resumen';
+  if(id==='trazar')(plannerModule?Promise.resolve(plannerModule):import('./route-planner.js').then(m=>plannerModule=m)).then(m=>{if(location.hash==='#trazar')m.openPlanner()}).catch(e=>{console.error('Planner module:',e);$('plannerStatus').textContent='No se pudo iniciar el trazador. Recarga la página.'});
   if(id==='cartel')renderPoster();
   if(id==='video'&&activity)getVideoModule().then(v=>v.prepareVideoMap(points)).catch(e=>console.error('Video module:',e));
   window.scrollTo({top:0,behavior:'smooth'});
@@ -104,4 +105,5 @@ document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',e=>{e.
 $('makePoster').onclick=generatePoster;
 $('downloadPoster').onclick=downloadPoster;
 navigate(location.hash||'#resumen');
+
 
