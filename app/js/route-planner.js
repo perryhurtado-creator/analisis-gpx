@@ -1,24 +1,33 @@
-let map=null,markers=[],routeLayer=null,route=null,controller=null,revision=0,observer=null;
+let map=null,markers=[],routeLayer=null,route=null,controller=null,revision=0,observer=null,editMode=null;
 const $=id=>document.getElementById(id);
 const status=text=>{$('plannerStatus').textContent=text};
 function invalidateRoute(){
   revision++;controller?.abort();controller=null;route=null;
   if(routeLayer){routeLayer.remove();routeLayer=null}
   $('plannerDistance').textContent='—';$('plannerDuration').textContent='—';$('plannerDownload').disabled=true;
-  $('plannerInvert').disabled=markers.length!==2;$('plannerRetry').disabled=markers.length!==2;
+  $('plannerInvert').disabled=markers.length<2;$('plannerRetry').disabled=markers.length<2;
+  $('plannerAdd').disabled=markers.length<2||markers.length>=50;$('plannerMoveOrigin').disabled=!markers.length;$('plannerMoveDestination').disabled=markers.length<2;
+}
+function pinIcon(index){
+  const end=markers.length>=2&&index===markers.length-1;
+  const letter=index===0?'A':end?'B':String(index);
+  return window.L.divIcon({className:'planner-marker',html:`<span class="planner-pin ${end?'destination':index?'waypoint':''}">${letter}</span>`,iconSize:[32,32],iconAnchor:[16,16]});
 }
 function labels(){
-  ['plannerOrigin','plannerDestination'].forEach((id,i)=>{const p=markers[i]?.getLatLng();$(id).textContent=p?`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`:'Sin seleccionar'});
+  const endpoints=[markers[0],markers.length>=2?markers.at(-1):null];
+  ['plannerOrigin','plannerDestination'].forEach((id,i)=>{const p=endpoints[i]?.getLatLng();$(id).textContent=p?`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`:'Sin seleccionar'});
+  markers.forEach((m,i)=>{m.setIcon(pinIcon(i));m.setTooltipContent(i===0?'A · Origen':i===markers.length-1?'B · Destino':`Punto intermedio ${i}`)});
+  $('plannerPointCount').textContent=`${markers.length} puntos · Origen → Destino`;
+  $('plannerWaypoints').innerHTML=markers.slice(1,-1).map((m,i)=>{const p=m.getLatLng();return `<li><span><b>Punto ${i+1}</b> · ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</span><button type="button" class="action-btn secondary" data-remove-waypoint="${i+1}" aria-label="Eliminar punto intermedio ${i+1}">Eliminar</button></li>`}).join('');
 }
-function marker(point,index){
-  const letter=index===0?'A':'B';
-  const m=window.L.marker(point,{draggable:true,icon:window.L.divIcon({className:'planner-marker',html:`<span class="planner-pin ${index?'destination':''}">${letter}</span>`,iconSize:[32,32],iconAnchor:[16,16]})}).addTo(map).bindTooltip(index===0?'A · Origen':'B · Destino');
-  m.on('dragstart',()=>{invalidateRoute();status('Mueve el punto y suéltalo para recalcular.')});
-  m.on('dragend',()=>{labels();if(markers.length===2)calculate();else status('Toca el mapa para marcar B · Destino.')});
+function marker(point){
+  const m=window.L.marker(point,{draggable:true,icon:window.L.divIcon({className:'planner-marker',html:'',iconSize:[32,32],iconAnchor:[16,16]})}).addTo(map).bindTooltip('Punto de ruta');
+  m.on('dragstart',()=>{editMode=null;invalidateRoute();status('Mueve el punto y suéltalo para recalcular.')});
+  m.on('dragend',()=>{labels();if(markers.length>=2)calculate();else status('Toca el mapa para marcar B · Destino.')});
   return m;
 }
 async function calculate(){
-  invalidateRoute();if(markers.length!==2)return;
+  invalidateRoute();if(markers.length<2)return;
   const current=revision;controller=new AbortController();status('Calculando ruta MTB…');
   try{
     const coordinates=markers.map(m=>{const p=m.getLatLng();return[p.lng,p.lat]});
@@ -31,7 +40,7 @@ async function calculate(){
     map.fitBounds(routeLayer.getBounds(),{padding:[30,30],maxZoom:16});
     $('plannerDistance').textContent=`${(data.distance/1000).toLocaleString('es-MX',{maximumFractionDigits:2})} km`;
     const minutes=Math.max(1,Math.round(data.duration/60));$('plannerDuration').textContent=minutes>=60?`${Math.floor(minutes/60)} h ${minutes%60} min`:`${minutes} min`;
-    $('plannerDownload').disabled=false;status('Ruta lista. Arrastra A o B para modificarla.');
+    $('plannerDownload').disabled=false;status('Ruta lista. Arrastra cualquier punto para recalcular o pulsa Añadir punto intermedio.');
   }catch(error){if(current===revision&&error.name!=='AbortError')status(error.message)}finally{if(current===revision)controller=null}
 }
 export function routeGPX(data){
@@ -44,12 +53,28 @@ export function openPlanner(){
   map=L.map('plannerMap').setView([20.5888,-100.3899],12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
   map.on('click',e=>{
-    if(markers.length===2){status('Arrastra A o B para cambiar los puntos, o pulsa Limpiar.');return}
-    markers.push(marker(e.latlng,markers.length));labels();invalidateRoute();
-    if(markers.length===2)calculate();else status('Toca el mapa para marcar B · Destino.');
+    if(editMode==='origin'||editMode==='destination'){
+      markers[editMode==='origin'?0:markers.length-1].setLatLng(e.latlng);editMode=null;labels();
+      if(markers.length>=2)calculate();else status('Toca el mapa para marcar B · Destino.');return;
+    }
+    if(markers.length>=2){
+      if(editMode!=='add'){status('Pulsa Añadir punto intermedio o arrastra un marcador para modificar la ruta.');return}
+      if(markers.length>=50){status('Puedes utilizar hasta 50 puntos en una ruta.');return}
+      markers.splice(markers.length-1,0,marker(e.latlng));editMode=null;
+    }else markers.push(marker(e.latlng));
+    labels();invalidateRoute();
+    if(markers.length>=2)calculate();else status('Toca el mapa para marcar B · Destino.');
   });
-  $('plannerClear').onclick=()=>{invalidateRoute();markers.forEach(m=>m.remove());markers=[];labels();invalidateRoute();status('Toca el mapa para marcar A · Origen.')};
-  $('plannerInvert').onclick=()=>{if(markers.length!==2)return;const a=markers[0].getLatLng(),b=markers[1].getLatLng();markers[0].setLatLng(b);markers[1].setLatLng(a);labels();calculate()};
+  $('plannerAdd').onclick=()=>{if(markers.length<2||markers.length>=50)return;editMode='add';status('Toca el mapa para añadir un punto intermedio antes del destino B.')};
+  $('plannerMoveOrigin').onclick=()=>{if(!markers.length)return;editMode='origin';status('Toca el mapa para cambiar A · Origen.')};
+  $('plannerMoveDestination').onclick=()=>{if(markers.length<2)return;editMode='destination';status('Toca el mapa para cambiar B · Destino.')};
+  $('plannerWaypoints').onclick=e=>{
+    const button=e.target.closest('[data-remove-waypoint]');if(!button)return;
+    const index=Number(button.dataset.removeWaypoint);if(!Number.isInteger(index)||index<1||index>=markers.length-1)return;
+    editMode=null;markers.splice(index,1)[0].remove();labels();calculate();
+  };
+  $('plannerClear').onclick=()=>{editMode=null;invalidateRoute();markers.forEach(m=>m.remove());markers=[];labels();invalidateRoute();status('Toca el mapa para marcar A · Origen.')};
+  $('plannerInvert').onclick=()=>{if(markers.length<2)return;editMode=null;markers.reverse();labels();calculate()};
   $('plannerRetry').onclick=calculate;
   $('plannerDownload').onclick=()=>{
     if(!route)return;const url=URL.createObjectURL(new Blob([routeGPX(route)],{type:'application/gpx+xml'}));

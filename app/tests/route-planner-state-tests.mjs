@@ -4,7 +4,7 @@ const elements=new Map();globalThis.document={getElementById:id=>{if(!elements.h
 const $=id=>document.getElementById(id);globalThis.requestAnimationFrame=fn=>fn();
 const clicks={},pins=[];let activeLayers=0;
 const map={setView(){return this},on(event,fn){clicks[event]=fn;return this},invalidateSize(){},fitBounds(){}};
-globalThis.window={L:{map:()=>map,tileLayer:()=>({addTo(){}}),divIcon:o=>o,marker:point=>{const events={};const m={point,events,getLatLng(){return this.point},setLatLng(p){this.point=p},addTo(){return this},bindTooltip(){return this},on(event,fn){events[event]=fn;return this},remove(){}};pins.push(m);return m},geoJSON:()=>({addTo(){activeLayers++;return this},remove(){activeLayers--},getBounds(){return {}}})}};
+globalThis.window={L:{map:()=>map,tileLayer:()=>({addTo(){}}),divIcon:o=>o,marker:point=>{const events={};const m={point,events,getLatLng(){return this.point},setLatLng(p){this.point=p},addTo(){return this},bindTooltip(){return this},setIcon(icon){this.icon=icon;return this},setTooltipContent(text){this.tooltip=text;return this},on(event,fn){events[event]=fn;return this},remove(){}};pins.push(m);return m},geoJSON:()=>({addTo(){activeLayers++;return this},remove(){activeLayers--},getBounds(){return {}}})}};
 const response=(distance=1000)=>Response.json({geometry:{type:'LineString',coordinates:[[-100.4,20.5],[-100.3,20.6]]},distance,duration:600});
 let pending=[];globalThis.fetch=async(url,options)=>{assert.equal(url,'/api/route');return new Promise(resolve=>pending.push({resolve,options}))};
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
@@ -15,6 +15,21 @@ $('plannerInvert').onclick();assert.equal(activeLayers,0);assert.deepEqual(JSON.
 pins[0].events.dragstart();assert.equal(activeLayers,0);pins[0].point={lat:20.7,lng:-100.2};pins[0].events.dragend();const stale=pending.shift();
 $('plannerRetry').onclick();assert.ok(stale.options.signal.aborted);const latest=pending.shift();latest.resolve(response(2000));await settle();stale.resolve(response(9000));await settle();assert.equal($('plannerDistance').textContent,'2 km');
 $('plannerRetry').onclick();pending.shift().resolve(Response.json({error:'Sin conexión entre puntos'},{status:422}));await settle();assert.equal(activeLayers,0);assert.ok($('plannerDownload').disabled);assert.equal($('plannerStatus').textContent,'Sin conexión entre puntos');
-$('plannerRetry').onclick();const cleared=pending.shift();$('plannerClear').onclick();cleared.resolve(response());await settle();assert.equal(activeLayers,0);assert.equal($('plannerDistance').textContent,'—');assert.equal($('plannerOrigin').textContent,'Sin seleccionar');assert.ok($('plannerInvert').disabled);assert.ok($('plannerDownload').disabled);
+// Insert two intermediate points before B, preserving A and B.
+$('plannerAdd').onclick();clicks.click({latlng:{lat:20.55,lng:-100.35}});
+assert.deepEqual(JSON.parse(pending[0].options.body).coordinates,[[-100.3,20.6],[-100.35,20.55],[-100.2,20.7]]);
+pending.shift().resolve(response(3000));await settle();assert.match($('plannerWaypoints').innerHTML,/Punto 1/);assert.equal($('plannerPointCount').textContent,'3 puntos · Origen → Destino');
+$('plannerAdd').onclick();clicks.click({latlng:{lat:20.57,lng:-100.34}});pending.shift().resolve(response(4000));await settle();
+// Move endpoints through map taps; recalculate all four points.
+$('plannerMoveOrigin').onclick();clicks.click({latlng:{lat:20.61,lng:-100.31}});
+assert.deepEqual(JSON.parse(pending[0].options.body).coordinates,[[-100.31,20.61],[-100.35,20.55],[-100.34,20.57],[-100.2,20.7]]);pending.shift().resolve(response());await settle();
+$('plannerMoveDestination').onclick();clicks.click({latlng:{lat:20.71,lng:-100.21}});assert.deepEqual(JSON.parse(pending[0].options.body).coordinates.at(-1),[-100.21,20.71]);pending.shift().resolve(response());await settle();
+// Drag a waypoint and verify its new coordinate is included.
+pins[2].events.dragstart();pins[2].point={lat:20.56,lng:-100.36};pins[2].events.dragend();assert.deepEqual(JSON.parse(pending[0].options.body).coordinates[1],[-100.36,20.56]);pending.shift().resolve(response());await settle();
+// Reverse the entire waypoint order, then delete an intermediate point.
+const order=[[-100.31,20.61],[-100.36,20.56],[-100.34,20.57],[-100.21,20.71]];
+$('plannerInvert').onclick();assert.deepEqual(JSON.parse(pending[0].options.body).coordinates,order.toReversed());pending.shift().resolve(response());await settle();
+$('plannerWaypoints').onclick({target:{closest:()=>({dataset:{removeWaypoint:'1'}})}});assert.deepEqual(JSON.parse(pending[0].options.body).coordinates,[order[3],order[1],order[0]]);pending.shift().resolve(response());await settle();
+$('plannerRetry').onclick();const cleared=pending.shift();$('plannerClear').onclick();cleared.resolve(response());await settle();assert.equal(activeLayers,0);assert.equal($('plannerDistance').textContent,'—');assert.equal($('plannerOrigin').textContent,'Sin seleccionar');assert.equal($('plannerWaypoints').innerHTML,'');assert.ok($('plannerInvert').disabled);assert.ok($('plannerDownload').disabled);
 const gpx=routeGPX({geometry:{coordinates:[[-100.4,20.5],[-100.3,20.6]]}});assert.match(gpx,/<trkpt lat="20.5" lon="-100.4">/);assert.ok(!gpx.includes('<time>'));assert.ok(!gpx.includes('<ele>'));assert.match(gpx,/<trkseg>/);
-console.log('Planner state checks passed: selection, coordinate order, inversion, drag, stale responses, error, clear during request, GPX');
+console.log('Planner state checks passed: selection, coordinate order, inversion, drag, stale responses, error, waypoints, endpoint relocation, waypoint drag/deletion, reversed order, clear during request, GPX');
