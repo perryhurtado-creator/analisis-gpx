@@ -20,3 +20,8 @@ let previous=cinematicCameraPose(hairpin,.14,ground);
 for(let i=1;i<=633;i++){const p=.14+i/24/40;if(p>.8)break;const pose=cinematicCameraPose(hairpin,p,ground);assert(Math.abs(pose.heading-previous.heading)<=24/24+.01,'Giro limitado incluso en horquillas');previous=pose}
 assert.deepEqual(cinematicCameraPose(hairpin,.95,ground),cinematicCameraPose(hairpin,1,ground),'Cierre inmóvil dos segundos');
 console.log('PASS: distancia uniforme, horquillas sin giros bruscos y cierre fijo.');
+
+for(const progress of [0,.05,.14,.3,.5,.7,.8,.9,.95,1]){
+ const pose=cinematicCameraPose(hairpin,progress,ground);assert.equal(pose.heading,0,'Orientación fija incluso en curvas, entrada y cierre');assert.equal(pose.pitch,-50,'Sin cambios de inclinación');assert(pose.range>=1100);
+}
+console.log('PASS: orientación e inclinación constantes y encuadre amplio.');

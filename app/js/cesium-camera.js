@@ -39,39 +39,29 @@ export function sampleDistancePoint(points,progress){
   const mix=span>0&&!points[next].breakBefore&&points[lo].segmentId===points[next].segmentId?(distance-points[lo].d)/span:0;
   return sampleVideoPoint(points,(lo+mix)/Math.max(1,points.length-1));
 }
-const headingsCache=new WeakMap();
-function cinematicHeadings(points){
-  if(headingsCache.has(points))return headingsCache.get(points);
-  const count=1024,headings=[];
-  for(let i=0;i<=count;i++){
-    const p=i/count,a=sampleDistancePoint(points,Math.max(0,p-.025)).point,b=sampleDistancePoint(points,Math.min(1,p+.035)).point;
-    let angle=a.segmentId===b.segmentId?Math.atan2((b.lon-a.lon)*Math.cos(a.lat*Math.PI/180),b.lat-a.lat)*180/Math.PI:(headings.at(-1)||0);
-    if(i){while(angle-headings[i-1]>180)angle-=360;while(angle-headings[i-1]<-180)angle+=360}
-    headings.push(angle);
-  }
-  // Filtro en ambos sentidos para anticipar curvas sin depender de la tasa de render.
-  const alpha=1-Math.exp(-26.4/count/1.2);
-  for(let i=1;i<=count;i++)headings[i]=headings[i-1]+alpha*(headings[i]-headings[i-1]);
-  for(let i=count-1;i>=0;i--)headings[i]=headings[i+1]+alpha*(headings[i]-headings[i+1]);
-  const maxTurn=24*26.4/count;
-  for(let i=1;i<=count;i++)headings[i]=headings[i-1]+Math.max(-maxTurn,Math.min(maxTurn,headings[i]-headings[i-1]));
-  headingsCache.set(points,headings);return headings;
-}
 export function cinematicCameraPose(points,progress,samples,bounds=cinematicBounds(points)){
   progress=Math.max(0,Math.min(.95,progress));
   const flightProgress=Math.max(0,Math.min(1,(progress-.14)/.66));
   const sample=sampleDistancePoint(points,flightProgress),trackProgress=(sample.index+sample.mix)/Math.max(1,points.length-1);
-  const pose=cameraPose(points,trackProgress,samples),headings=cinematicHeadings(points),position=flightProgress*1024,i=Math.floor(position);
-  const heading=headings[i]+(headings[Math.min(i+1,1024)]-headings[i])*(position-i);
-  const followRange=Math.max(800,Math.min(6500,bounds.span*.2));
-  Object.assign(pose,{heading,pitch:-37,range:followRange,flightProgress,trackProgress});
+  const pose=cameraPose(points,trackProgress,samples);
+  // Orientación fija: las curvas del GPX no hacen rotar todo el paisaje.
+  // Promediar el objetivo alrededor del avance amortigua las curvas laterales.
+  let lon=0,lat=0,height=0,weight=0;
+  for(let i=-4;i<=4;i++){
+    const nearby=sampleDistancePoint(points,Math.max(0,Math.min(1,flightProgress+i*.006)));
+    if(nearby.point.segmentId!==sample.point.segmentId)continue;
+    const w=5-Math.abs(i),p=cameraPose(points,(nearby.index+nearby.mix)/Math.max(1,points.length-1),samples);
+    lon+=p.lon*w;lat+=p.lat*w;height+=p.height*w;weight+=w;
+  }
+  if(weight){pose.lon=lon/weight;pose.lat=lat/weight;pose.height=height/weight}
+  const followRange=Math.max(1100,Math.min(9000,bounds.span*.28));
+  Object.assign(pose,{heading:0,pitch:-50,range:followRange,flightProgress,trackProgress});
   if(progress<.14||progress>.80){
     const f=progress<.14?progress/.14:(.95-progress)/.15,ease=f*f*f*(f*(f*6-15)+10);
     pose.lon=bounds.lon*(1-ease)+pose.lon*ease;pose.lat=bounds.lat*(1-ease)+pose.lat*ease;
     const maxHeight=Math.max(...samples.map(p=>p.height))+20;
-    pose.height=maxHeight*(1-ease)+pose.height*ease;pose.pitch=-60*(1-ease)-37*ease;
+    pose.height=maxHeight*(1-ease)+pose.height*ease;pose.pitch=-50;
     pose.range=Math.max(1200,bounds.span*1.1)*(1-ease)+followRange*ease;
-    pose.heading+=20*(1-ease)*(progress<.14?-1:1);
   }
   return pose;
 }
