@@ -1,3 +1,4 @@
+import {validateActivityXML,validatePointCount} from './activity-limits.js';
 const all=(root,name)=>{const n=Array.from(root.getElementsByTagNameNS('*',name));return n.length?n:Array.from(root.getElementsByTagName(name))};
 const childText=(node,name)=>{const n=all(node,name)[0];return n?n.textContent.trim():''};
 
@@ -51,8 +52,11 @@ function parsePoint(node){
 }
 
 export function parseGPX(xmlText,file){
+  validateActivityXML(xmlText);
   const xml=new DOMParser().parseFromString(xmlText,'application/xml');
   if(xml.querySelector('parsererror'))throw Error('El archivo no contiene XML válido.');
+  if(xml.documentElement&&xml.documentElement.localName!=='gpx')throw Error('El contenido no corresponde al formato seleccionado.');
+  validatePointCount(all(xml,'trkpt').length);
   const groups=all(xml,'trkseg').map(seg=>all(seg,'trkpt')).filter(points=>points.length);
   if(!groups.length)groups.push(all(xml,'trkpt'));
   const raw=groups.flat();

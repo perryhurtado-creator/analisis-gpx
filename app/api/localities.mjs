@@ -1,3 +1,4 @@
+import {boundedJSON} from './safety.mjs';
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':status===200?'public, s-maxage=86400, stale-while-revalidate=3600':'no-store'}});
 export async function GET(request){
   if(request.headers.get('sec-fetch-site')==='cross-site')return json({error:'Solicitud no permitida.'},403);
@@ -10,7 +11,7 @@ export async function GET(request){
     try{
       const response=await fetch(endpoint,{method:'POST',headers:{'User-Agent':'PerrosEnBicicleta-GPX/1.0 (+https://github.com/perryhurtado-creator/analisis-gpx)'},body:new URLSearchParams({data:query}),signal:AbortSignal.timeout(16000)});
       if(!response.ok)continue;
-      const data=await response.json();if(!Array.isArray(data.elements))continue;
+      const data=await boundedJSON(response,8*1024*1024);if(!Array.isArray(data.elements))continue;
       const places=data.elements.filter(p=>typeof p.tags?.name==='string'&&Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&p.lat>=s&&p.lat<=n&&p.lon>=w&&p.lon<=e).slice(0,1000).map(p=>({name:p.tags.name.slice(0,100),lat:p.lat,lon:p.lon}));
       return json({places,credit:'© OpenStreetMap contributors'});
     }catch(error){console.error('Localities provider:',error.name)}

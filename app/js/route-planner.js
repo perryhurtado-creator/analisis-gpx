@@ -1,3 +1,4 @@
+import {requestDeadline} from './network-timeout.js';
 import {currentLocation} from './device-location.js';
 import {elevationProfile,elevationSVG} from './planner-elevation.js';
 import {addPlannerLayers} from './planner-layers.js';
@@ -32,7 +33,7 @@ function marker(point){
 }
 async function calculate(){
   invalidateRoute();if(markers.length<2)return;
-  const current=revision;controller=new AbortController();status('Calculando ruta MTB…');
+  const current=revision;controller=new AbortController();const done=requestDeadline(controller,50000);status('Calculando ruta MTB…');
   try{
     const coordinates=markers.map(m=>{const p=m.getLatLng();return[p.lng,p.lat]});
     const response=await fetch('/api/route',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coordinates}),signal:controller.signal});
@@ -50,7 +51,7 @@ async function calculate(){
     $('plannerElevationChart').innerHTML=elevationSVG(profile);
     $('plannerElevationStatus').textContent=data.elevation?.message||'Altimetría estimada SRTM, suavizada con tolerancia vertical de ±5 m. Gráfica, acumulados y GPX usan las mismas alturas.';
     $('plannerDownload').disabled=false;status('Ruta lista. Arrastra cualquier punto para recalcular o pulsa Añadir punto intermedio.');
-  }catch(error){if(current===revision&&error.name!=='AbortError')status(error.message)}finally{if(current===revision)controller=null}
+  }catch(error){if(current===revision&&error.name!=='AbortError')status(error.message)}finally{done();if(current===revision)controller=null}
 }
 const searches={Origin:{controller:null,revision:0,results:[]},Destination:{controller:null,revision:0,results:[]}};
 function cancelPlaceSearch(target){
@@ -72,6 +73,7 @@ function setupPlaceSearch(target){
     }
     if(q.length<3||q.length>160){get('SearchStatus').textContent='Escribe una localidad de entre 3 y 160 caracteres.';return}
     const current=search.revision;search.controller=new AbortController();get('SearchButton').disabled=true;get('SearchStatus').textContent='Buscando localidades…';
+    const done=requestDeadline(search.controller,20000);
     const center=map.getCenter(),params=new URLSearchParams({q,lat:String(center.lat),lon:String(center.lng)});
     try{
       const response=await fetch('/api/places?'+params,{signal:search.controller.signal});
@@ -84,7 +86,7 @@ function setupPlaceSearch(target){
       }
       get('SearchStatus').textContent=search.results.length?`Selecciona una localidad para establecer ${target==='Origin'?'el inicio':'el destino'}.`:'No se encontraron localidades. Prueba incluyendo municipio y estado.';
     }catch(error){if(current===search.revision&&error.name!=='AbortError')get('SearchStatus').textContent=error.message}
-    finally{if(current===search.revision){search.controller=null;get('SearchButton').disabled=false}}
+    finally{done();if(current===search.revision){search.controller=null;get('SearchButton').disabled=false}}
   };
   get('Query').oninput=()=>cancelPlaceSearch(target);
   get('Results').onclick=e=>{

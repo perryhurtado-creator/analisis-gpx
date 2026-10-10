@@ -27,7 +27,7 @@ app/
 - `gpx-parser.js`: lectura y procesamiento de GPX.
 - `tcx-parser.js`: lectura y procesamiento de TCX.
 - `metrics.js`: métricas y segmentos.
-- `map.js`: Mapbox, Leaflet y marcador de recorrido.
+- `map.js`: OpenStreetMap, Leaflet y marcador de recorrido.
 - `charts.js`: gráficas SVG.
 - `video.js`: reproducción y coordinación de la exportación.
 - `video-capture.js`: composición del mapa, ruta, marcador y gráficas; codificación del vídeo.
@@ -43,10 +43,10 @@ app/
 - Gráficas de FC y velocidad.
 - Segmentación automática.
 - Comparación de rutas.
-- Mapbox con fallback a OpenStreetMap/Leaflet.
+- Mapas OpenStreetMap/Leaflet.
 - Reproducción de ruta.
-- Exportación local de una escena completa (1280 × 960, 9 segundos, 30 fps) con mapa OpenStreetMap, ruta, marcador y gráficas sincronizadas. Genera MP4/H.264 si está disponible, o WebM/VP9/VP8 como alternativa. Usa WebCodecs y Mediabunny; conserva MediaRecorder como alternativa para navegadores sin WebCodecs. No requiere FFmpeg.wasm.
-- Token Mapbox almacenado en `localStorage`.
+- Exportación local de una escena completa (1080 × 1920, 15 segundos, 30 fps) con mapa OpenStreetMap, ruta, marcador y gráficas sincronizadas. Genera MP4/H.264 si está disponible, o WebM/VP9/VP8 como alternativa. Usa WebCodecs y Mediabunny; conserva MediaRecorder como alternativa para navegadores sin WebCodecs. No requiere FFmpeg.wasm.
+- El código actual no utiliza localStorage ni sessionStorage para actividades o tokens.
 
 ## Ejecución
 
@@ -70,4 +70,8 @@ Pruebas: `node app/tests/video-localities-tests.mjs`, `node app/tests/localities
 
 ## Nota sobre el logo
 
-El logo real de Perros en Bicicleta todavía debe incorporarse desde el archivo original. No se ha creado una versión alternativa para evitar alterar la identidad gráfica.
+El logo original se incluye en `app/assets/logo-perros-en-bicicleta.png`.
+
+## Seguridad y privacidad
+
+La carga acepta hasta 10 MiB y 50 000 puntos por GPX/TCX. Consulta [la revisión](REVISION_SEGURIDAD.md) para cambios, pruebas y pendientes. La app enlaza [Privacidad y uso de datos](app/privacidad.html), un borrador pendiente de los datos del responsable y de verificar la configuración de los proveedores.

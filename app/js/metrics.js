@@ -14,9 +14,9 @@ export function summary(a){
     ascent:'+'+fmt(a.ascent)+' m',heart:hrs.length?Math.round(avg(hrs))+' lpm':'—',
     cadence:cads.length?Math.round(avg(cads))+' rpm':'—'};
 }
-function runStart(points,i){
-  while(i>0&&!points[i].breakBefore&&points[i-1].segmentId===points[i].segmentId)i--;
-  return i;
+function runStarts(points){
+  let start=0;
+  return points.map((p,i)=>{if(i===0||p.breakBefore||p.segmentId!==points[i-1].segmentId)start=i;return start});
 }
 function continuousTime(points){
   let ms=0;
@@ -35,11 +35,11 @@ export function continuousSpeed(points){
   }
   return ms?d/ms*3600:null;
 }
-function smoothedElevation(points,i){
+function smoothedElevation(points,i,starts){
   const segmentId=points[i]?.segmentId;
   if(segmentId==null)return null;
   const vals=[];
-  for(let j=Math.max(runStart(points,i),i-2);j<=Math.min(points.length-1,i+2);j++){
+  for(let j=Math.max(starts[i],i-2);j<=Math.min(points.length-1,i+2);j++){
     if(points[j].segmentId!==segmentId)continue;
     if(j>i&&points[j].breakBefore)break;
     if(Number.isFinite(points[j].ele))vals.push(points[j].ele);
@@ -47,19 +47,21 @@ function smoothedElevation(points,i){
   return vals.length?avg(vals):null;
 }
 export function slopeStats(points){
-  const windowM=30,slopes=[];
+  const windowM=30,slopes=[],starts=runStarts(points);
+  let windowStart=0;
   let positiveGain=0,positiveDistance=0;
   for(let i=0;i<points.length;i++){
     const cur=points[i];
     if(cur.breakBefore||!Number.isFinite(cur.ele))continue;
     const segmentId=cur.segmentId;
-    const first=runStart(points,i);
-    let start=i-1;
-    while(start>first&&cur.d-points[start].d<windowM)start--;
+    const first=starts[i];
+    windowStart=Math.max(windowStart,first);
+    while(windowStart<i-1&&cur.d-points[windowStart+1].d>=windowM)windowStart++;
+    const start=windowStart;
     if(start>=i)continue;
     const dd=cur.d-points[start].d;
     if(dd<20)continue;
-    const e1=smoothedElevation(points,start),e2=smoothedElevation(points,i);
+    const e1=smoothedElevation(points,start,starts),e2=smoothedElevation(points,i,starts);
     if(Number.isFinite(e1)&&Number.isFinite(e2)){
       const slope=(e2-e1)/dd*100;
       slopes.push(slope);
@@ -70,7 +72,7 @@ export function slopeStats(points){
   return {maxUp:slopes.length?Math.max(...slopes):null,maxDown:slopes.length?Math.min(...slopes):null,avgUp};
 }
 export function speedStats(points){
-  const intervals=[];
+  const intervals=[],starts=runStarts(points);
   for(let i=1;i<points.length;i++){
     const a=points[i-1],b=points[i];
     if(b.breakBefore||a.segmentId!==b.segmentId||!a.time||!b.time)continue;
@@ -83,7 +85,7 @@ export function speedStats(points){
   const rolling=[];
   for(const item of intervals){
     const end=points[item.i].time,segmentId=points[item.i].segmentId;
-    const first=runStart(points,item.i);
+    const first=starts[item.i];
     let start=item.i-1;
     while(start>first&&Number.isFinite(points[start].time)&&end-points[start].time<3000)start--;
     if(start<item.i&&points[start].time){

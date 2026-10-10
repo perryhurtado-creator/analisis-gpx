@@ -1,4 +1,5 @@
-const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':status===200?'public, s-maxage=86400, stale-while-revalidate=3600':'no-store'}});
+import {boundedJSON} from './safety.mjs';
+const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 export async function GET(request){
   if(request.headers.get('sec-fetch-site')==='cross-site')return json({error:'Solicitud no permitida.'},403);
   const params=new URL(request.url).searchParams,q=params.get('q')?.trim();
@@ -12,8 +13,8 @@ export async function GET(request){
   try{
     const response=await fetch(url,{signal:AbortSignal.timeout(15000)});
     if(!response.ok){console.error('Place search provider status:',response.status);return json({error:response.status===429?'Se alcanzó el límite de búsquedas. Intenta más tarde.':response.status===401||response.status===403?'El servicio de búsqueda no está habilitado para esta clave.':'No se pudo buscar la localidad. Intenta de nuevo.'},response.status===429?429:502)}
-    const data=await response.json();if(!Array.isArray(data.features))throw Error('Invalid search response');
-    const places=data.features.filter(f=>f.geometry?.type==='Point'&&Array.isArray(f.geometry.coordinates)&&f.geometry.coordinates.length>=2&&f.geometry.coordinates.slice(0,2).every(Number.isFinite)&&Math.abs(f.geometry.coordinates[0])<=180&&Math.abs(f.geometry.coordinates[1])<=90&&typeof f.properties?.label==='string').slice(0,5).map(f=>({label:f.properties.label,lon:f.geometry.coordinates[0],lat:f.geometry.coordinates[1]}));
+    const data=await boundedJSON(response,8*1024*1024);if(!Array.isArray(data.features))throw Error('Invalid search response');
+    const places=data.features.filter(f=>f.geometry?.type==='Point'&&Array.isArray(f.geometry.coordinates)&&f.geometry.coordinates.length>=2&&f.geometry.coordinates.slice(0,2).every(Number.isFinite)&&Math.abs(f.geometry.coordinates[0])<=180&&Math.abs(f.geometry.coordinates[1])<=90&&typeof f.properties?.label==='string').slice(0,5).map(f=>({label:f.properties.label.slice(0,300),lon:f.geometry.coordinates[0],lat:f.geometry.coordinates[1]}));
     return json({places});
   }catch(error){console.error('Place search failed:',error.name);return json({error:error.name==='TimeoutError'?'La búsqueda tardó demasiado. Intenta de nuevo.':'No se pudo conectar con el buscador de localidades.'},502)}
 }

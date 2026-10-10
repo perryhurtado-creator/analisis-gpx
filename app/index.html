@@ -20,7 +20,7 @@
         <a href="#trazar"><span>⌖</span>Traza una ruta</a>
       </nav>
     </div>
-    <div class="side-bottom"><b>Tu información se queda contigo</b><p>Los archivos se analizan localmente en este navegador.</p><button class="tiny-btn" id="sideLoad">+ Cargar actividad</button></div>
+    <div class="side-bottom"><b>Análisis en tu navegador</b><p>Los GPX/TCX se analizan localmente. Los mapas y el trazador consultan servicios externos.</p><p><a href="./privacidad.html" target="_blank" rel="noopener">Privacidad y uso de datos</a></p><button class="tiny-btn" id="sideLoad">+ Cargar actividad</button></div>
   </aside>
 
   <main class="content">
@@ -33,11 +33,11 @@
       <section class="page active-page" id="resumen">
         <section class="welcome"><div><h2>Resumen de actividad</h2><p>Importa un GPX o TCX para ver tu ruta de un vistazo.</p></div></section>
         <label class="upload" id="dropZone" for="fileInput">
-          <div class="upload-left"><div class="upload-icon">↥</div><div><h3>Sube una actividad</h3><p>Arrastra tu archivo aquí o selecciónalo desde tu equipo. Compatible con GPX y TCX.</p></div></div>
+          <div class="upload-left"><div class="upload-icon">↥</div><div><h3>Sube una actividad</h3><p>Arrastra tu archivo aquí o selecciónalo desde tu equipo. Compatible con GPX y TCX. Máximo 10 MiB y 50 000 puntos por archivo.</p></div></div>
           <button type="button" id="chooseFile">Elegir archivo</button>
         </label>
         <input id="fileInput" type="file" accept=".gpx,.tcx,application/gpx+xml,application/xml,text/xml" hidden>
-        <div id="fileStatus" class="file-note">Sin actividad cargada todavía.</div>
+        <div id="fileStatus" class="file-note" role="status" aria-live="polite">Sin actividad cargada todavía.</div>
 
         <section id="analysis">
           <div class="route-head"><div><h2 id="routeName">Actividad</h2><p id="routeMeta">Archivo analizado localmente</p></div><button class="tiny-btn route-fit" id="fitRoute">Encuadrar ruta</button></div>
@@ -59,7 +59,7 @@
       <section class="page" id="video">
         <section class="panel video-map-panel">
   <div class="video-mode-controls"><label for="videoMode">Vista del video</label><select id="videoMode"><option value="2d">Mapa 2D</option><option value="3d">Cámara aérea 3D · prueba</option></select></div>
-  <div id="videoPlayer" class="video-player"><div class="action-row video-controls"><button class="action-btn" id="playRoute">▷ Reproducir ruta</button><button class="action-btn secondary" id="pauseVideo" disabled>Ⅱ Pausa</button><button class="action-btn secondary" id="fullscreenVideo">⛶ Pantalla completa</button><button class="action-btn secondary" id="makeVideo">⬇ Guardar vídeo</button><span class="action-state" id="videoState" role="status">Listo para animar tu recorrido.</span></div>
+  <div id="videoPlayer" class="video-player"><div class="action-row video-controls"><button class="action-btn" id="playRoute">▷ Reproducir ruta</button><button class="action-btn secondary" id="pauseVideo" disabled>Ⅱ Pausa</button><button class="action-btn secondary" id="fullscreenVideo">⛶ Pantalla completa</button><button class="action-btn secondary" id="makeVideo">⬇ Guardar vídeo</button><button class="action-btn secondary" id="cancelVideo" type="button">Cancelar</button><span class="action-state" id="videoState" role="status">Listo para animar tu recorrido.</span></div>
   <div class="panel-title"><h3>Recorrido sincronizado</h3><span id="videoMapStatus">OpenStreetMap</span></div>
   <div id="video2DStage">
   <div class="video-profile video-profile-top"><div id="videoElevationChart"></div></div>

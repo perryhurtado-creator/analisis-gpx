@@ -1,9 +1,11 @@
 import {fmt} from './metrics.js';
 
 const charts = new Map();
+export function clearCharts(){charts.clear()}
 
 export function drawChart(id,pairs,color,label,onHover,onLeave){
   const host=document.getElementById(id);
+  charts.delete(id);
   const rawRuns=[];
   let rawRun=[];
   for(const pair of pairs){

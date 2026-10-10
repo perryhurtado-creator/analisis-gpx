@@ -5,7 +5,7 @@ function engineEl(){return document.getElementById('engine')}
 function setEngine(main,fallback=''){const el=engineEl();if(el)el.innerHTML='<span class="tag">'+main+'</span>'+(fallback?'<span class="tag fallback">'+fallback+'</span>':'')}
 function setStatus(text,id='mapStatus'){const el=document.getElementById(id);if(el)el.textContent=text}
 function destroyMap(id){if(maps[id]){maps[id].remove();maps[id]=null}markers[id]=null;if(observers[id]){observers[id].disconnect();delete observers[id]}const host=document.getElementById(id);if(host)host.innerHTML=''}
-export function clearMap(){destroyMap('map')}
+export function clearMap(){destroyMap('map');destroyMap('videoMap')}
 export function createMap(points,id='map'){
   destroyMap(id);
   const host=document.getElementById(id),L=window.L;

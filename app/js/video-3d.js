@@ -67,6 +67,7 @@ async function run(activity,exportVideo){
   const controller=new AbortController(),state=document.getElementById('videoState'),host=document.getElementById('video3DPreview');
   const options={cameraStyle:document.getElementById('video3DStyle')?.value||'aerial',showLocalities:document.getElementById('videoLocalities')?.checked??false};
   const buttons=['playRoute','pauseVideo','makeVideo','videoMode','video3DStyle','videoLocalities'].map(id=>document.getElementById(id));
+  const deadline=exportVideo?setTimeout(()=>{controller.abort();playback?.wake?.()},480000):null;
   let scene;current=controller;buttons.forEach(b=>{if(b)b.disabled=true});
   const status=text=>{state.textContent=text},hidden=()=>{if(document.hidden)controller.abort()};document.addEventListener('visibilitychange',hidden);
   try{
@@ -94,7 +95,7 @@ async function run(activity,exportVideo){
       status(`Vista aérea terminada. Pulsa Guardar vídeo para exportarla. ${scene.localityNote||''}`);
     }
   }catch(e){status(e.name==='AbortError'?'Video 3D cancelado. Puedes volver a intentarlo.':`No se pudo generar el video 3D: ${e.message||'error desconocido'}`)}
-  finally{playback=null;scene?.dispose();controller.abort();document.removeEventListener('visibilitychange',hidden);if(current===controller)current=null;buttons.forEach(b=>{if(b)b.disabled=false});playbackButtons(false,false)}
+  finally{clearTimeout(deadline);playback=null;scene?.dispose();controller.abort();document.removeEventListener('visibilitychange',hidden);if(current===controller)current=null;buttons.forEach(b=>{if(b)b.disabled=false});playbackButtons(false,false)}
 }
 export function playVideo3D(activity){return run(activity,false)}
 export function makeVideo3D(activity){return run(activity,true)}

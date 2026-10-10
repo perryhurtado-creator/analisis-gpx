@@ -5,6 +5,7 @@ import {fmt} from './metrics.js';
 import {createVideoScene,recordingFormat,encodeVideoScene,VIDEO_SECONDS,VIDEO_FPS,sampleVideoPoint} from './video-capture.js';
 
 let playFrame=null,videoPoints=[],profileState={ele:null,speed:null},capture=null,routePlayback=null;
+export function clearVideoActivity(){stopRouteAnimation();videoPoints=[];profileState={ele:null,speed:null};for(const id of ['videoElevationChart','videoSpeedChart'])document.getElementById(id)?.replaceChildren()}
 export function stopRouteAnimation(){routePlayback=null;document.getElementById('pauseVideo')?.setAttribute('disabled','');stopVideo3D();if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;if(capture)capture.cancel();}
 function drawProfile(id,points,field,label,unit){
   const host=document.getElementById(id);
@@ -92,9 +93,10 @@ export async function makeVideo(activity,webmOnly=false){
   if(location.protocol==='file:'){state.textContent='Para guardar el vídeo abre la app desde su dirección web o con INICIAR_APP.bat.';return}
   stopRouteAnimation();
   if(videoPoints!==activity.points)prepareVideoMap(activity.points);
-  const controller=new AbortController(),buttons=['playRoute','pauseVideo','makeVideo'].map(id=>document.getElementById(id));
+  const controller=new AbortController(),buttons=['playRoute','pauseVideo','makeVideo','videoMode'].map(id=>document.getElementById(id));
   let recorder,stream,rejectRecording,watchdog,preview,format,retryWebm=false,recordingStarted=false,recordingDuration=VIDEO_SECONDS*1000;
   const job={cancel(){controller.abort();if(recorder?.state==='recording')recorder.stop();rejectRecording?.(new DOMException('Grabación cancelada.','AbortError'))}};
+  const deadline=setTimeout(()=>job.cancel(),180000);
   capture=job;buttons.forEach(button=>{if(button)button.disabled=true});
   const hidden=()=>{if(document.hidden)job.cancel()};
   document.addEventListener('visibilitychange',hidden);
@@ -149,7 +151,7 @@ export async function makeVideo(activity,webmOnly=false){
     if(retryWebm){state.textContent='MP4 no disponible. Preparando la descarga en WebM…'}
     else{console.error(e);state.textContent=e.name==='AbortError'?'Grabación cancelada. Puedes volver a guardar la ruta.':`No se pudo guardar el vídeo: ${e.message||'error desconocido'}`}
   }finally{
-    clearTimeout(watchdog);rejectRecording=null;
+    clearTimeout(deadline);clearTimeout(watchdog);rejectRecording=null;
     if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;routePlayback=null;
     if(recorder?.state==='recording')recorder.stop();
     stream?.getTracks().forEach(track=>track.stop());
@@ -184,6 +186,7 @@ if(mode){
   });
 }
 
+const cancel2D=document.getElementById('cancelVideo');if(cancel2D)cancel2D.onclick=stopRouteAnimation;
 const cancel3D=document.getElementById('cancelVideo3D');if(cancel3D)cancel3D.onclick=stopRouteAnimation;
 
 const pauseButton=document.getElementById('pauseVideo');

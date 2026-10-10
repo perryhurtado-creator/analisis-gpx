@@ -1,3 +1,4 @@
+import {validateActivityXML,validatePointCount} from './activity-limits.js';
 import {all,childText,finalize,optionalNumber,appendRuns} from './gpx-parser.js';
 
 function parsePoint(node){
@@ -18,8 +19,11 @@ function parsePoint(node){
 }
 
 export function parseTCX(xmlText,file){
+  validateActivityXML(xmlText);
   const xml=new DOMParser().parseFromString(xmlText,'application/xml');
   if(xml.querySelector('parsererror'))throw Error('El archivo no contiene XML válido.');
+  if(xml.documentElement&&xml.documentElement.localName!=='TrainingCenterDatabase')throw Error('El contenido no corresponde al formato seleccionado.');
+  validatePointCount(all(xml,'Trackpoint').length);
   const groups=all(xml,'Track').map(track=>all(track,'Trackpoint')).filter(points=>points.length);
   if(!groups.length)groups.push(all(xml,'Trackpoint'));
   const raw=groups.flat();

@@ -1,6 +1,6 @@
 import {setPosterActivity,generatePoster,downloadPoster} from './poster.js';
-import {parseGPX} from './gpx-parser.js';
-import {parseTCX} from './tcx-parser.js';
+import {createActivityReader} from './activity-reader.js';
+import {clearCharts} from './charts.js';
 import {avg,fmt,duration,stamp,summary,segments,slopeStats,speedStats,heartZones,continuousSpeed} from './metrics.js';
 import {drawChart} from './charts.js';
 import {createMap,fitRoute,showPoint,hidePoint,clearMap} from './map.js';
@@ -28,7 +28,7 @@ function navigate(hash){
   $('pageTitle').textContent=titles[id]||'Resumen';
   if(id==='trazar')(plannerModule?Promise.resolve(plannerModule):import('./route-planner.js').then(m=>plannerModule=m)).then(m=>{if(location.hash==='#trazar')m.openPlanner()}).catch(e=>{console.error('Planner module:',e);$('plannerStatus').textContent='No se pudo iniciar el trazador. Recarga la página.'});
   if(id==='cartel')renderPoster();
-  if(id==='video'&&activity)getVideoModule().then(v=>v.prepareVideoMap(points)).catch(e=>console.error('Video module:',e));
+  if(id==='video'&&activity)getVideoModule().then(v=>{if(activity&&location.hash==='#video')v.prepareVideoMap(points)}).catch(()=>{$('videoState').textContent='No se pudo cargar el video. Revisa la conexión y vuelve a intentarlo.'});
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function render(){
@@ -63,23 +63,34 @@ function renderComparison(){
   $('compareBody').innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td>${one[r[1]]}</td><td>${two[r[1]]}</td></tr>`).join('');
   $('compareTable').hidden=false;
 }
-function readFile(file,callback){
-  if(!file)return;
-  if(!/\.(gpx|tcx)$/i.test(file.name)){callback(null,Error('Selecciona un archivo GPX o TCX.'));return}
-  const reader=new FileReader();reader.onerror=()=>callback(null,Error('No se pudo leer este archivo.'));
-  reader.onload=()=>{try{const text=String(reader.result),parsed=/\.tcx$/i.test(file.name)?parseTCX(text,file.name):parseGPX(text,file.name);callback(parsed,null)}catch(e){callback(null,e)}};
-  reader.readAsText(file);
-}
+const mainReader=createActivityReader((parsed,error)=>{
+  if(error){setFileMessage(error.message||'No fue posible analizar el archivo.','error');return}
+  const previous=activity;
+  try{activity=parsed;points=parsed.points;renderPoster();render();setFileMessage('Actividad cargada correctamente.','ok')}
+  catch(error){
+    activity=previous;points=previous?.points||[];
+    try{if(previous){renderPoster();render()}else resetActivity()}catch{resetActivity()}
+    setFileMessage('No se pudo mostrar la actividad. Intenta con un archivo más pequeño o recarga la página.','error');
+  }
+});
+const comparisonReader=createActivityReader((parsed,error)=>{
+  if(error){$('compareState').textContent=error.message||'No fue posible analizar la ruta.';return}
+  if(!activity)return;
+  const previous=compareActivity;
+  try{compareActivity=parsed;renderComparison();$('compareState').textContent='Ruta cargada: '+parsed.name}
+  catch{compareActivity=previous;$('compareState').textContent='No se pudo mostrar la comparación. Intenta otra vez.'}
+});
 function loadFile(file){
   if(!file)return;setFileMessage('Leyendo '+file.name+'…');
   if(videoModule)videoModule.stopRouteAnimation();
-  readFile(file,(parsed,error)=>{if(error){console.error(error);setFileMessage(error.message||'No fue posible analizar el archivo.','error');return}activity=parsed;points=parsed.points;renderPoster();render();setFileMessage('Actividad cargada correctamente.','ok')});
+  mainReader.load(file);
 }
 function loadCompare(file){
-  if(!file)return;$('compareState').textContent='Analizando '+file.name+'…';
-  readFile(file,(parsed,error)=>{if(error){console.error(error);$('compareState').textContent=error.message||'No fue posible analizar la ruta.';return}compareActivity=parsed;renderComparison();$('compareState').textContent='Ruta cargada: '+parsed.name});
+  if(!file)return;$('compareState').textContent='Analizando '+file.name+'…';comparisonReader.load(file);
 }
 function resetActivity(){
+  mainReader.cancel();comparisonReader.cancel();clearCharts();$('fileInput').value='';
+  videoModule?.clearVideoActivity();
   if(videoModule)videoModule.stopRouteAnimation();clearMap();activity=null;compareActivity=null;points=[];
   $('analysis').style.display='none';$('metrics').innerHTML='';$('details').innerHTML='';$('segments').innerHTML='';
   $('elevationChart').innerHTML='';$('heartChart').innerHTML='';$('speedChart').innerHTML='';$('elevationStats').innerHTML='';$('heartStats').innerHTML='';$('speedStats').innerHTML='';
@@ -98,7 +109,8 @@ $('makeVideo').onclick=async()=>{if(!activity)return;try{const v=await getVideoM
 ['dragenter','dragover'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.add('over')}));
 ['dragleave','drop'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.remove('over')}));
 $('dropZone').addEventListener('drop',e=>loadFile(e.dataTransfer.files[0]));
-window.addEventListener('error',e=>console.error('App error:',e.error||e.message));
+window.addEventListener('error',()=>setFileMessage('Ocurrió un error. Vuelve a cargar la actividad o recarga la página.','error'));
+window.addEventListener('unhandledrejection',()=>setFileMessage('No se pudo completar una operación. Revisa la conexión y vuelve a intentarlo.','error'));
 
 window.addEventListener('hashchange',()=>navigate(location.hash));
 document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();location.hash=a.getAttribute('href').slice(1)}));
