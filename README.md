@@ -58,6 +58,16 @@ Para guardar, abre Generar vídeo y pulsa Guardar vídeo. Mantén la página vis
 
 La página `app/tests/video-capture-tests.html` comprueba una descarga real con puntos sintéticos, dimensiones, duración y decodificación del archivo. Incluye opciones para comprobar WebM y cancelar una exportación.
 
+### Vuelo cinematográfico 3D
+
+En Generar vídeo, selecciona Cámara aérea 3D y el estilo Cinematográfico: exporta un vuelo horizontal de 1280 × 720, 40 segundos, 24 fps y sin audio. Incluye imágenes satelitales Esri, relieve real, recorrido naranja, logo original y atribuciones. El estilo Aéreo con indicadores conserva la composición vertical de 15 segundos.
+
+Mostrar nombres de localidades consulta nodos de pueblos/ciudades de OpenStreetMap mediante `/api/localities`, filtra los que están a menos de 900 m de los tramos reales y coloca hasta tres nombres simultáneos sobre sus coordenadas. Las etiquetas se incluyen tanto en la reproducción como en la exportación. No se unen cortes del GPX para buscar pueblos. Se envía solamente el área aproximada del recorrido, sin tiempos, frecuencia cardiaca ni el archivo GPX. La consulta no requiere una nueva clave API. Las áreas mayores de 2 grados por lado o 1 grado cuadrado no se consultan. Si el servicio falla o no hay nombres, se informa al terminar y el video continúa sin etiquetas.
+
+Antes del vuelo se cargan vistas de terreno; durante la exportación se espera a que cada nueva vista esté cargada. Cambiar de página, cargar otra actividad o pulsar Cancelar 3D cancela la tarea y libera la escena.
+
+Pruebas: `node app/tests/video-localities-tests.mjs`, `node app/tests/localities-api-tests.mjs` y `node app/tests/cesium-camera-tests.mjs`. La página `app/tests/video-3d-tests.html?style=cinematic` comprueba la exportación cinematográfica completa y su decodificación a 1280 × 720 y 40 segundos.
+
 ## Nota sobre el logo
 
 El logo real de Perros en Bicicleta todavía debe incorporarse desde el archivo original. No se ha creado una versión alternativa para evitar alterar la identidad gráfica.

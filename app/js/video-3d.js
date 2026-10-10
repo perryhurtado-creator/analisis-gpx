@@ -25,7 +25,7 @@ export async function recordScene(scene,points,signal,status){
     const stopped=new Promise((resolve,reject)=>{rejectRecording=reject;recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};recorder.onerror=e=>reject(e.error||Error('No se pudo grabar el video 3D.'));recorder.onstop=()=>signal.aborted?reject(new DOMException('Grabación cancelada.','AbortError')):resolve()});
     // Observar errores del recorder también mientras se preparan fotogramas.
     let failure;stopped.catch(e=>{failure=e});
-    recorder.start(1000);await transition('pause');timer=setTimeout(()=>{failure=Error('La grabación 3D tardó demasiado.');onAbort()},180000);
+    recorder.start(1000);await transition('pause');timer=setTimeout(()=>{failure=Error('La grabación 3D tardó demasiado.');onAbort()},Math.max(180000,scene.seconds*10000));
     const frames=scene.fps*scene.seconds;
     for(let frame=0;frame<frames;frame++){
       if(signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');if(failure)throw failure;
@@ -45,12 +45,14 @@ export async function recordScene(scene,points,signal,status){
 async function run(activity,exportVideo){
   if(current||!activity?.points?.length)return;
   const controller=new AbortController(),state=document.getElementById('videoState'),host=document.getElementById('video3DPreview');
-  const buttons=['playRoute','makeVideo','videoMode'].map(id=>document.getElementById(id));
+  const options={cameraStyle:document.getElementById('video3DStyle')?.value||'aerial',showLocalities:document.getElementById('videoLocalities')?.checked??false};
+  const buttons=['playRoute','makeVideo','videoMode','video3DStyle','videoLocalities'].map(id=>document.getElementById(id));
   let scene;current=controller;buttons.forEach(b=>{if(b)b.disabled=true});
   const status=text=>{state.textContent=text},hidden=()=>{if(document.hidden)controller.abort()};document.addEventListener('visibilitychange',hidden);
   try{
-    host.replaceChildren();scene=await createCesiumVideoScene(activity,controller.signal,status);if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
-    scene.canvas.setAttribute('aria-label','Video aéreo 3D con altimetría, velocidad y distancia');host.appendChild(scene.canvas);
+    host.replaceChildren();scene=await createCesiumVideoScene(activity,controller.signal,status,options);if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
+    scene.canvas.setAttribute('aria-label',options.cameraStyle==='cinematic'?'Vuelo cinematográfico sobre relieve e imágenes satelitales':'Video aéreo 3D con altimetría, velocidad y distancia');host.appendChild(scene.canvas);
+    scene.canvas.classList.toggle('cinematic-video',options.cameraStyle==='cinematic');
     if(exportVideo){
       let result;
       if(typeof VideoEncoder==='function'){
@@ -59,7 +61,7 @@ async function run(activity,exportVideo){
       }
       if(!result)result=await recordScene(scene,activity.points,controller.signal,status);
       if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
-      download(result.blob,activity.name,result.extension);status(`Video 3D ${result.extension.toUpperCase()} descargado en 720p.`);
+      download(result.blob,activity.name,result.extension);status(`Video 3D ${result.extension.toUpperCase()} descargado en 720p. ${scene.localityNote||''}`);
     }else{
       const frames=scene.fps*scene.seconds;
       for(let frame=0;frame<frames;frame++){
@@ -67,7 +69,7 @@ async function run(activity,exportVideo){
         const began=performance.now(),progress=frame/(frames-1);await scene.draw(Math.floor(progress*(activity.points.length-1)),progress);
         status(`Reproduciendo vista aérea 3D… ${Math.round(progress*100)} %`);await new Promise(resolve=>setTimeout(resolve,Math.max(0,1000/scene.fps-(performance.now()-began))));
       }
-      status('Vista aérea terminada. Pulsa Guardar vídeo para exportarla.');
+      status(`Vista aérea terminada. Pulsa Guardar vídeo para exportarla. ${scene.localityNote||''}`);
     }
   }catch(e){status(e.name==='AbortError'?'Video 3D cancelado. Puedes volver a intentarlo.':`No se pudo generar el video 3D: ${e.message||'error desconocido'}`)}
   finally{scene?.dispose();controller.abort();document.removeEventListener('visibilitychange',hidden);if(current===controller)current=null;buttons.forEach(b=>{if(b)b.disabled=false})}
