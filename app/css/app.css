@@ -53,3 +53,9 @@
 .upload button{color:var(--ink)}
 .nav a.active span,.nav a:hover span{color:var(--on-green)}
 :where(button,a,input,select):focus-visible{outline:3px solid var(--red);outline-offset:3px}
+
+#video3DPreview video{display:block;width:100%;max-width:1120px;height:auto;margin:16px auto;background:#0c1217}
+.video-player:fullscreen{background:#0c1217;color:white;overflow:auto;padding:16px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center}
+.video-player:fullscreen #video3DPreview canvas,.video-player:fullscreen #video3DPreview video{max-height:calc(100vh - 220px);width:auto;max-width:100%;object-fit:contain}
+.video-player:fullscreen .video-controls{flex-shrink:0}
+@media(max-width:600px){.video-controls .action-btn{font-size:12px;padding:9px}.video-player:fullscreen{padding:8px}}

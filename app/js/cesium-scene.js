@@ -43,7 +43,7 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
     onStatus('Preparando el relieve real del terreno…');
     const terrain=await bounded(C.ArcGISTiledElevationTerrainProvider.fromUrl(TERRAIN_URL,{credit:new C.Credit(TERRAIN_CREDIT)}),signal,30000,'No se pudo cargar el relieve. Revisa tu conexión.');check(signal);
     terrain.errorEvent.addEventListener(()=>{terrainFailed=true});
-    host=document.createElement('div');host.className='cesium-render-host';host.setAttribute('aria-hidden','true');if(cinematic){host.style.width='1280px';host.style.height='592px'}document.body.appendChild(host);
+    host=document.createElement('div');host.className='cesium-render-host';host.setAttribute('aria-hidden','true');if(cinematic){host.style.width='1280px';host.style.height='580px'}document.body.appendChild(host);
     const imagery=cinematic?await bounded(C.ArcGisMapServerImageryProvider.fromUrl('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'),signal,30000,'No se pudieron cargar las imágenes satelitales.'):new C.OpenStreetMapImageryProvider({url:'https://tile.openstreetmap.org/'});check(signal);
     imagery.errorEvent.addEventListener(()=>{imageryFailed=true});
     viewer=new C.Viewer(host,{animation:false,timeline:false,baseLayerPicker:false,geocoder:false,homeButton:false,sceneModePicker:false,navigationHelpButton:false,fullscreenButton:false,infoBox:false,selectionIndicator:false,useDefaultRenderLoop:false,orderIndependentTranslucency:false,scene3DOnly:true,terrainProvider:terrain,baseLayer:new C.ImageryLayer(imagery),contextOptions:{webgl:{preserveDrawingBuffer:true,antialias:false}},skyBox:false,skyAtmosphere:false,shadows:false});
@@ -65,23 +65,23 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
     if(places.length){
       try{
         const ground=await bounded(C.sampleTerrain(terrain,12,places.map(p=>C.Cartographic.fromDegrees(p.lon,p.lat))),signal,30000,'No se pudieron ubicar las localidades sobre el terreno.');check(signal);
-        labels=places.map((p,i)=>Number.isFinite(ground[i].height)?viewer.entities.add({show:false,position:C.Cartesian3.fromDegrees(p.lon,p.lat,ground[i].height+25),point:{pixelSize:5,color:C.Color.WHITE,disableDepthTestDistance:Infinity},label:{text:p.name,font:'24px sans-serif',style:C.LabelStyle.FILL_AND_OUTLINE,fillColor:C.Color.WHITE,outlineColor:C.Color.BLACK,outlineWidth:2,showBackground:true,backgroundColor:new C.Color(.03,.06,.09,.75),backgroundPadding:new C.Cartesian2(9,5),pixelOffset:new C.Cartesian2(0,-23),verticalOrigin:C.VerticalOrigin.BOTTOM,disableDepthTestDistance:Infinity}}):null);
+        labels=places.map((p,i)=>Number.isFinite(ground[i].height)?viewer.entities.add({show:false,position:C.Cartesian3.fromDegrees(p.lon,p.lat,ground[i].height+25),point:{pixelSize:5,color:C.Color.WHITE,disableDepthTestDistance:Infinity},label:{text:p.name,font:cinematic?'30px sans-serif':'24px sans-serif',style:C.LabelStyle.FILL_AND_OUTLINE,fillColor:C.Color.WHITE,outlineColor:C.Color.BLACK,outlineWidth:2,showBackground:true,backgroundColor:new C.Color(.03,.06,.09,.75),backgroundPadding:new C.Cartesian2(9,5),pixelOffset:new C.Cartesian2(0,-23),verticalOrigin:C.VerticalOrigin.BOTTOM,disableDepthTestDistance:Infinity}}):null);
         if(labels.every(label=>!label))localityNote='No se pudieron ubicar los pueblos en el relieve; el video se generó sin nombres.';
       }catch(e){check(signal);localityNote='No se pudieron ubicar los pueblos en el relieve; el video se generó sin nombres.'}
     }
     async function render(progress,timeout=20000){
       check(signal);const pose=cinematic?cinematicCameraPose(activity.points,progress,heights,bounds):cameraPose(activity.points,progress,heights);
       const target=C.Cartesian3.fromDegrees(pose.lon,pose.lat,pose.height);
-      const trackPose=cameraPose(activity.points,pose.flightProgress??progress,heights);marker.position=C.Cartesian3.fromDegrees(trackPose.lon,trackPose.lat,trackPose.height);
+      const trackPose=cameraPose(activity.points,pose.trackProgress??progress,heights);marker.position=C.Cartesian3.fromDegrees(trackPose.lon,trackPose.lat,trackPose.height);
       viewer.camera.lookAt(target,new C.HeadingPitchRange(C.Math.toRadians(pose.heading),C.Math.toRadians(pose.pitch),pose.range));
       labels.forEach(label=>{if(label)label.show=false});
-      const distance=sampleVideoPoint(activity.points,pose.flightProgress??progress).point.d||0,total=activity.points.at(-1).d||1,occupied=[];
+      const distance=sampleVideoPoint(activity.points,pose.trackProgress??progress).point.d||0,total=activity.points.at(-1).d||1,occupied=[];
       for(const item of visibleLocalities(places,distance,total)){
         const entity=labels[item.index];if(!entity)continue;
-        const fade=cinematic?Math.max(0,Math.min(1,(progress-.10)/.04,(.94-progress)/.04)):1,alpha=item.alpha*fade;if(alpha<.02)continue;
+        const fade=cinematic?Math.max(0,Math.min(1,(progress-.10)/.04,(.92-progress)/.06)):1,alpha=item.alpha*fade;if(alpha<.02)continue;
         const screen=C.SceneTransforms.worldToWindowCoordinates(viewer.scene,entity.position.getValue(viewer.clock.currentTime));
         if(!screen||screen.x<60||screen.x>viewer.canvas.clientWidth-60||screen.y<65||screen.y>viewer.canvas.clientHeight-30)continue;
-        const width=places[item.index].name.length*14,box=[screen.x-width/2,screen.y-62,screen.x+width/2,screen.y];
+        const width=places[item.index].name.length*(cinematic?18:14),box=[screen.x-width/2,screen.y-62,screen.x+width/2,screen.y];
         if(occupied.some(b=>!(box[2]<b[0]||box[0]>b[2]||box[3]<b[1]||box[1]>b[3])))continue;
         occupied.push(box);entity.show=true;entity.label.fillColor=C.Color.WHITE.withAlpha(alpha);entity.label.outlineColor=C.Color.BLACK.withAlpha(alpha);entity.label.backgroundColor=new C.Color(.03,.06,.09,.75*alpha);entity.point.color=C.Color.WHITE.withAlpha(alpha);
       }
@@ -99,15 +99,15 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
       if(waited)viewer.render();
     }
     onStatus('Cargando mapa y ruta 3D…');await render(0,60000);
-    if(cinematic){for(const progress of [.14,.32,.5,.68,.86,1]){onStatus(`Preparando relieve e imágenes del vuelo… ${Math.round(progress*100)} %`);await render(progress,60000)}await render(0,60000)}
+    if(cinematic){for(const progress of [.14,.32,.5,.68,.80,.88,.95,1]){onStatus(`Preparando relieve e imágenes del vuelo… ${Math.round(progress*100)} %`);await render(progress,60000)}await render(0,60000)}
     if(cinematic){
       const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=720;const ctx=canvas.getContext('2d');if(!ctx)throw Error('No se pudo preparar el video.');
       const logo=new Image();logo.src=new URL('../assets/logo-perros-en-bicicleta.png',import.meta.url).href;
       await bounded(new Promise((resolve,reject)=>{if(logo.complete&&logo.naturalWidth)resolve();else{logo.onload=resolve;logo.onerror=()=>reject(Error('No se pudo cargar el logo.'))}}),signal,10000,'No se pudo cargar el logo.');
       return {canvas,fps:24,seconds:40,bitrate:7000000,localityNote,async draw(index,progress){
-        await render(progress);ctx.fillStyle='#0c1217';ctx.fillRect(0,0,1280,720);ctx.drawImage(viewer.canvas,0,56,1280,592);
-        ctx.fillStyle='#fff';ctx.font='bold 30px sans-serif';let name=String(activity.name||'Ruta');while(ctx.measureText(name).width>1100&&name.length>1)name=name.slice(0,-1);ctx.fillText(name,24,38);
-        const h=46,w=h*logo.naturalWidth/logo.naturalHeight;ctx.drawImage(logo,1256-w,5,w,h);
+        await render(progress);ctx.fillStyle='#0c1217';ctx.fillRect(0,0,1280,720);ctx.drawImage(viewer.canvas,0,68,1280,580);
+        ctx.fillStyle='#fff';ctx.font='bold 30px sans-serif';let name=String(activity.name||'Ruta').replace(/,/g,' ·');const fullName=name;while(ctx.measureText(name).width>1080&&name.length>1)name=name.slice(0,-1);if(name!==fullName)name=name.trimEnd()+'…';ctx.fillText(name,24,43);
+        const h=58,w=h*logo.naturalWidth/logo.naturalHeight;ctx.drawImage(logo,1256-w,5,w,h);
         ctx.font='13px sans-serif';ctx.fillStyle='#d3dde4';ctx.fillText('Vuelo virtual · Relieve real · © OpenStreetMap · Imágenes: Esri, Vantor, Earthstar Geographics y GIS User Community',24,669);
         ctx.font='10px sans-serif';let line='',y=687;for(const word of TERRAIN_CREDIT.split(' ')){if(ctx.measureText(line+word).width>1230){ctx.fillText(line,24,y);y+=13;line=''}line+=word+' '}ctx.fillText(line,24,y);ctx.getImageData(0,0,1,1);
       },dispose(){signal.removeEventListener('abort',cancel);dispose()}};

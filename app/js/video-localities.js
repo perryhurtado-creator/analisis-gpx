@@ -26,8 +26,8 @@ export function localitiesAlongRoute(points,places,maxDistance=900){
   return result.sort((a,b)=>a.distance-b.distance).slice(0,160);
 }
 export function visibleLocalities(places,distance,total){
-  const window=Math.max(1400,Math.min(6500,total*.08));
-  return places.map((place,index)=>({index,gap:Math.abs(place.distance-distance)})).filter(p=>p.gap<window).sort((a,b)=>a.gap-b.gap).slice(0,3).map(p=>({...p,alpha:Math.min(1,(window-p.gap)/(window*.4))}));
+  const window=Math.max(1400,Math.min(6500,total*.10));
+  return places.map((place,index)=>({index,gap:Math.abs(place.distance-distance)})).filter(p=>p.gap<window).sort((a,b)=>a.gap-b.gap).slice(0,3).map(p=>({...p,alpha:Math.min(1,(window-p.gap)/(window*.3))}));
 }
 export async function loadRouteLocalities(points,signal,fetcher=fetch){
   if(signal.aborted)throw new DOMException('Cancelado.','AbortError');

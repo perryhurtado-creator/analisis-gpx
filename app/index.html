@@ -59,7 +59,7 @@
       <section class="page" id="video">
         <section class="panel video-map-panel">
   <div class="video-mode-controls"><label for="videoMode">Vista del video</label><select id="videoMode"><option value="2d">Mapa 2D</option><option value="3d">Cámara aérea 3D · prueba</option></select></div>
-  <div class="action-row video-controls"><button class="action-btn" id="playRoute">▷ Reproducir ruta</button><button class="action-btn secondary" id="makeVideo">⬇ Guardar vídeo</button><span class="action-state" id="videoState" role="status">Listo para animar tu recorrido.</span></div>
+  <div id="videoPlayer" class="video-player"><div class="action-row video-controls"><button class="action-btn" id="playRoute">▷ Reproducir ruta</button><button class="action-btn secondary" id="pauseVideo" disabled>Ⅱ Pausa</button><button class="action-btn secondary" id="fullscreenVideo">⛶ Pantalla completa</button><button class="action-btn secondary" id="makeVideo">⬇ Guardar vídeo</button><span class="action-state" id="videoState" role="status">Listo para animar tu recorrido.</span></div>
   <div class="panel-title"><h3>Recorrido sincronizado</h3><span id="videoMapStatus">OpenStreetMap</span></div>
   <div id="video2DStage">
   <div class="video-profile video-profile-top"><div id="videoElevationChart"></div></div>
@@ -67,7 +67,7 @@
   <div class="video-profile video-profile-bottom"><div id="videoSpeedChart"></div></div>
   </div>
   <div id="video3DStage" hidden><div class="video-mode-controls"><label for="video3DStyle">Estilo de cámara</label><select id="video3DStyle"><option value="cinematic">Cinematográfico · satélite · horizontal · 40 s</option><option value="aerial">Aéreo con indicadores · vertical · 15 s</option></select><label><input type="checkbox" id="videoLocalities" checked> Mostrar nombres de localidades</label></div><p class="feature-copy">Vuelo virtual sobre relieve real, sin audio. Los nombres aparecen al acercarse la cámara. Se consulta el área de la ruta en OpenStreetMap para localizar pueblos cercanos. Pulsa Reproducir o Guardar vídeo; mantén esta página visible.</p><button class="action-btn secondary" id="cancelVideo3D" type="button">Cancelar 3D</button><div id="video3DPreview" aria-label="Vista aérea 3D e indicadores sincronizados"></div></div>
-</section>
+</div></section>
       </section>
 
       <section class="page" id="cartel">

@@ -1,9 +1,29 @@
 import {createCesiumVideoScene} from './cesium-scene.js';
 import {encodeVideoScene,recordingFormat} from './video-capture.js';
 import {completeWebmDuration} from './webm-duration.js';
-let current=null;
+let current=null,playback=null,previewURL=null;
+function playbackButtons(paused,active){
+  const play=document.getElementById('playRoute'),pause=document.getElementById('pauseVideo');
+  if(play){play.disabled=active&&!paused;play.textContent=paused?'▷ Continuar':'▷ Reproducir ruta'}
+  if(pause)pause.disabled=!active||paused;
+}
+export function pauseVideo3D(){
+  const video=document.querySelector('#video3DPreview video');if(video){video.pause();return}
+  if(playback){playback.paused=true;playbackButtons(true,true);document.getElementById('videoState').textContent='Vista 3D en pausa.'}
+}
+export function resumeVideo3D(){
+  const video=document.querySelector('#video3DPreview video');
+  if(video){if(video.ended)video.currentTime=0;video.play().catch(()=>{document.getElementById('videoState').textContent='Pulsa reproducir en el video.'});return true}
+  if(!playback)return false;playback.paused=false;playback.wake?.();playbackButtons(false,true);return true;
+}
+function showExportedVideo(blob){
+  const video=document.createElement('video');previewURL=URL.createObjectURL(blob);video.src=previewURL;video.controls=true;video.playsInline=true;video.preload='metadata';video.setAttribute('aria-label','Video del recorrido sin audio');
+  video.addEventListener('play',()=>playbackButtons(false,true));video.addEventListener('pause',()=>playbackButtons(true,true));video.addEventListener('ended',()=>playbackButtons(false,false));
+  document.getElementById('video3DPreview').replaceChildren(video);
+}
+
 export function video3DBusy(){return current!==null}
-export function stopVideo3D(){current?.abort()}
+export function stopVideo3D(){current?.abort();playback?.wake?.();document.querySelector('#video3DPreview video')?.pause();if(previewURL){URL.revokeObjectURL(previewURL);previewURL=null;document.getElementById('video3DPreview')?.replaceChildren()}playbackButtons(false,false)}
 function download(blob,name,extension){
   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=String(name||'ruta').replace(/[^a-z0-9áéíóúñ_-]/gi,'_')+'_3D.'+extension;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
@@ -46,11 +66,11 @@ async function run(activity,exportVideo){
   if(current||!activity?.points?.length)return;
   const controller=new AbortController(),state=document.getElementById('videoState'),host=document.getElementById('video3DPreview');
   const options={cameraStyle:document.getElementById('video3DStyle')?.value||'aerial',showLocalities:document.getElementById('videoLocalities')?.checked??false};
-  const buttons=['playRoute','makeVideo','videoMode','video3DStyle','videoLocalities'].map(id=>document.getElementById(id));
+  const buttons=['playRoute','pauseVideo','makeVideo','videoMode','video3DStyle','videoLocalities'].map(id=>document.getElementById(id));
   let scene;current=controller;buttons.forEach(b=>{if(b)b.disabled=true});
   const status=text=>{state.textContent=text},hidden=()=>{if(document.hidden)controller.abort()};document.addEventListener('visibilitychange',hidden);
   try{
-    host.replaceChildren();scene=await createCesiumVideoScene(activity,controller.signal,status,options);if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
+    if(previewURL){URL.revokeObjectURL(previewURL);previewURL=null}host.replaceChildren();scene=await createCesiumVideoScene(activity,controller.signal,status,options);if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
     scene.canvas.setAttribute('aria-label',options.cameraStyle==='cinematic'?'Vuelo cinematográfico sobre relieve e imágenes satelitales':'Video aéreo 3D con altimetría, velocidad y distancia');host.appendChild(scene.canvas);
     scene.canvas.classList.toggle('cinematic-video',options.cameraStyle==='cinematic');
     if(exportVideo){
@@ -61,18 +81,20 @@ async function run(activity,exportVideo){
       }
       if(!result)result=await recordScene(scene,activity.points,controller.signal,status);
       if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
-      download(result.blob,activity.name,result.extension);status(`Video 3D ${result.extension.toUpperCase()} descargado en 720p. ${scene.localityNote||''}`);
+      download(result.blob,activity.name,result.extension);showExportedVideo(result.blob);status(`Video 3D ${result.extension.toUpperCase()} descargado en 720p. ${scene.localityNote||''}`);
     }else{
       const frames=scene.fps*scene.seconds;
+      playback={paused:false,wake:null};playbackButtons(false,true);
+      const awaitResume=async()=>{while(playback?.paused&&!controller.signal.aborted)await new Promise(resolve=>{playback.wake=resolve});if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError')};
       for(let frame=0;frame<frames;frame++){
         if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
-        const began=performance.now(),progress=frame/(frames-1);await scene.draw(Math.floor(progress*(activity.points.length-1)),progress);
-        status(`Reproduciendo vista aérea 3D… ${Math.round(progress*100)} %`);await new Promise(resolve=>setTimeout(resolve,Math.max(0,1000/scene.fps-(performance.now()-began))));
+        await awaitResume();const began=performance.now(),progress=frame/(frames-1);await scene.draw(Math.floor(progress*(activity.points.length-1)),progress);
+        await awaitResume();status(`Reproduciendo vista aérea 3D… ${Math.round(progress*100)} %`);await new Promise(resolve=>setTimeout(resolve,Math.max(0,1000/scene.fps-(performance.now()-began))));
       }
       status(`Vista aérea terminada. Pulsa Guardar vídeo para exportarla. ${scene.localityNote||''}`);
     }
   }catch(e){status(e.name==='AbortError'?'Video 3D cancelado. Puedes volver a intentarlo.':`No se pudo generar el video 3D: ${e.message||'error desconocido'}`)}
-  finally{scene?.dispose();controller.abort();document.removeEventListener('visibilitychange',hidden);if(current===controller)current=null;buttons.forEach(b=>{if(b)b.disabled=false})}
+  finally{playback=null;scene?.dispose();controller.abort();document.removeEventListener('visibilitychange',hidden);if(current===controller)current=null;buttons.forEach(b=>{if(b)b.disabled=false});playbackButtons(false,false)}
 }
 export function playVideo3D(activity){return run(activity,false)}
 export function makeVideo3D(activity){return run(activity,true)}

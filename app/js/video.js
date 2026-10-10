@@ -1,11 +1,11 @@
-import {playVideo3D,makeVideo3D,stopVideo3D,video3DBusy} from './video-3d.js';
+import {playVideo3D,makeVideo3D,stopVideo3D,video3DBusy,pauseVideo3D,resumeVideo3D} from './video-3d.js';
 import {showVideoPoint,createMap,fitVideoRoute} from './map.js';
 import {completeWebmDuration} from './webm-duration.js';
 import {fmt} from './metrics.js';
 import {createVideoScene,recordingFormat,encodeVideoScene,VIDEO_SECONDS,VIDEO_FPS,sampleVideoPoint} from './video-capture.js';
 
-let playFrame=null,videoPoints=[],profileState={ele:null,speed:null},capture=null;
-export function stopRouteAnimation(){stopVideo3D();if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;if(capture)capture.cancel();}
+let playFrame=null,videoPoints=[],profileState={ele:null,speed:null},capture=null,routePlayback=null;
+export function stopRouteAnimation(){routePlayback=null;document.getElementById('pauseVideo')?.setAttribute('disabled','');stopVideo3D();if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;if(capture)capture.cancel();}
 function drawProfile(id,points,field,label,unit){
   const host=document.getElementById(id);
   profileState[field]=null;
@@ -69,15 +69,15 @@ export function playRoute(points,onDone=()=>{},onFrame=()=>{}){
   if(playFrame)cancelAnimationFrame(playFrame);
   showVideoPoint(points[0]);updateProfile('ele',0);updateProfile('speed',0);
   onFrame(0,0);
-  const start=performance.now(),total=VIDEO_SECONDS*1000;
+  const total=VIDEO_SECONDS*1000;routePlayback={start:performance.now(),pausedAt:null,step:null};if(!capture)document.getElementById('pauseVideo').disabled=false;
   function step(now){
-    const ratio=Math.max(0,Math.min(1,(now-start)/total)),index=Math.min(points.length-1,Math.floor(ratio*(points.length-1)));
+    const ratio=Math.max(0,Math.min(1,(now-routePlayback.start)/total)),index=Math.min(points.length-1,Math.floor(ratio*(points.length-1)));
     showVideoPoint(sampleVideoPoint(points,ratio).point);updateProfile('ele',index,ratio);updateProfile('speed',index,ratio);
     onFrame(index,ratio);
     if(ratio<1)playFrame=requestAnimationFrame(step);
-    else{state.textContent='Reproducción terminada.';button.textContent='▷ Reproducir';playFrame=null;onDone()}
+    else{state.textContent='Reproducción terminada.';button.textContent='▷ Reproducir';playFrame=null;routePlayback=null;document.getElementById('pauseVideo').disabled=true;onDone()}
   }
-  playFrame=requestAnimationFrame(step);
+  routePlayback.step=step;playFrame=requestAnimationFrame(step);
 }
 function download(blob,name,extension){
   const url=URL.createObjectURL(blob),a=document.createElement('a');
@@ -92,7 +92,7 @@ export async function makeVideo(activity,webmOnly=false){
   if(location.protocol==='file:'){state.textContent='Para guardar el vídeo abre la app desde su dirección web o con INICIAR_APP.bat.';return}
   stopRouteAnimation();
   if(videoPoints!==activity.points)prepareVideoMap(activity.points);
-  const controller=new AbortController(),buttons=['playRoute','makeVideo'].map(id=>document.getElementById(id));
+  const controller=new AbortController(),buttons=['playRoute','pauseVideo','makeVideo'].map(id=>document.getElementById(id));
   let recorder,stream,rejectRecording,watchdog,preview,format,retryWebm=false,recordingStarted=false,recordingDuration=VIDEO_SECONDS*1000;
   const job={cancel(){controller.abort();if(recorder?.state==='recording')recorder.stop();rejectRecording?.(new DOMException('Grabación cancelada.','AbortError'))}};
   capture=job;buttons.forEach(button=>{if(button)button.disabled=true});
@@ -150,22 +150,23 @@ export async function makeVideo(activity,webmOnly=false){
     else{console.error(e);state.textContent=e.name==='AbortError'?'Grabación cancelada. Puedes volver a guardar la ruta.':`No se pudo guardar el vídeo: ${e.message||'error desconocido'}`}
   }finally{
     clearTimeout(watchdog);rejectRecording=null;
-    if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;
+    if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;routePlayback=null;
     if(recorder?.state==='recording')recorder.stop();
     stream?.getTracks().forEach(track=>track.stop());
     preview?.remove();
     controller.abort();document.removeEventListener('visibilitychange',hidden);
     if(capture===job)capture=null;
     buttons.forEach(button=>{if(button)button.disabled=false});
-    const playButton=document.getElementById('playRoute');if(playButton)playButton.textContent='▷ Reproducir ruta';
+    const playButton=document.getElementById('playRoute');if(playButton)playButton.textContent='▷ Reproducir ruta';document.getElementById('pauseVideo').disabled=true;
   }
   if(retryWebm)await makeVideo(activity,true);
 }
 
 
 export function playActivity(activity){
-  if(capture||video3DBusy())return;
-  if(document.getElementById('videoMode')?.value==='3d'){stopRouteAnimation();return playVideo3D(activity)}
+  if(capture)return;
+  if(document.getElementById('videoMode')?.value==='3d'){if(resumeVideo3D())return;if(video3DBusy())return;stopRouteAnimation();return playVideo3D(activity)}
+  if(routePlayback&&routePlayback.pausedAt!==null){routePlayback.start+=performance.now()-routePlayback.pausedAt;routePlayback.pausedAt=null;document.getElementById('pauseVideo').disabled=false;document.getElementById('playRoute').textContent='↻ Reiniciar';playFrame=requestAnimationFrame(routePlayback.step);return}
   return playRoute(activity.points);
 }
 function applyVideoMode(){
@@ -184,3 +185,18 @@ if(mode){
 }
 
 const cancel3D=document.getElementById('cancelVideo3D');if(cancel3D)cancel3D.onclick=stopRouteAnimation;
+
+const pauseButton=document.getElementById('pauseVideo');
+if(pauseButton)pauseButton.onclick=()=>{
+  if(document.getElementById('videoMode')?.value==='3d'){pauseVideo3D();return}
+  if(capture||!routePlayback||routePlayback.pausedAt!==null)return;
+  cancelAnimationFrame(playFrame);playFrame=null;routePlayback.pausedAt=performance.now();pauseButton.disabled=true;
+  document.getElementById('playRoute').textContent='▷ Continuar';document.getElementById('videoState').textContent='Ruta en pausa.';
+};
+const fullButton=document.getElementById('fullscreenVideo');
+if(fullButton)fullButton.onclick=async()=>{
+  const player=document.getElementById('videoPlayer'),video=document.querySelector('#video3DPreview video');
+  try{if(document.fullscreenElement)await document.exitFullscreen();else if(player.requestFullscreen)await player.requestFullscreen();else if(video?.webkitEnterFullscreen)video.webkitEnterFullscreen();else document.getElementById('videoState').textContent='Este navegador no admite pantalla completa.'}
+  catch{document.getElementById('videoState').textContent='No se pudo activar pantalla completa. Inténtalo de nuevo.'}
+};
+document.addEventListener('fullscreenchange',()=>{if(fullButton)fullButton.textContent=document.fullscreenElement?'⛶ Salir de pantalla completa':'⛶ Pantalla completa';window.dispatchEvent(new Event('resize'))});
