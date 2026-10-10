@@ -25,3 +25,12 @@ for(const progress of [0,.05,.14,.3,.5,.7,.8,.9,.95,1]){
  const pose=cinematicCameraPose(hairpin,progress,ground);assert.equal(pose.heading,0,'Orientación fija incluso en curvas, entrada y cierre');assert.equal(pose.pitch,-50,'Sin cambios de inclinación');assert(pose.range>=1100);
 }
 console.log('PASS: orientación e inclinación constantes y encuadre amplio.');
+
+const opening=cinematicCameraPose(points,0,samples);
+for(let frame=0;frame<960;frame++){
+ const pose=cinematicCameraPose(points,frame/959,samples);
+ assert.equal(pose.lon,opening.lon);assert.equal(pose.lat,opening.lat);assert.equal(pose.height,opening.height,'El relieve y el marcador no arrastran la cámara');
+}
+assert.notEqual(cinematicCameraPose(points,.2,samples).trackProgress,cinematicCameraPose(points,.7,samples).trackProgress,'El punto sigue avanzando con cámara fija');
+const wide=cinematicCameraPose(points,.5,samples);assert(wide.range+1e-6>=Math.hypot(1.1*111320,1.1*111320*Math.cos(wide.lat*Math.PI/180))*1.6);
+console.log('PASS: encuadre de toda la ruta independiente del punto durante los 960 fotogramas.');

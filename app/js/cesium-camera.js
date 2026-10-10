@@ -43,25 +43,13 @@ export function cinematicCameraPose(points,progress,samples,bounds=cinematicBoun
   progress=Math.max(0,Math.min(.95,progress));
   const flightProgress=Math.max(0,Math.min(1,(progress-.14)/.66));
   const sample=sampleDistancePoint(points,flightProgress),trackProgress=(sample.index+sample.mix)/Math.max(1,points.length-1);
-  const pose=cameraPose(points,trackProgress,samples);
-  // Orientación fija: las curvas del GPX no hacen rotar todo el paisaje.
-  // Promediar el objetivo alrededor del avance amortigua las curvas laterales.
-  let lon=0,lat=0,height=0,weight=0;
-  for(let i=-4;i<=4;i++){
-    const nearby=sampleDistancePoint(points,Math.max(0,Math.min(1,flightProgress+i*.006)));
-    if(nearby.point.segmentId!==sample.point.segmentId)continue;
-    const w=5-Math.abs(i),p=cameraPose(points,(nearby.index+nearby.mix)/Math.max(1,points.length-1),samples);
-    lon+=p.lon*w;lat+=p.lat*w;height+=p.height*w;weight+=w;
-  }
-  if(weight){pose.lon=lon/weight;pose.lat=lat/weight;pose.height=height/weight}
-  const followRange=Math.max(1100,Math.min(9000,bounds.span*.28));
-  Object.assign(pose,{heading:0,pitch:-50,range:followRange,flightProgress,trackProgress});
-  if(progress<.14||progress>.80){
-    const f=progress<.14?progress/.14:(.95-progress)/.15,ease=f*f*f*(f*(f*6-15)+10);
-    pose.lon=bounds.lon*(1-ease)+pose.lon*ease;pose.lat=bounds.lat*(1-ease)+pose.lat*ease;
-    const maxHeight=Math.max(...samples.map(p=>p.height))+20;
-    pose.height=maxHeight*(1-ease)+pose.height*ease;pose.pitch=-50;
-    pose.range=Math.max(1200,bounds.span*1.1)*(1-ease)+followRange*ease;
-  }
-  return pose;
+  // El encuadre depende solo de la extensión de la ruta, nunca del marcador.
+  // Margen para conservar el recorrido completo en la vista horizontal inclinada.
+  const range=Math.max(1200,bounds.span*1.6);
+  let zoom=0;
+  if(progress<.14)zoom=1-progress/.14;
+  else if(progress>.80)zoom=(progress-.80)/.15;
+  const ease=zoom*zoom*zoom*(zoom*(zoom*6-15)+10);
+  return {lon:bounds.lon,lat:bounds.lat,height:Math.max(...samples.map(p=>p.height))+20,
+    heading:0,pitch:-50,range:range*(1+.12*ease),flightProgress,trackProgress};
 }

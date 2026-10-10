@@ -15,6 +15,6 @@ const controller=new AbortController();controller.abort();await assert.rejects(l
 const other=points.map(p=>({...p,lat:p.lat+1}));await assert.rejects(loadRouteLocalities(other,signal,async()=>Response.json({error:'outage'},{status:502})),/consultar/);
 const samples=points.map((p,index)=>({index,height:2000})),bounds=cinematicBounds(points);
 for(const progress of [0,.14,.5,.86,1]){const pose=cinematicCameraPose(points,progress,samples,bounds);assert(Object.values(pose).every(Number.isFinite));assert(pose.pitch<0&&pose.range>0)}
-const before=cinematicCameraPose(points,.47-1e-6,samples,bounds),after=cinematicCameraPose(points,.47+1e-6,samples,bounds);assert(before.lon<=-99.98&&after.lon>=-99.94,'El corte es un salto, nunca un tramo interpolado');
+const overview=cinematicCameraPose(points,.5,samples,bounds);assert.equal(overview.lon,bounds.lon);assert.equal(overview.lat,bounds.lat);
 for(const boundary of [.14,.80,.95]){const a=cinematicCameraPose(points,boundary-1e-6,samples,bounds),b=cinematicCameraPose(points,boundary+1e-6,samples,bounds);assert(Math.abs(a.range-b.range)<1);assert(Math.abs(a.heading-b.heading)<.1)}
 console.log('PASS: localidades junto a tramos reales, cortes, cercanía, duplicados, fundido, límites, caché, errores, cancelación y cámara cinematográfica.');

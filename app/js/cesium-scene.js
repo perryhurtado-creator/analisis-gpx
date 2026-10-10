@@ -99,7 +99,7 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
       if(waited)viewer.render();
     }
     onStatus('Cargando mapa y ruta 3D…');await render(0,60000);
-    if(cinematic){for(const progress of [.14,.32,.5,.68,.80,.88,.95,1]){onStatus(`Preparando relieve e imágenes del vuelo… ${Math.round(progress*100)} %`);await render(progress,60000)}await render(0,60000)}
+    if(cinematic){for(const progress of [.14,.95]){onStatus(`Preparando relieve e imágenes del vuelo… ${Math.round(progress*100)} %`);await render(progress,60000)}await render(0,60000)}
     if(cinematic){
       const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=720;const ctx=canvas.getContext('2d');if(!ctx)throw Error('No se pudo preparar el video.');
       const logo=new Image();logo.src=new URL('../assets/logo-perros-en-bicicleta.png',import.meta.url).href;
