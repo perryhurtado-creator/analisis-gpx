@@ -71,8 +71,8 @@ async function run(activity,exportVideo){
   const status=text=>{state.textContent=text},hidden=()=>{if(document.hidden)controller.abort()};document.addEventListener('visibilitychange',hidden);
   try{
     if(previewURL){URL.revokeObjectURL(previewURL);previewURL=null}host.replaceChildren();scene=await createCesiumVideoScene(activity,controller.signal,status,options);if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
-    scene.canvas.setAttribute('aria-label',options.cameraStyle==='cinematic'?'Vuelo cinematográfico sobre relieve e imágenes satelitales':'Video aéreo 3D con altimetría, velocidad y distancia');host.appendChild(scene.canvas);
-    scene.canvas.classList.toggle('cinematic-video',options.cameraStyle==='cinematic');
+    scene.canvas.setAttribute('aria-label',['cinematic','drone'].includes(options.cameraStyle)?'Vuelo cinematográfico sobre relieve e imágenes satelitales':'Video aéreo 3D con altimetría, velocidad y distancia');host.appendChild(scene.canvas);
+    scene.canvas.classList.toggle('cinematic-video',['cinematic','drone'].includes(options.cameraStyle));
     if(exportVideo){
       let result;
       if(typeof VideoEncoder==='function'){

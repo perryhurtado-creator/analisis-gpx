@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {routeChunks,terrainSampleIndices,cameraPose,sampleDistancePoint,cinematicCameraPose} from '../js/cesium-camera.js';
+import {routeChunks,terrainSampleIndices,cameraPose,sampleDistancePoint,cinematicCameraPose,droneCameraPose} from '../js/cesium-camera.js';
 const points=[{lat:20,lon:-100,d:0,segmentId:0,breakBefore:true},{lat:20.1,lon:-100.1,d:100,segmentId:0},{lat:21,lon:-101,d:100,segmentId:1,breakBefore:true},{lat:21.1,lon:-101.1,d:200,segmentId:1}];
 assert.deepEqual(routeChunks(points).map(p=>p.length),[2,2]);
 const samples=points.map((p,i)=>({index:i,height:2000+i*10}));
@@ -34,3 +34,8 @@ for(let frame=0;frame<960;frame++){
 assert.notEqual(cinematicCameraPose(points,.2,samples).trackProgress,cinematicCameraPose(points,.7,samples).trackProgress,'El punto sigue avanzando con cámara fija');
 const wide=cinematicCameraPose(points,.5,samples);assert(wide.range+1e-6>=Math.hypot(1.1*111320,1.1*111320*Math.cos(wide.lat*Math.PI/180))*1.6);
 console.log('PASS: encuadre de toda la ruta independiente del punto durante los 960 fotogramas.');
+
+const followA=droneCameraPose(uneven,.2,uneven.map((p,index)=>({index,height:2000}))),followB=droneCameraPose(uneven,.7,uneven.map((p,index)=>({index,height:2000})));
+assert.notEqual(followA.lon,followB.lon,'El dron acompaña al punto mientras la vista general permanece centrada');assert.equal(followA.heading,0);assert.equal(followB.heading,0);
+assert.deepEqual(droneCameraPose(points,.95,samples),droneCameraPose(points,1,samples));
+console.log('PASS: dos cámaras independientes, seguimiento suave del dron y cierre fijo.');

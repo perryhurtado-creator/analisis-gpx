@@ -1,5 +1,5 @@
 import {createVideoScene} from './video-capture.js';
-import {routeChunks,terrainSampleIndices,cameraPose,cinematicBounds,cinematicCameraPose} from './cesium-camera.js';
+import {routeChunks,terrainSampleIndices,cameraPose,cinematicBounds,cinematicCameraPose,droneCameraPose} from './cesium-camera.js';
 import {loadRouteLocalities,visibleLocalities} from './video-localities.js';
 import {sampleVideoPoint} from './video-capture.js';
 const CESIUM_BASE='https://cesium.com/downloads/cesiumjs/releases/1.124/Build/Cesium/';
@@ -33,7 +33,7 @@ function bounded(promise,signal,ms,message){
 function wait(ms,signal){return bounded(new Promise(resolve=>setTimeout(resolve,ms)),signal,ms+1000,'La vista 3D no respondió.');}
 export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},options={}){
   let viewer,host,terrainFailed=false,imageryFailed=false;
-  const cinematic=options.cameraStyle==='cinematic',bounds=cinematicBounds(activity.points);
+  const following=options.cameraStyle==='drone',cinematic=following||options.cameraStyle==='cinematic',bounds=cinematicBounds(activity.points);
   let places=[],localityNote='';
   const dispose=()=>{if(viewer&&!viewer.isDestroyed())viewer.destroy();host?.remove()};
   const cancel=()=>dispose();signal.addEventListener('abort',cancel,{once:true});
@@ -70,7 +70,7 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
       }catch(e){check(signal);localityNote='No se pudieron ubicar los pueblos en el relieve; el video se generó sin nombres.'}
     }
     async function render(progress,timeout=20000){
-      check(signal);const pose=cinematic?cinematicCameraPose(activity.points,progress,heights,bounds):cameraPose(activity.points,progress,heights);
+      check(signal);const pose=following?droneCameraPose(activity.points,progress,heights,bounds):cinematic?cinematicCameraPose(activity.points,progress,heights,bounds):cameraPose(activity.points,progress,heights);
       const target=C.Cartesian3.fromDegrees(pose.lon,pose.lat,pose.height);
       const trackPose=cameraPose(activity.points,pose.trackProgress??progress,heights);marker.position=C.Cartesian3.fromDegrees(trackPose.lon,trackPose.lat,trackPose.height);
       viewer.camera.lookAt(target,new C.HeadingPitchRange(C.Math.toRadians(pose.heading),C.Math.toRadians(pose.pitch),pose.range));
@@ -99,7 +99,7 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
       if(waited)viewer.render();
     }
     onStatus('Cargando mapa y ruta 3D…');await render(0,60000);
-    if(cinematic){for(const progress of [.14,.95]){onStatus(`Preparando relieve e imágenes del vuelo… ${Math.round(progress*100)} %`);await render(progress,60000)}await render(0,60000)}
+    if(cinematic){for(const progress of (following?[.14,.32,.5,.68,.80,.88,.95]:[.14,.95])){onStatus(`Preparando relieve e imágenes del vuelo… ${Math.round(progress*100)} %`);await render(progress,60000)}await render(0,60000)}
     if(cinematic){
       const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=720;const ctx=canvas.getContext('2d');if(!ctx)throw Error('No se pudo preparar el video.');
       const logo=new Image();logo.src=new URL('../assets/logo-perros-en-bicicleta.png',import.meta.url).href;
