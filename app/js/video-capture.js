@@ -18,7 +18,7 @@ export function sampleVideoPoint(points,progress){
 function loadTile(url,signal){
   return new Promise((resolve,reject)=>{
     const img=new Image();
-    img.crossOrigin='anonymous';
+    img.crossOrigin='anonymous';img.referrerPolicy='origin';
     const done=(error)=>{clearTimeout(timer);signal.removeEventListener('abort',abort);img.onload=null;img.onerror=null;error?reject(error):resolve(img)};
     const abort=()=>{done(new DOMException('Grabación cancelada.','AbortError'));img.src=''};
     const timer=setTimeout(()=>{done(Error('No se pudieron cargar las imágenes del mapa. Revisa tu conexión e inténtalo de nuevo.'));img.src=''},15000);

@@ -16,7 +16,7 @@ export function createMap(points,id='map'){
   // del renderer para proyectar y recortar las líneas.
   map.fitBounds(L.latLngBounds(points.map(p=>[p.lat,p.lon])),{padding:[28,28]});
   const statusId=id==='map'?'mapStatus':'videoMapStatus';
-  const tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'});
+  const tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{referrerPolicy:'origin',maxZoom:19,attribution:'© OpenStreetMap contributors'});
   let tileFailed=false;
   tiles.on('loading',()=>{tileFailed=false;setStatus('Cargando mapa…',statusId)});
   tiles.on('tileerror',()=>{tileFailed=true;setStatus('No se pudieron cargar algunas imágenes del mapa. Revisa la conexión; el trazo sigue disponible.',statusId)});

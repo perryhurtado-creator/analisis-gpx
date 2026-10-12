@@ -5,7 +5,7 @@ let activity=null,controller=null,resources=null,canvas=null,revision=0;
 function aborted(){return new DOMException('Cartel cancelado.','AbortError')}
 function image(url,signal){
   return new Promise((resolve,reject)=>{
-    const img=new Image();img.crossOrigin='anonymous';
+    const img=new Image();img.crossOrigin='anonymous';img.referrerPolicy='origin';
     const done=error=>{clearTimeout(timer);signal.removeEventListener('abort',cancel);img.onload=img.onerror=null;error?reject(error):resolve(img)};
     const cancel=()=>{done(aborted());img.src=''};
     const timer=setTimeout(()=>{done(Error('No se pudo cargar el mapa o el logo. Revisa tu conexión e inténtalo de nuevo.'));img.src=''},20000);
