@@ -1,3 +1,4 @@
+import {drawBicycle} from './bicycle-marker.js';
 import {videoMapSnapshot} from './map.js';
 import {fmt} from './metrics.js';
 
@@ -113,7 +114,7 @@ export async function createVideoScene(activity,signal,options={}){
     else {
     ctx.drawImage(background,0,410);
     const a=snapshot.positions[index],b=snapshot.positions[sample.next];
-    marker(ctx,{x:a.x+(b.x-a.x)*sample.mix,y:410+a.y+(b.y-a.y)*sample.mix},'#ff9f43',12);
+    drawBicycle(ctx,{x:a.x+(b.x-a.x)*sample.mix,y:410+a.y+(b.y-a.y)*sample.mix},64);
     }
     ctx.save();ctx.translate(0,1600);drawProfile(ctx,activity.points,'speed',index,speed,1080,230,'#397de8','Velocidad',sample);ctx.restore();
     ctx.fillStyle='#fff';ctx.font='bold 30px sans-serif';ctx.fillText(`${fmt(sample.point.d/1000)} / ${fmt(activity.points.at(-1).d/1000)} km`,24,1872);

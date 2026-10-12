@@ -1,3 +1,4 @@
+import {bicycleDataURI} from './bicycle-marker.js';
 const maps={map:null,videoMap:null};
 const markers={map:null,videoMap:null};
 const observers={};
@@ -35,7 +36,7 @@ export function createMap(points,id='map'){
     const first=points[0],last=points.at(-1);
     L.circleMarker([first.lat,first.lon],{radius:6,color:'#fff',weight:2,fillColor:'#2a9b69',fillOpacity:1}).addTo(map).bindTooltip('Inicio');
     L.circleMarker([last.lat,last.lon],{radius:6,color:'#fff',weight:2,fillColor:'#ee5c73',fillOpacity:1}).addTo(map).bindTooltip('Final');
-    markers[id]=L.circleMarker([first.lat,first.lon],{radius:8,color:'#fff',weight:2,fillColor:'#ff9f43',fillOpacity:0,opacity:0}).addTo(map);
+    markers[id]=L.marker([first.lat,first.lon],{icon:L.icon({iconUrl:bicycleDataURI,iconSize:[48,33],iconAnchor:[24,16.5]}),opacity:0,interactive:false,keyboard:false,zIndexOffset:1000}).addTo(map);
   }
   if(id==='map'){setEngine('OpenStreetMap','Leaflet');setStatus('OpenStreetMap')}else setStatus('OpenStreetMap','videoMapStatus');
   if(window.ResizeObserver){observers[id]=new ResizeObserver(()=>maps[id]?.invalidateSize());observers[id].observe(host)}
@@ -43,11 +44,11 @@ export function createMap(points,id='map'){
 }
 export function fitRoute(points){const map=maps.map;if(map&&points?.length)map.fitBounds(window.L.latLngBounds(points.map(p=>[p.lat,p.lon])),{padding:[28,28]})}
 export function fitVideoRoute(points){const map=maps.videoMap;if(map&&points?.length){map.invalidateSize();map.fitBounds(window.L.latLngBounds(points.map(p=>[p.lat,p.lon])),{padding:[28,28]})}}
-function show(id,p){const marker=markers[id];if(p&&marker)marker.setLatLng([p.lat,p.lon]).setStyle({opacity:1,fillOpacity:1})}
+function show(id,p){const marker=markers[id];if(p&&marker)marker.setLatLng([p.lat,p.lon]).setOpacity(1)}
 export function showPoint(p){show('map',p)}
 export function showVideoPoint(p){show('videoMap',p)}
-export function hidePoint(){if(markers.map)markers.map.setStyle({opacity:0,fillOpacity:0})}
-export function hideVideoPoint(){if(markers.videoMap)markers.videoMap.setStyle({opacity:0,fillOpacity:0})}
+export function hidePoint(){if(markers.map)markers.map.setOpacity(0)}
+export function hideVideoPoint(){if(markers.videoMap)markers.videoMap.setOpacity(0)}
 export function videoMapSnapshot(points){
   const map=maps.videoMap;
   if(!map)throw Error('Carga la ruta en el mapa antes de guardar el vídeo.');

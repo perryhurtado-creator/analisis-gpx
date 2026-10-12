@@ -1,3 +1,4 @@
+import {bicycleDataURI} from './bicycle-marker.js';
 import {createVideoScene} from './video-capture.js';
 import {routeChunks,terrainSampleIndices,cameraPose,cinematicBounds,cinematicCameraPose,droneCameraPose} from './cesium-camera.js';
 import {loadRouteLocalities,visibleLocalities} from './video-localities.js';
@@ -51,7 +52,7 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
     viewer.scene.globe.maximumScreenSpaceError=cinematic?4:6;viewer.scene.globe.tileCacheSize=400;viewer.scene.globe.enableLighting=false;viewer.scene.screenSpaceCameraController.enableInputs=false;
     viewer.resolutionScale=1;viewer.resize();
     for(const chunk of routeChunks(activity.points))if(chunk.length>1)viewer.entities.add({polyline:{positions:chunk.map(p=>C.Cartesian3.fromDegrees(p.lon,p.lat)),width:5,material:C.Color.fromCssColorString(cinematic?'#ff6b27':'#2a9b69'),clampToGround:true}});
-    const marker=viewer.entities.add({position:C.Cartesian3.fromDegrees(activity.points[0].lon,activity.points[0].lat),point:{pixelSize:15,color:C.Color.fromCssColorString('#ff9f43'),outlineColor:C.Color.WHITE,outlineWidth:2,disableDepthTestDistance:Number.POSITIVE_INFINITY}});
+    const marker=viewer.entities.add({position:C.Cartesian3.fromDegrees(activity.points[0].lon,activity.points[0].lat),billboard:{image:bicycleDataURI,width:48,height:33,horizontalOrigin:C.HorizontalOrigin.CENTER,verticalOrigin:C.VerticalOrigin.CENTER,disableDepthTestDistance:Number.POSITIVE_INFINITY}});
     const indices=terrainSampleIndices(activity.points);
     if(options.showLocalities){
       onStatus('Consultando pueblos cercanos al recorrido…');
