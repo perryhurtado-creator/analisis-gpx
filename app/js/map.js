@@ -9,12 +9,19 @@ export function clearMap(){destroyMap('map');destroyMap('videoMap')}
 export function createMap(points,id='map'){
   destroyMap(id);
   const host=document.getElementById(id),L=window.L;
-  if(!host||!Array.isArray(points)||points.length<2||!L)return;
+  if(!host||!Array.isArray(points)||points.length<2)return;
+  if(!L)throw Error('No se pudo cargar el motor del mapa. Recarga la página para volver a intentarlo.');
   const map=L.map(host,{zoomControl:true,attributionControl:true});maps[id]=map;
   // Inicializar la vista antes de añadir paths: Leaflet necesita los límites
   // del renderer para proyectar y recortar las líneas.
   map.fitBounds(L.latLngBounds(points.map(p=>[p.lat,p.lon])),{padding:[28,28]});
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+  const statusId=id==='map'?'mapStatus':'videoMapStatus';
+  const tiles=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'});
+  let tileFailed=false;
+  tiles.on('loading',()=>{tileFailed=false;setStatus('Cargando mapa…',statusId)});
+  tiles.on('tileerror',()=>{tileFailed=true;setStatus('No se pudieron cargar algunas imágenes del mapa. Revisa la conexión; el trazo sigue disponible.',statusId)});
+  tiles.on('load',()=>{if(!tileFailed)setStatus('OpenStreetMap',statusId)});
+  tiles.addTo(map);
   const chunks=[];
   let previous=null;
   for(const p of points){

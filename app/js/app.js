@@ -4,11 +4,18 @@ import {clearCharts} from './charts.js';
 import {avg,fmt,duration,stamp,summary,segments,slopeStats,speedStats,heartZones,continuousSpeed} from './metrics.js';
 import {drawChart} from './charts.js';
 import {createMap,fitRoute,showPoint,hidePoint,clearMap} from './map.js';
-let videoModule=null,plannerModule=null;
+let videoModule=null,videoLoading=null,plannerModule=null;
 
 const $=id=>document.getElementById(id);
 let activity=null,compareActivity=null,points=[],resizeObserver=null;
-async function getVideoModule(){if(!videoModule)videoModule=await import('./video.js');return videoModule}
+async function getVideoModule(){
+  if(videoModule)return videoModule;
+  if(!videoLoading){
+    $('videoState').textContent='Cargando herramientas de video…';
+    videoLoading=import('./video.js').then(module=>{videoModule=module;return module}).finally(()=>{videoLoading=null});
+  }
+  return videoLoading;
+}
 
 function setFileMessage(text,kind=''){$('fileStatus').textContent=text;$('fileStatus').className='file-note '+kind}
 function esc(t){return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
@@ -28,7 +35,7 @@ function navigate(hash){
   $('pageTitle').textContent=titles[id]||'Resumen';
   if(id==='trazar')(plannerModule?Promise.resolve(plannerModule):import('./route-planner.js').then(m=>plannerModule=m)).then(m=>{if(location.hash==='#trazar')m.openPlanner()}).catch(e=>{console.error('Planner module:',e);$('plannerStatus').textContent='No se pudo iniciar el trazador. Recarga la página.'});
   if(id==='cartel')renderPoster();
-  if(id==='video'&&activity)getVideoModule().then(v=>{if(activity&&location.hash==='#video')v.prepareVideoMap(points)}).catch(()=>{$('videoState').textContent='No se pudo cargar el video. Revisa la conexión y vuelve a intentarlo.'});
+  if(id==='video'&&activity)getVideoModule().then(v=>{if(activity&&location.hash==='#video'){v.prepareVideoMap(points);$('videoState').textContent='Listo para animar tu recorrido.'}}).catch(e=>{console.error('Video module:',e);$('videoState').textContent='No se pudo cargar el video. Revisa la conexión y vuelve a pulsar Reproducir.'});
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function render(){
@@ -104,7 +111,7 @@ function choose(){$('fileInput').click()}
 
 $('chooseFile').onclick=e=>{e.preventDefault();choose()};$('topLoad').onclick=()=>{resetActivity();location.hash='resumen';choose()};$('sideLoad').onclick=()=>{resetActivity();location.hash='resumen';choose()};
 $('fileInput').onchange=()=>loadFile($('fileInput').files[0]);$('compareLoad').onclick=()=>$('compareInput').click();$('compareInput').onchange=()=>loadCompare($('compareInput').files[0]);
-$('playRoute').onclick=async()=>{if(!activity)return;try{const v=await getVideoModule();v.playActivity(activity)}catch(e){console.error(e);$('videoState').textContent='No se pudo iniciar la reproducción.'}};
+$('playRoute').onclick=async()=>{if(!activity){$('videoState').textContent='Carga primero un archivo GPX o TCX desde Resumen.';return}try{const selected=activity,v=await getVideoModule();if(activity===selected)await v.playActivity(selected)}catch(e){console.error(e);$('videoState').textContent='No se pudo iniciar la reproducción. Revisa la conexión y vuelve a intentarlo.'}};
 $('makeVideo').onclick=async()=>{if(!activity)return;try{const v=await getVideoModule();await v.makeVideo(activity)}catch(e){console.error(e);$('videoState').textContent='No se pudo iniciar la generación del vídeo.'}};$('fitRoute').onclick=()=>fitRoute(points);
 ['dragenter','dragover'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.add('over')}));
 ['dragleave','drop'].forEach(t=>$('dropZone').addEventListener(t,e=>{e.preventDefault();$('dropZone').classList.remove('over')}));
