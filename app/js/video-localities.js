@@ -25,7 +25,8 @@ export function localitiesAlongRoute(points,places,maxDistance=900){
   }
   return result.sort((a,b)=>a.distance-b.distance).slice(0,160);
 }
-export function visibleLocalities(places,distance,total){
+export function visibleLocalities(places,distance,total,overview=false){
+  if(overview)return places.map((place,index)=>({index,gap:Math.abs(place.distance-distance),alpha:1})).sort((a,b)=>a.gap-b.gap);
   const window=Math.max(1400,Math.min(6500,total*.10));
   return places.map((place,index)=>({index,gap:Math.abs(place.distance-distance)})).filter(p=>p.gap<window).sort((a,b)=>a.gap-b.gap).slice(0,3).map(p=>({...p,alpha:Math.min(1,(window-p.gap)/(window*.3))}));
 }

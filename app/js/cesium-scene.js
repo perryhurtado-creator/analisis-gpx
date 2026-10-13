@@ -78,10 +78,13 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
       const trackPose=cameraPose(activity.points,routeProgress,heights);marker.position=C.Cartesian3.fromDegrees(trackPose.lon,trackPose.lat,trackPose.height);
       viewer.camera.lookAt(target,new C.HeadingPitchRange(C.Math.toRadians(pose.heading),C.Math.toRadians(pose.pitch),pose.range));
       labels.forEach(label=>{if(label)label.show=false});
+      // Actualizar las matrices de cámara antes de proyectar las etiquetas.
+      viewer.render();
       const distance=sampleVideoPoint(activity.points,pose.trackProgress??progress).point.d||0,total=activity.points.at(-1).d||1,occupied=[];
-      for(const item of visibleLocalities(places,distance,total)){
+      for(const item of visibleLocalities(places,distance,total,cinematic&&!following)){
+        if(occupied.length>=(cinematic&&!following?6:3))break;
         const entity=labels[item.index];if(!entity)continue;
-        const fade=cinematic?Math.max(0,Math.min(1,(progress-.10)/.04,(.92-progress)/.06)):1,alpha=item.alpha*fade;if(alpha<.02)continue;
+        const fade=cinematic?Math.max(0,Math.min(1,progress/.04)):1,alpha=item.alpha*fade;if(alpha<.02)continue;
         const screen=C.SceneTransforms.worldToWindowCoordinates(viewer.scene,entity.position.getValue(viewer.clock.currentTime));
         if(!screen||screen.x<60||screen.x>viewer.canvas.clientWidth-60||screen.y<65||screen.y>viewer.canvas.clientHeight-30)continue;
         const width=places[item.index].name.length*(cinematic?18:14),box=[screen.x-width/2,screen.y-62,screen.x+width/2,screen.y];

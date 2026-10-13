@@ -18,3 +18,7 @@ for(const progress of [0,.14,.5,.86,1]){const pose=cinematicCameraPose(points,pr
 const overview=cinematicCameraPose(points,.5,samples,bounds);assert.equal(overview.lon,bounds.lon);assert.equal(overview.lat,bounds.lat);
 for(const boundary of [.14,.80,.95]){const a=cinematicCameraPose(points,boundary-1e-6,samples,bounds),b=cinematicCameraPose(points,boundary+1e-6,samples,bounds);assert(Math.abs(a.range-b.range)<1);assert(Math.abs(a.heading-b.heading)<.1)}
 console.log('PASS: localidades junto a tramos reales, cortes, cercanía, duplicados, fundido, límites, caché, errores, cancelación y cámara cinematográfica.');
+
+assert.equal(visibleLocalities(filtered,20000,4200,true).length,filtered.length);
+assert(visibleLocalities(filtered,0,4200,true).every(p=>p.alpha===1));
+console.log('PASS overview keeps localities available independently of moving bicycle; drone proximity unchanged.');

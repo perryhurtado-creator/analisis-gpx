@@ -82,7 +82,7 @@ async function run(activity,exportVideo){
       }
       if(!result)result=await recordScene(scene,activity.points,controller.signal,status);
       if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
-      download(result.blob,activity.name,result.extension);showExportedVideo(result.blob);status(`Video 3D ${result.extension.toUpperCase()} descargado en 720p. ${scene.localityNote||''}`);
+      download(result.blob,activity.name,result.extension);showExportedVideo(result.blob);status(`Video 3D ${result.extension.toUpperCase()} descargado. ${scene.localityNote||''}`);
     }else{
       const frames=scene.fps*scene.seconds;
       playback={paused:false,wake:null};playbackButtons(false,true);
@@ -90,7 +90,7 @@ async function run(activity,exportVideo){
       for(let frame=0;frame<frames;frame++){
         if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
         await awaitResume();const began=performance.now(),progress=frame/(frames-1);await scene.draw(Math.floor(progress*(activity.points.length-1)),progress);
-        await awaitResume();status(`Reproduciendo vista aérea 3D… ${Math.round(progress*100)} %`);await new Promise(resolve=>setTimeout(resolve,Math.max(0,1000/scene.fps-(performance.now()-began))));
+        await awaitResume();status(`Reproduciendo vista aérea 3D… ${Math.round(progress*100)} %. ${scene.localityNote||''}`);await new Promise(resolve=>setTimeout(resolve,Math.max(0,1000/scene.fps-(performance.now()-began))));
       }
       status(`Vista aérea terminada. Pulsa Guardar vídeo para exportarla. ${scene.localityNote||''}`);
     }
