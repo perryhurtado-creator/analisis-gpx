@@ -1,3 +1,4 @@
+import {createVideoElevation} from './video-elevation.js';
 import {bicycleDataURI} from './bicycle-marker.js';
 import {createVideoScene} from './video-capture.js';
 import {routeChunks,terrainSampleIndices,cameraPose,cinematicBounds,cinematicCameraPose,droneCameraPose} from './cesium-camera.js';
@@ -33,7 +34,7 @@ function bounded(promise,signal,ms,message){
 }
 function wait(ms,signal){return bounded(new Promise(resolve=>setTimeout(resolve,ms)),signal,ms+1000,'La vista 3D no respondió.');}
 export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},options={}){
-  let viewer,host,terrainFailed=false,imageryFailed=false;
+  let viewer,host,terrainFailed=false,imageryFailed=false,routeProgress=0;
   const following=options.cameraStyle==='drone',cinematic=following||options.cameraStyle==='cinematic',bounds=cinematicBounds(activity.points);
   let places=[],localityNote='';
   const dispose=()=>{if(viewer&&!viewer.isDestroyed())viewer.destroy();host?.remove()};
@@ -73,7 +74,8 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
     async function render(progress,timeout=20000){
       check(signal);const pose=following?droneCameraPose(activity.points,progress,heights,bounds):cinematic?cinematicCameraPose(activity.points,progress,heights,bounds):cameraPose(activity.points,progress,heights);
       const target=C.Cartesian3.fromDegrees(pose.lon,pose.lat,pose.height);
-      const trackPose=cameraPose(activity.points,pose.trackProgress??progress,heights);marker.position=C.Cartesian3.fromDegrees(trackPose.lon,trackPose.lat,trackPose.height);
+      routeProgress=pose.trackProgress??progress;
+      const trackPose=cameraPose(activity.points,routeProgress,heights);marker.position=C.Cartesian3.fromDegrees(trackPose.lon,trackPose.lat,trackPose.height);
       viewer.camera.lookAt(target,new C.HeadingPitchRange(C.Math.toRadians(pose.heading),C.Math.toRadians(pose.pitch),pose.range));
       labels.forEach(label=>{if(label)label.show=false});
       const distance=sampleVideoPoint(activity.points,pose.trackProgress??progress).point.d||0,total=activity.points.at(-1).d||1,occupied=[];
@@ -102,15 +104,17 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
     onStatus('Cargando mapa y ruta 3D…');await render(0,60000);
     if(cinematic){for(const progress of (following?[.14,.32,.5,.68,.80,.88,.95]:[.14,.95])){onStatus(`Preparando relieve e imágenes del vuelo… ${Math.round(progress*100)} %`);await render(progress,60000)}await render(0,60000)}
     if(cinematic){
-      const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=720;const ctx=canvas.getContext('2d');if(!ctx)throw Error('No se pudo preparar el video.');
+      const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=900;const ctx=canvas.getContext('2d');if(!ctx)throw Error('No se pudo preparar el video.');
+      const elevation=createVideoElevation(activity.points);
       const logo=new Image();logo.src=new URL('../assets/logo-perros-en-bicicleta.png',import.meta.url).href;
       await bounded(new Promise((resolve,reject)=>{if(logo.complete&&logo.naturalWidth)resolve();else{logo.onload=resolve;logo.onerror=()=>reject(Error('No se pudo cargar el logo.'))}}),signal,10000,'No se pudo cargar el logo.');
       return {canvas,fps:24,seconds:40,bitrate:7000000,localityNote,async draw(index,progress){
-        await render(progress);ctx.fillStyle='#0c1217';ctx.fillRect(0,0,1280,720);ctx.drawImage(viewer.canvas,0,68,1280,580);
+        await render(progress);ctx.fillStyle='#0c1217';ctx.fillRect(0,0,1280,900);ctx.drawImage(viewer.canvas,0,68,1280,580);
         ctx.fillStyle='#fff';ctx.font='bold 30px sans-serif';let name=String(activity.name||'Ruta').replace(/,/g,' ·');const fullName=name;while(ctx.measureText(name).width>1080&&name.length>1)name=name.slice(0,-1);if(name!==fullName)name=name.trimEnd()+'…';ctx.fillText(name,24,43);
         const h=58,w=h*logo.naturalWidth/logo.naturalHeight;ctx.drawImage(logo,1256-w,5,w,h);
-        ctx.font='13px sans-serif';ctx.fillStyle='#d3dde4';ctx.fillText('Vuelo virtual · Relieve real · © OpenStreetMap · Imágenes: Esri, Vantor, Earthstar Geographics y GIS User Community',24,669);
-        ctx.font='10px sans-serif';let line='',y=687;for(const word of TERRAIN_CREDIT.split(' ')){if(ctx.measureText(line+word).width>1230){ctx.fillText(line,24,y);y+=13;line=''}line+=word+' '}ctx.fillText(line,24,y);ctx.getImageData(0,0,1,1);
+        elevation.draw(ctx,routeProgress,654);
+        ctx.font='13px sans-serif';ctx.fillStyle='#d3dde4';ctx.fillText('Vuelo virtual · Relieve real · © OpenStreetMap · Imágenes: Esri, Vantor, Earthstar Geographics y GIS User Community',24,849);
+        ctx.font='10px sans-serif';let line='',y=867;for(const word of TERRAIN_CREDIT.split(' ')){if(ctx.measureText(line+word).width>1230){ctx.fillText(line,24,y);y+=13;line=''}line+=word+' '}ctx.fillText(line,24,y);ctx.getImageData(0,0,1,1);
       },dispose(){signal.removeEventListener('abort',cancel);dispose()}};
     }
     const overlay=await createVideoScene(activity,signal,{mapSource:{canvas:viewer.canvas},credit:'CesiumJS · © OpenStreetMap contributors · Terreno: Esri y colaboradores'});
