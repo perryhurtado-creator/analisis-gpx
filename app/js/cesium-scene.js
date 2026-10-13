@@ -1,3 +1,4 @@
+import {drawClosingLegend} from './video-closing.js';
 import {createVideoElevation} from './video-elevation.js';
 import {bicycleDataURI} from './bicycle-marker.js';
 import {createVideoScene} from './video-capture.js';
@@ -116,6 +117,7 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
         ctx.fillStyle='#fff';ctx.font='bold 30px sans-serif';let name=String(activity.name||'Ruta').replace(/,/g,' ·');const fullName=name;while(ctx.measureText(name).width>1080&&name.length>1)name=name.slice(0,-1);if(name!==fullName)name=name.trimEnd()+'…';ctx.fillText(name,24,43);
         const h=58,w=h*logo.naturalWidth/logo.naturalHeight;ctx.drawImage(logo,1256-w,5,w,h);
         elevation.draw(ctx,routeProgress,654);
+        drawClosingLegend(ctx,activity,progress,1280,648);
         ctx.font='13px sans-serif';ctx.fillStyle='#d3dde4';ctx.fillText('Vuelo virtual · Relieve real · © OpenStreetMap · Imágenes: Esri, Vantor, Earthstar Geographics y GIS User Community',24,849);
         ctx.font='10px sans-serif';let line='',y=867;for(const word of TERRAIN_CREDIT.split(' ')){if(ctx.measureText(line+word).width>1230){ctx.fillText(line,24,y);y+=13;line=''}line+=word+' '}ctx.fillText(line,24,y);ctx.getImageData(0,0,1,1);
       },dispose(){signal.removeEventListener('abort',cancel);dispose()}};
