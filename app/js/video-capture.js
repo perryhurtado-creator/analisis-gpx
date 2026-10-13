@@ -125,7 +125,9 @@ export async function createVideoScene(activity,signal,options={}){
 
 export function recordingFormat(webmOnly=false){
   if(typeof MediaRecorder==='undefined')throw Error('Este navegador no permite grabar vídeo. Abre la app en un navegador compatible.');
-  const types=['video/mp4;codecs=avc1.42E01E','video/mp4','video/webm;codecs=vp8','video/webm;codecs=vp9','video/webm'];
+  // Level 4.0 covers the existing 1080x1920@30 canvas; level 3.0 does not.
+  // Avoid generic MP4: MediaRecorder could select a different codec/profile.
+  const types=['video/mp4;codecs=avc1.42E028','video/webm;codecs=vp8','video/webm;codecs=vp9','video/webm'];
   const mime=types.find(type=>(!webmOnly||type.startsWith('video/webm'))&&MediaRecorder.isTypeSupported(type));
   if(!mime)throw Error('Este navegador no ofrece un formato de vídeo compatible.');
   return {mime,extension:mime.startsWith('video/mp4')?'mp4':'webm'};
@@ -135,14 +137,21 @@ export async function encodeVideoScene(scene,activity,signal,onFrame,webmOnly=fa
   const {Output,BufferTarget,CanvasSource,Mp4OutputFormat,WebMOutputFormat,canEncodeVideo}=await import('./vendor/video-encoder.js');
   const fps=scene.fps||VIDEO_FPS,seconds=scene.seconds||VIDEO_SECONDS;
   const settings={width:scene.canvas.width,height:scene.canvas.height,bitrate:scene.bitrate||8000000,frameRate:fps};
-  let codec=null;
+  let codec=null,fullCodecString;
   for(const candidate of (webmOnly?['vp8','vp9']:['avc','vp8','vp9'])){
-    if(await canEncodeVideo(candidate,settings)){codec=candidate;break}
+    // Baseline/Main are 8-bit 4:2:0; do not let the encoder select High 10/4:4:4.
+    const profiles=candidate==='avc'?['avc1.42E028','avc1.4D0028']:[undefined];
+    for(const profile of profiles){
+      if(await canEncodeVideo(candidate,{...settings,...(profile?{fullCodecString:profile}:{})})){
+        codec=candidate;fullCodecString=profile;break;
+      }
+    }
+    if(codec)break;
   }
   if(!codec)throw Error('Este navegador no tiene un codificador de vídeo compatible.');
   const extension=codec==='avc'?'mp4':'webm',target=new BufferTarget();
-  const output=new Output({format:extension==='mp4'?new Mp4OutputFormat():new WebMOutputFormat(),target});
-  const source=new CanvasSource(scene.canvas,{codec,bitrate:settings.bitrate});
+  const output=new Output({format:extension==='mp4'?new Mp4OutputFormat({fastStart:'in-memory'}):new WebMOutputFormat(),target});
+  const source=new CanvasSource(scene.canvas,{codec,bitrate:settings.bitrate,fullCodecString,alpha:'discard',keyFrameInterval:2});
   output.addVideoTrack(source,{frameRate:fps});
   const aborted=()=>{output.cancel().catch(()=>{})};
   signal.addEventListener('abort',aborted,{once:true});
