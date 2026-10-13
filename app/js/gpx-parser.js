@@ -88,21 +88,27 @@ export function finalize(xml,p,type,file){
     }
     return values.length?values.reduce((s,v)=>s+v,0)/values.length:null;
   });
-  let smoothUp=0,smoothDown=0,up=0;
-  for(let i=1;i<p.length;i++){
-    const prev=p[i-1],cur=p[i];
-    cur.up=up;
-    if(cur.breakBefore||cur.segmentId!==prev.segmentId)continue;
-    const e1=elevations[i-1],e2=elevations[i];
-    if(Number.isFinite(e1)&&Number.isFinite(e2)){
-      const delta=e2-e1,dd=cur.d-prev.d;
-      if(dd>=3&&Math.abs(delta)>=1){
-        if(delta>0){smoothUp+=delta;up+=delta}else smoothDown-=delta;
-      }
+  // Histéresis sobre la altura acumulada, no un umbral por cada punto.
+  // Una subida lenta suma incluso si cada paso aumenta menos de un metro.
+  let anchor=null,direction=0;
+  for(let i=0;i<p.length;i++){
+    const cur=p[i],prev=p[i-1],ele=elevations[i];
+    if(!Number.isFinite(ele)){anchor=null;direction=0;cur.up=ascent;continue}
+    if(i===0||cur.breakBefore||cur.segmentId!==prev.segmentId||anchor===null){anchor=ele;direction=0;cur.up=ascent;continue}
+    if(cur.d<=prev.d){cur.up=ascent;continue}
+    const delta=ele-anchor;
+    if(direction===0){
+      if(delta>=1){ascent+=delta;anchor=ele;direction=1}
+      else if(delta<=-1){descent-=delta;anchor=ele;direction=-1}
+    }else if(direction===1){
+      if(delta>0){ascent+=delta;anchor=ele}
+      else if(delta<=-1){descent-=delta;anchor=ele;direction=-1}
+    }else{
+      if(delta<0){descent-=delta;anchor=ele}
+      else if(delta>=1){ascent+=delta;anchor=ele;direction=1}
     }
-    cur.up=up;
+    cur.up=ascent;
   }
-  ascent=smoothUp;descent=smoothDown;
   const times=p.filter(x=>x.time).map(x=>x.time);
   return {points:p,name:childText(xml,'name')||file.replace(/\.(gpx|tcx)$/i,''),type,file,
     distance:p.at(-1).d,ascent,descent,duration:times.length>1?Math.max(...times)-Math.min(...times):null,
