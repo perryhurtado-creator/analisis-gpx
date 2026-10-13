@@ -1,3 +1,4 @@
+import {watchVideoVisibility} from './video-background.js';
 import {playVideo3D,makeVideo3D,stopVideo3D,video3DBusy,pauseVideo3D,resumeVideo3D} from './video-3d.js';
 import {showVideoPoint,createMap,fitVideoRoute} from './map.js';
 import {completeWebmDuration} from './webm-duration.js';
@@ -93,13 +94,13 @@ export async function makeVideo(activity,webmOnly=false){
   if(location.protocol==='file:'){state.textContent='Para guardar el vídeo abre la app desde su dirección web o con INICIAR_APP.bat.';return}
   stopRouteAnimation();
   if(videoPoints!==activity.points)prepareVideoMap(activity.points);
-  const controller=new AbortController(),buttons=['playRoute','pauseVideo','makeVideo','videoMode'].map(id=>document.getElementById(id));
+  const controller=new AbortController(),buttons=['playRoute','pauseVideo','makeVideo','videoMode','videoBackground'].map(id=>document.getElementById(id));
   let recorder,stream,rejectRecording,watchdog,preview,format,retryWebm=false,recordingStarted=false,recordingDuration=VIDEO_SECONDS*1000;
   const job={cancel(){controller.abort();if(recorder?.state==='recording')recorder.stop();rejectRecording?.(new DOMException('Grabación cancelada.','AbortError'))}};
-  const deadline=setTimeout(()=>job.cancel(),180000);
+  const allowBackground=document.getElementById('videoBackground')?.checked===true;
+  const deadline=setTimeout(()=>job.cancel(),allowBackground?480000:180000);
   capture=job;buttons.forEach(button=>{if(button)button.disabled=true});
-  const hidden=()=>{if(document.hidden)job.cancel()};
-  document.addEventListener('visibilitychange',hidden);
+  const clearVisibility=watchVideoVisibility(document,allowBackground,()=>job.cancel());
   try{
     state.textContent='Preparando mapa y gráficas para grabar…';
     const scene=await createVideoScene(activity,controller.signal);
@@ -156,7 +157,7 @@ export async function makeVideo(activity,webmOnly=false){
     if(recorder?.state==='recording')recorder.stop();
     stream?.getTracks().forEach(track=>track.stop());
     preview?.remove();
-    controller.abort();document.removeEventListener('visibilitychange',hidden);
+    controller.abort();clearVisibility();
     if(capture===job)capture=null;
     buttons.forEach(button=>{if(button)button.disabled=false});
     const playButton=document.getElementById('playRoute');if(playButton)playButton.textContent='▷ Reproducir ruta';document.getElementById('pauseVideo').disabled=true;
