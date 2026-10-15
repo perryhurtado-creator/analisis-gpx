@@ -78,6 +78,7 @@ async function run(activity,exportVideo){
     scene.canvas.setAttribute('aria-label',['cinematic','drone'].includes(options.cameraStyle)?'Vuelo cinematográfico sobre relieve e imágenes satelitales':'Video aéreo 3D con altimetría, velocidad y distancia');host.appendChild(scene.canvas);
     scene.canvas.classList.toggle('cinematic-video',['cinematic','drone'].includes(options.cameraStyle));
     if(exportVideo){
+      status(`Preparación completada. Iniciando la compresión del video… ${scene.localityNote||''}`);
       let result;
       if(typeof VideoEncoder==='function'){
         try{result=await encodeVideoScene(scene,activity,controller.signal,(_,percent,extension)=>status(`Generando 3D ${extension.toUpperCase()}… ${percent} %. ${scene.localityNote||''}`))}

@@ -10,5 +10,8 @@ try{
  const response=await GET(req('20,-100,21,-99'));assert.deepEqual((await response.json()).places,[{name:'Pueblo',lat:20.5,lon:-99.5}]);assert.match(response.headers.get('Cache-Control'),/s-maxage/);
  calls=0;globalThis.fetch=async()=>{if(++calls===1)return new Response('',{status:429});return Response.json({elements:[]})};assert.equal((await GET(req('20,-100,21,-99'))).status,200);assert.equal(calls,2);
  globalThis.fetch=async()=>{throw new DOMException('timeout','TimeoutError')};assert.equal((await GET(req('20,-100,21,-99'))).status,502);
+ calls=0;globalThis.fetch=async()=>{calls++;throw Error('Provider offline')};
+ const cached=await GET(req('20.33,-100.42,20.57,-100.18'));const savedPlaces=await cached.json();assert.equal(cached.status,200);assert.equal(savedPlaces.places.length,53);assert(savedPlaces.places.some(p=>p.name==='Huimilpan'));assert.equal(calls,0);
+ const subset=await (await GET(req('20.36,-100.30,20.40,-100.25'))).json();assert(subset.places.every(p=>p.lat>=20.36&&p.lat<=20.40&&p.lon>=-100.30&&p.lon<=-100.25));
  console.log('PASS: validación de área, límite de consulta, datos OSM válidos, caché, proveedor alternativo y fallos.');
 }finally{globalThis.fetch=saved}

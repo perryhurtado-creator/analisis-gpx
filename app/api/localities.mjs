@@ -1,3 +1,4 @@
+import {cachedLocalities} from './localities-cache.mjs';
 import {boundedJSON} from './safety.mjs';
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':status===200?'public, s-maxage=86400, stale-while-revalidate=3600':'no-store'}});
 export async function GET(request){
@@ -6,6 +7,8 @@ export async function GET(request){
   if(!raw||raw.length!==4||raw.some(v=>!v.trim()||!Number.isFinite(Number(v))))return json({error:'Área inválida.'},400);
   const [s,w,n,e]=raw.map(Number);
   if(s < -85||n > 85||w < -180||e > 180||s>=n||w>=e||n-s>2||e-w>2||(n-s)*(e-w)>1)return json({error:'La ruta abarca un área demasiado grande para consultar localidades.'},400);
+  const cached=cachedLocalities([s,w,n,e]);
+  if(cached)return json({places:cached,credit:'© OpenStreetMap contributors',source:'cached-osm',snapshotDate:'2026-10-15'});
   const query=`[out:json][timeout:12];node["place"~"^(city|town|village|hamlet)$"]["name"](${s},${w},${n},${e});out 1000;`;
   for(const endpoint of ['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter']){
     try{
