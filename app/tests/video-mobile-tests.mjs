@@ -10,8 +10,8 @@ assert.equal(sampleVideoPoint(points,1).index,3);assert.equal(VIDEO_SECONDS*VIDE
 let viewport={x:360,y:450};
 const project=([lat,lon],zoom)=>({x:(lon+180)/360*256*2**zoom,y:(180-lat)/360*256*2**zoom});
 const map={fitBounds(){},invalidateSize(){},remove(){},project,getSize:()=>viewport,getZoom:()=>7,getPixelBounds:()=>({min:{x:0,y:0},max:viewport})};
-const layer={addTo(){return this},bindTooltip(){return this},setLatLng(){return this},setStyle(){return this}};
-globalThis.window={L:{map:()=>map,latLngBounds:p=>p,tileLayer:()=>layer,polyline:()=>layer,featureGroup:()=>layer,circleMarker:()=>layer}};
+const layer={on(){return this},addTo(){return this},bindTooltip(){return this},setLatLng(){return this},setStyle(){return this}};
+globalThis.window={L:{map:()=>map,latLngBounds:p=>p,tileLayer:()=>layer,polyline:()=>layer,featureGroup:()=>layer,circleMarker:()=>layer,marker:()=>layer,icon:options=>options}};
 const calls=[];
 function canvas(){return {width:0,height:0,getContext(){return new Proxy({measureText:text=>({width:text.length*15}),getImageData:()=>({}),drawImage:(...a)=>calls.push(a)}, {get:(t,k)=>k in t?t[k]:()=>{}})}}}
 globalThis.document={getElementById:()=>({innerHTML:'',textContent:''}),createElement:canvas};

@@ -51,7 +51,10 @@ export async function loadRouteLocalities(points,signal,fetcher=fetch){
       }
     }
     if(!data)throw lastError;
-    places=data.places.slice(0,1000);if(cache.size>=5)cache.delete(cache.keys().next().value);cache.set(bbox,places);
+    // El catálogo regional puede contener más de 1000 lugares en rutas largas.
+    // Filtrar por la ruta antes de limitar etiquetas, sin perder el final del catálogo.
+    if(data.places.length>10000)throw Error('La consulta devolvió demasiadas localidades.');
+    places=data.places;if(cache.size>=5)cache.delete(cache.keys().next().value);cache.set(bbox,places);
   }
   return localitiesAlongRoute(points,places);
 }
