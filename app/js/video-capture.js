@@ -136,7 +136,7 @@ export function recordingFormat(webmOnly=false){
 export async function encodeVideoScene(scene,activity,signal,onFrame,webmOnly=false){
   const {Output,BufferTarget,CanvasSource,Mp4OutputFormat,WebMOutputFormat,canEncodeVideo}=await import('./vendor/video-encoder.js');
   const fps=scene.fps||VIDEO_FPS,seconds=scene.seconds||VIDEO_SECONDS;
-  const settings={width:scene.canvas.width,height:scene.canvas.height,bitrate:scene.bitrate||8000000,frameRate:fps};
+  const settings={width:scene.canvas.width,height:scene.canvas.height,bitrate:scene.bitrate||4500000,frameRate:fps};
   let codec=null,fullCodecString;
   for(const candidate of (webmOnly?['vp8','vp9']:['avc','vp8','vp9'])){
     // Baseline/Main are 8-bit 4:2:0; do not let the encoder select High 10/4:4:4.

@@ -112,7 +112,7 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
       const elevation=createVideoElevation(activity.points);
       const logo=new Image();logo.src=new URL('../assets/logo-perros-en-bicicleta.png',import.meta.url).href;
       await bounded(new Promise((resolve,reject)=>{if(logo.complete&&logo.naturalWidth)resolve();else{logo.onload=resolve;logo.onerror=()=>reject(Error('No se pudo cargar el logo.'))}}),signal,10000,'No se pudo cargar el logo.');
-      return {canvas,fps:24,seconds:40,bitrate:7000000,localityNote,async draw(index,progress){
+      return {canvas,fps:24,seconds:40,bitrate:3500000,localityNote,async draw(index,progress){
         await render(progress);ctx.fillStyle='#0c1217';ctx.fillRect(0,0,1280,900);ctx.drawImage(viewer.canvas,0,68,1280,580);
         ctx.fillStyle='#fff';ctx.font='bold 30px sans-serif';let name=String(activity.name||'Ruta').replace(/,/g,' ·');const fullName=name;while(ctx.measureText(name).width>1080&&name.length>1)name=name.slice(0,-1);if(name!==fullName)name=name.trimEnd()+'…';ctx.fillText(name,24,43);
         const h=58,w=h*logo.naturalWidth/logo.naturalHeight;ctx.drawImage(logo,1256-w,5,w,h);
@@ -126,7 +126,7 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
     const canvas=document.createElement('canvas');canvas.width=720;canvas.height=1280;
     const ctx=canvas.getContext('2d');if(!ctx)throw Error('No se pudo preparar el video 3D.');
     let disposed=false;
-    return {canvas,fps:30,seconds:15,bitrate:5000000,localityNote,async draw(index,progress){
+    return {canvas,fps:30,seconds:15,bitrate:3000000,localityNote,async draw(index,progress){
       await render(progress);overlay.draw(index,progress);ctx.drawImage(overlay.canvas,0,0,720,1280);
       // Las atribuciones del terreno se conservan dentro del archivo exportado.
       ctx.fillStyle='rgba(255,255,255,.9)';ctx.fillRect(10,984,700,68);ctx.fillStyle='#17392c';ctx.font='12px sans-serif';

@@ -123,7 +123,7 @@ export async function makeVideo(activity,webmOnly=false){
     if(!scene.canvas.captureStream)throw Error('Este navegador no permite capturar el vídeo de la escena.');
     scene.draw(0);stream=scene.canvas.captureStream(VIDEO_FPS);
     const videoTrack=stream.getVideoTracks()[0];
-    recorder=new MediaRecorder(stream,{mimeType:format.mime,videoBitsPerSecond:8000000});
+    recorder=new MediaRecorder(stream,{mimeType:format.mime,videoBitsPerSecond:4500000});
     const chunks=[];
     await new Promise((resolve,reject)=>{
       rejectRecording=reject;
