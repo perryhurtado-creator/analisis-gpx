@@ -80,7 +80,7 @@ async function run(activity,exportVideo){
     if(exportVideo){
       let result;
       if(typeof VideoEncoder==='function'){
-        try{result=await encodeVideoScene(scene,activity,controller.signal,(_,percent,extension)=>status(`Generando 3D ${extension.toUpperCase()}… ${percent} %`))}
+        try{result=await encodeVideoScene(scene,activity,controller.signal,(_,percent,extension)=>status(`Generando 3D ${extension.toUpperCase()}… ${percent} %. ${scene.localityNote||''}`))}
         catch(e){if(controller.signal.aborted||e.name==='AbortError')throw e;status('Preparando grabación 3D compatible con este navegador…')}
       }
       if(!result)result=await recordScene(scene,activity.points,controller.signal,status);

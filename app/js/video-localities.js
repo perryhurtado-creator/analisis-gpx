@@ -34,10 +34,23 @@ export async function loadRouteLocalities(points,signal,fetcher=fetch){
   if(signal.aborted)throw new DOMException('Cancelado.','AbortError');
   const bbox=localityBounds(points).join(',');let places=cache.get(bbox);
   if(!places){
-    const response=await fetcher('/api/localities?bbox='+encodeURIComponent(bbox),{signal});
-    if(!response.ok)throw Error('No se pudieron consultar los nombres de localidades.');
-    const data=await response.json();if(!Array.isArray(data.places))throw Error('Respuesta de localidades inválida.');
-    if(signal.aborted)throw new DOMException('Cancelado.','AbortError');
+    let data,lastError;
+    for(let attempt=0;attempt<2;attempt++){
+      try{
+        const response=await fetcher('/api/localities?bbox='+encodeURIComponent(bbox),{signal});
+        if(!response.ok){
+          const error=Error('No se pudieron consultar los nombres de localidades.');
+          error.retryable=response.status===429||response.status>=500;throw error;
+        }
+        data=await response.json();if(!Array.isArray(data.places))throw Error('Respuesta de localidades inválida.');
+        if(signal.aborted)throw new DOMException('Cancelado.','AbortError');
+        break;
+      }catch(error){
+        if(signal.aborted||error.name==='AbortError')throw error;
+        lastError=error;if(attempt===1||error.retryable===false)throw error;
+      }
+    }
+    if(!data)throw lastError;
     places=data.places.slice(0,1000);if(cache.size>=5)cache.delete(cache.keys().next().value);cache.set(bbox,places);
   }
   return localitiesAlongRoute(points,places);

@@ -22,3 +22,9 @@ console.log('PASS: localidades junto a tramos reales, cortes, cercanía, duplica
 assert.equal(visibleLocalities(filtered,20000,4200,true).length,filtered.length);
 assert(visibleLocalities(filtered,0,4200,true).every(p=>p.alpha===1));
 console.log('PASS overview keeps localities available independently of moving bicycle; drone proximity unchanged.');
+
+const shifted=points.map(p=>({...p,lat:p.lat+2}));let retries=0;
+const recovered=await loadRouteLocalities(shifted,signal,async()=>{retries++;return retries===1?Response.json({error:'Busy'},{status:502}):Response.json({places:places.map(p=>({...p,lat:p.lat+2}))})});
+assert.equal(retries,2);assert.equal(recovered.length,2);
+let denied=0;await assert.rejects(loadRouteLocalities(points.map(p=>({...p,lat:p.lat+3})),signal,async()=>{denied++;return Response.json({error:'Invalid'},{status:400})}),/consultar/);assert.equal(denied,1);
+console.log('PASS transient locality failure retried; invalid requests not retried.');
