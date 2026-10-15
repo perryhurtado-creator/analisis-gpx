@@ -28,3 +28,10 @@ const recovered=await loadRouteLocalities(shifted,signal,async()=>{retries++;ret
 assert.equal(retries,2);assert.equal(recovered.length,2);
 let denied=0;await assert.rejects(loadRouteLocalities(points.map(p=>({...p,lat:p.lat+3})),signal,async()=>{denied++;return Response.json({error:'Invalid'},{status:400})}),/consultar/);assert.equal(denied,1);
 console.log('PASS transient locality failure retried; invalid requests not retried.');
+
+// Un lugar junto a la ruta no se pierde por estar al final de un catálogo denso.
+const densePoints=points.map(p=>({...p,lat:p.lat+4}));
+const densePlaces=Array.from({length:1100},(_,i)=>({name:'Lejano '+i,lat:24.5,lon:-100}));
+densePlaces.push({name:'Localidad al final',lat:24,lon:-99.99});
+assert.deepEqual((await loadRouteLocalities(densePoints,signal,async()=>Response.json({places:densePlaces}))).map(p=>p.name),['Localidad al final']);
+console.log('PASS dense catalogs retain nearby localities beyond the first 1000 entries.');

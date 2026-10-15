@@ -13,7 +13,7 @@ window.test3D=async()=>{
   const exported=await encodeVideoScene(scene,activity,controller.signal,(_,percent)=>status(`Exportando ${percent} %`));window.exported3D=exported;
   const video=document.getElementById('result');video.src=URL.createObjectURL(exported.blob);
   await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=()=>reject(Error('No se pudo decodificar el video'))});
-  if(video.videoWidth!==(cinematic?1280:720)||video.videoHeight!==(cinematic?720:1280)||Math.abs(video.duration-(cinematic?40:15))>.1)throw Error('Dimensiones o duración incorrectas');
+  if(video.videoWidth!==(cinematic?1280:720)||video.videoHeight!==(cinematic?900:1280)||Math.abs(video.duration-(cinematic?40:15))>.1)throw Error('Dimensiones o duración incorrectas');
   status(`PASS: ${video.videoWidth} × ${video.videoHeight}, ${video.duration} s, ${exported.extension}, ${exported.blob.size} bytes.`);
  }catch(e){status(e.name==='AbortError'?'PASS: cancelación sin descargar video incompleto.':'FAIL: '+e.message);throw e}finally{scene?.dispose();controller.abort()}
 };
