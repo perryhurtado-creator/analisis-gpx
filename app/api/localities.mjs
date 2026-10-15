@@ -1,3 +1,4 @@
+import {regionalLocalities} from './localities-regional.mjs';
 import {cachedLocalities} from './localities-cache.mjs';
 import {boundedJSON} from './safety.mjs';
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':status===200?'public, s-maxage=86400, stale-while-revalidate=3600':'no-store'}});
@@ -9,13 +10,15 @@ export async function GET(request){
   if(s < -85||n > 85||w < -180||e > 180||s>=n||w>=e||n-s>2||e-w>2||(n-s)*(e-w)>1)return json({error:'La ruta abarca un área demasiado grande para consultar localidades.'},400);
   const cached=cachedLocalities([s,w,n,e]);
   if(cached)return json({places:cached,credit:'© OpenStreetMap contributors',source:'cached-osm',snapshotDate:'2026-10-15'});
-  const query=`[out:json][timeout:12];node["place"~"^(city|town|village|hamlet)$"]["name"](${s},${w},${n},${e});out 1000;`;
+  const regional=regionalLocalities([s,w,n,e]);
+  if(regional?.length)return json({places:regional,credit:'GeoNames · CC BY 4.0 · https://www.geonames.org/',source:'regional-geonames'});
+  const query=`[out:json][timeout:12];nwr["place"~"^(city|town|village|hamlet|isolated_dwelling)$"]["name"](${s},${w},${n},${e});out center 1000;`;
   for(const endpoint of ['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter']){
     try{
       const response=await fetch(endpoint,{method:'POST',headers:{'User-Agent':'PerrosEnBicicleta-GPX/1.0 (+https://github.com/perryhurtado-creator/analisis-gpx)'},body:new URLSearchParams({data:query}),signal:AbortSignal.timeout(16000)});
       if(!response.ok)continue;
-      const data=await boundedJSON(response,8*1024*1024);if(!Array.isArray(data.elements))continue;
-      const places=data.elements.filter(p=>typeof p.tags?.name==='string'&&Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&p.lat>=s&&p.lat<=n&&p.lon>=w&&p.lon<=e).slice(0,1000).map(p=>({name:p.tags.name.slice(0,100),lat:p.lat,lon:p.lon}));
+      const data=await boundedJSON(response,8*1024*1024);if(!Array.isArray(data.elements)||data.remark)continue;
+      const places=data.elements.map(p=>({...p,lat:p.lat??p.center?.lat,lon:p.lon??p.center?.lon})).filter(p=>typeof p.tags?.name==='string'&&Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&p.lat>=s&&p.lat<=n&&p.lon>=w&&p.lon<=e).slice(0,1000).map(p=>({name:p.tags.name.slice(0,100),lat:p.lat,lon:p.lon}));
       return json({places,credit:'© OpenStreetMap contributors'});
     }catch(error){console.error('Localities provider:',error.name)}
   }

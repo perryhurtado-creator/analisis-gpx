@@ -118,11 +118,11 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
         const h=58,w=h*logo.naturalWidth/logo.naturalHeight;ctx.drawImage(logo,1256-w,5,w,h);
         elevation.draw(ctx,routeProgress,654);
         drawClosingLegend(ctx,activity,progress,1280,648);
-        ctx.font='13px sans-serif';ctx.fillStyle='#d3dde4';ctx.fillText('Vuelo virtual · Relieve real · © OpenStreetMap · Imágenes: Esri, Vantor, Earthstar Geographics y GIS User Community',24,849);
+        ctx.font='13px sans-serif';ctx.fillStyle='#d3dde4';ctx.fillText('Vuelo virtual · Relieve real · © OpenStreetMap · Localidades: OSM/GeoNames · Imágenes: Esri, Vantor, Earthstar Geographics y GIS User Community',24,849);
         ctx.font='10px sans-serif';let line='',y=867;for(const word of TERRAIN_CREDIT.split(' ')){if(ctx.measureText(line+word).width>1230){ctx.fillText(line,24,y);y+=13;line=''}line+=word+' '}ctx.fillText(line,24,y);ctx.getImageData(0,0,1,1);
       },dispose(){signal.removeEventListener('abort',cancel);dispose()}};
     }
-    const overlay=await createVideoScene(activity,signal,{mapSource:{canvas:viewer.canvas},credit:'CesiumJS · © OpenStreetMap contributors · Terreno: Esri y colaboradores'});
+    const overlay=await createVideoScene(activity,signal,{mapSource:{canvas:viewer.canvas},credit:'CesiumJS · © OpenStreetMap contributors · Localidades: GeoNames · Terreno: Esri y colaboradores'});
     const canvas=document.createElement('canvas');canvas.width=720;canvas.height=1280;
     const ctx=canvas.getContext('2d');if(!ctx)throw Error('No se pudo preparar el video 3D.');
     let disposed=false;
