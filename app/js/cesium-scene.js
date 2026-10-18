@@ -59,7 +59,7 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
     if(options.showLocalities){
       onStatus('Consultando pueblos cercanos al recorrido…');
       try{places=await bounded(loadRouteLocalities(activity.points,signal),signal,75000,'La consulta de localidades tardó demasiado.');localityNote=places.length?`${places.length} ${places.length===1?'localidad cercana identificada':'localidades cercanas identificadas'}.`:'No se encontraron localidades cercanas en OpenStreetMap.'}
-      catch(e){check(signal);throw Error('No se pudieron cargar los nombres de localidades. Vuelve a intentarlo o desactiva Mostrar nombres de localidades para continuar sin ellos.')}
+      catch(e){check(signal);places=[];localityNote='No se pudieron consultar las localidades; el video continuará sin nombres.';console.warn('[Video 3D] Localidades no disponibles:',e)}
     }
     const samples=await bounded(C.sampleTerrain(terrain,12,indices.map(i=>C.Cartographic.fromDegrees(activity.points[i].lon,activity.points[i].lat))),signal,30000,'No se pudo consultar la altura del terreno.');check(signal);
     if(samples.some(p=>!Number.isFinite(p.height)))throw Error('El servicio no devolvió alturas válidas para esta ruta.');
@@ -70,7 +70,7 @@ export async function createCesiumVideoScene(activity,signal,onStatus=()=>{},opt
         const ground=await bounded(C.sampleTerrain(terrain,12,places.map(p=>C.Cartographic.fromDegrees(p.lon,p.lat))),signal,30000,'No se pudieron ubicar las localidades sobre el terreno.');check(signal);
         labels=places.map((p,i)=>Number.isFinite(ground[i].height)?viewer.entities.add({show:false,position:C.Cartesian3.fromDegrees(p.lon,p.lat,ground[i].height+25),point:{pixelSize:5,color:C.Color.WHITE,disableDepthTestDistance:Infinity},label:{text:p.name,font:cinematic?'30px sans-serif':'24px sans-serif',style:C.LabelStyle.FILL_AND_OUTLINE,fillColor:C.Color.WHITE,outlineColor:C.Color.BLACK,outlineWidth:2,showBackground:true,backgroundColor:new C.Color(.03,.06,.09,.75),backgroundPadding:new C.Cartesian2(9,5),pixelOffset:new C.Cartesian2(0,-23),verticalOrigin:C.VerticalOrigin.BOTTOM,disableDepthTestDistance:Infinity}}):null);
         if(labels.some(label=>!label))throw Error('Faltan alturas de localidades.');
-      }catch(e){check(signal);throw Error('No se pudieron ubicar las localidades en el relieve. Vuelve a intentarlo o desactiva Mostrar nombres de localidades.')}
+      }catch(e){check(signal);for(const label of labels)if(label)viewer.entities.remove(label);labels=[];places=[];localityNote='No se pudieron ubicar las localidades; el video continuará sin nombres.';console.warn('[Video 3D] Alturas de localidades no disponibles:',e)}
     }
     async function render(progress,timeout=20000){
       check(signal);const pose=following?droneCameraPose(activity.points,progress,heights,bounds):cinematic?cinematicCameraPose(activity.points,progress,heights,bounds):cameraPose(activity.points,progress,heights);
