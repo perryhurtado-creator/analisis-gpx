@@ -170,7 +170,7 @@ export async function encodeVideoScene(scene,activity,signal,onFrame,webmOnly=fa
     if(signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
     const blob=new Blob([target.buffer],{type:extension==='mp4'?'video/mp4':'video/webm'});
     if(blob.size<1024)throw Error('No se generó un archivo de vídeo completo.');
-    return {blob,extension};
+    return {blob,extension,diagnostics:{engine:'WebCodecs / Mediabunny',codec:fullCodecString||codec,width:settings.width,height:settings.height,fps,reason:extension==='webm'?'AVC/H.264 no fue admitido por la configuración del navegador; se seleccionó '+codec+'.':'AVC/H.264 disponible'}};
   }catch(e){await output.cancel().catch(()=>{});throw e}
   finally{signal.removeEventListener('abort',aborted)}
 }
