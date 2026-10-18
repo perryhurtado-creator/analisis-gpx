@@ -1,3 +1,4 @@
+import {prepareVideoWakeLock} from './video-wake-lock.js';
 import {watchVideoVisibility} from './video-background.js';
 import {playVideo3D,makeVideo3D,stopVideo3D,video3DBusy,pauseVideo3D,resumeVideo3D} from './video-3d.js';
 import {showVideoPoint,createMap,fitVideoRoute} from './map.js';
@@ -87,6 +88,12 @@ function download(blob,name,extension){
   setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
 export async function makeVideo(activity,webmOnly=false){
+  if(capture||video3DBusy()||!activity?.points?.length)return;
+  const guard=await prepareVideoWakeLock();
+  if(!guard.accepted)return;
+  try{await makeVideoInternal(activity,webmOnly)}finally{await guard.release()}
+}
+async function makeVideoInternal(activity,webmOnly=false){
   if(video3DBusy())return;
   if(document.getElementById('videoMode')?.value==='3d'){stopRouteAnimation();return makeVideo3D(activity)}
   if(capture||!activity?.points?.length)return;
@@ -162,7 +169,7 @@ export async function makeVideo(activity,webmOnly=false){
     buttons.forEach(button=>{if(button)button.disabled=false});
     const playButton=document.getElementById('playRoute');if(playButton)playButton.textContent='▷ Reproducir ruta';document.getElementById('pauseVideo').disabled=true;
   }
-  if(retryWebm)await makeVideo(activity,true);
+  if(retryWebm)await makeVideoInternal(activity,true);
 }
 
 
