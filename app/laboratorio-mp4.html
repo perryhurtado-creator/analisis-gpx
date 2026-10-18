@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Laboratorio MP4 · Perros en Bicicleta</title>
+<style>body{margin:0;background:#edf3ed;color:#16392c;font:16px system-ui,sans-serif}main{max-width:650px;margin:24px auto;padding:22px;background:white;border-radius:18px;box-shadow:0 8px 28px #0001}h1{font-size:1.5rem}p{line-height:1.5}button,input{font:inherit}button{padding:12px 18px;border:0;border-radius:9px;background:#087b4a;color:white;cursor:pointer}button:disabled{opacity:.45}button.secondary{background:#dce8de;color:#164b36}input{max-width:100%}.actions{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}progress{width:100%;height:20px}#log{white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f5f2;padding:12px;border-radius:9px;max-height:260px;overflow:auto}video{max-width:100%;margin-top:15px}small{color:#526359}</style></head><body><main>
+<h1>Laboratorio de conversión WebM → MP4</h1>
+<p>Prueba aislada: <strong>no modifica la exportación 2D/3D</strong>. Selecciona un WebM ya descargado. El archivo se procesa en tu navegador; FFmpeg se descarga desde una CDN.</p>
+<p><strong>Advertencia Android:</strong> FFmpeg WebAssembly puede consumir cientos de MB de memoria, calentarse o hacer que el navegador cierre la pestaña. Comienza con un video corto y menor a 25 MiB. Mantén la pantalla desbloqueada.</p>
+<label for="file">Archivo WebM</label><p><input id="file" type="file" accept=".webm,video/webm"></p>
+<p id="info">Sin archivo seleccionado.</p>
+<div class="actions"><button id="convert" disabled>Convertir a MP4 (H.264)</button><button id="cancel" class="secondary" disabled>Cancelar</button></div>
+<progress id="progress" max="100" value="0"></progress><p id="state" role="status">Esperando archivo.</p><pre id="log" aria-label="Diagnóstico de conversión"></pre>
+<a id="download" hidden>Descargar MP4</a><video id="preview" controls playsinline hidden></video>
+<p><small>Configuración: libx264, preset ultrafast, CRF 28, yuv420p, faststart. Si el núcleo descargado no incluye libx264, se mostrará el error y se conservará el WebM original. El resultado no se sube a nuestro servidor.</small></p>
+</main><script type="module">
+const $=id=>document.getElementById(id);
+const MAX=25*1024*1024;let running=false,ffmpeg=null,outputURL=null,wake=null,cancelled=false;
+const status=s=>{$('state').textContent=s};
+const log=s=>{const el=$('log');el.textContent+=(el.textContent?'\n':'')+s;el.scrollTop=el.scrollHeight};
+const releaseWake=async()=>{try{await wake?.release()}catch{}wake=null};
+$('file').onchange=()=>{const f=$('file').files[0];$('info').textContent=f?f.name+' · '+(f.size/1048576).toFixed(1)+' MiB':'Sin archivo seleccionado.';$('convert').disabled=!f||f.size>MAX||running;if(f?.size>MAX)status('Este laboratorio limita la entrada a 25 MiB para la primera prueba.')};
+$('cancel').onclick=async()=>{cancelled=true;status('Cancelando…');$('cancel').disabled=true;try{ffmpeg?.terminate()}catch{}};
+$('convert').onclick=async()=>{
+ const file=$('file').files[0];if(!file||running)return;
+ running=true;cancelled=false;$('convert').disabled=true;$('cancel').disabled=false;$('file').disabled=true;$('download').hidden=true;$('preview').hidden=true;$('progress').value=0;$('log').textContent='';
+ if(outputURL){URL.revokeObjectURL(outputURL);outputURL=null}
+ try{
+  if(file.size>MAX)throw Error('Archivo superior a 25 MiB.');
+  try{wake=await navigator.wakeLock?.request('screen')}catch{log('Wake Lock no disponible: mantén la pantalla encendida.')}
+  status('Cargando motor FFmpeg.wasm…');
+  // Carga diferida: no se ejecuta ni descarga FFmpeg en el resto de la app.
+  const [{FFmpeg},{toBlobURL,fetchFile}]=await Promise.all([
+    import('https://esm.sh/@ffmpeg/ffmpeg@0.12.15?bundle'),
+    import('https://esm.sh/@ffmpeg/util@0.12.2?bundle')
+  ]);
+  ffmpeg=new FFmpeg();
+  ffmpeg.on('log',({message})=>{if(message&&(/error|encoder|frame=|time=|invalid|unknown/i.test(message)))log(message.slice(0,240))});
+  ffmpeg.on('progress',({progress})=>{if(Number.isFinite(progress))$('progress').value=Math.min(99,Math.max(0,Math.round(progress*100)))});
+  const base='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
+  await ffmpeg.load({coreURL:await toBlobURL(base+'/ffmpeg-core.js','text/javascript'),wasmURL:await toBlobURL(base+'/ffmpeg-core.wasm','application/wasm')});
+  if(cancelled)throw Error('Conversión cancelada.');
+  status('Leyendo WebM…');await ffmpeg.writeFile('entrada.webm',await fetchFile(file));
+  status('Codificando H.264… Esto puede tardar varios minutos.');
+  const code=await ffmpeg.exec(['-i','entrada.webm','-an','-c:v','libx264','-preset','ultrafast','-crf','28','-pix_fmt','yuv420p','-movflags','+faststart','salida.mp4']);
+  if(cancelled)throw Error('Conversión cancelada.');
+  if(code!==0)throw Error('FFmpeg devolvió código '+code+'. Revisa el diagnóstico; puede faltar libx264.');
+  const bytes=await ffmpeg.readFile('salida.mp4');if(bytes.length<1024)throw Error('MP4 vacío.');
+  const blob=new Blob([bytes],{type:'video/mp4'});outputURL=URL.createObjectURL(blob);
+  const name=file.name.replace(/\.webm$/i,'')+'_H264.mp4';
+  $('download').href=outputURL;$('download').download=name;$('download').hidden=false;$('download').textContent='⬇ Descargar '+name+' ('+(blob.size/1048576).toFixed(1)+' MiB)';
+  $('preview').src=outputURL;$('preview').hidden=false;$('progress').value=100;
+  status('MP4 generado. Comprueba la reproducción y descárgalo.');log('Conversión finalizada.');
+ }catch(e){status(cancelled?'Conversión cancelada. WebM original sin cambios.':'No se pudo convertir: '+(e.message||String(e)));log(String(e.stack||e))}
+ finally{try{ffmpeg?.terminate()}catch{}ffmpeg=null;await releaseWake();running=false;$('cancel').disabled=true;$('file').disabled=false;$('convert').disabled=!$('file').files[0]||$('file').files[0].size>MAX}
+};
+</script></body></html>
