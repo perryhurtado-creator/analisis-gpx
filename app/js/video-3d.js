@@ -79,7 +79,7 @@ async function run(activity,exportVideo){
     scene.canvas.classList.toggle('cinematic-video',['cinematic','drone'].includes(options.cameraStyle));
     if(exportVideo){
       status(`Preparación completada. Iniciando la compresión del video… ${scene.localityNote||''}`);
-      let result;
+      let result, fallbackReason='';
       if(typeof VideoEncoder==='function'){
         try{result=await encodeVideoScene(scene,activity,controller.signal,(_,percent,extension)=>status(`Generando 3D ${extension.toUpperCase()}… ${percent} %. ${scene.localityNote||''}`))}
         catch(e){if(controller.signal.aborted||e.name==='AbortError')throw e;fallbackReason=`WebCodecs falló: ${e.message||String(e)}`;console.warn('[Video 3D] '+fallbackReason,e);status('Preparando grabación 3D compatible con este navegador…')}
