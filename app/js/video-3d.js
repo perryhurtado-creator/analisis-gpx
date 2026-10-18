@@ -60,7 +60,7 @@ export async function recordScene(scene,points,signal,status){
     if(recorder.state!=='inactive')recorder.stop();await stopped;
     let blob=new Blob(chunks,{type:recorder.mimeType||format.mime});if(blob.size<1024)throw Error('La grabación 3D quedó vacía.');
     if(format.extension==='webm')blob=await completeWebmDuration(blob,elapsed);
-    return {blob,extension:format.extension};
+    return {blob,extension:format.extension,diagnostics:{engine:'MediaRecorder',codec:recorder.mimeType||format.mime,width:scene.canvas.width,height:scene.canvas.height,fps:scene.fps,reason:format.extension==='webm'?'MediaRecorder no admite el perfil H.264 solicitado; se usó WebM.':'MediaRecorder admite MP4/H.264'}};
   }finally{clearTimeout(timer);signal.removeEventListener('abort',onAbort);if(recorder&&recorder.state!=='inactive')recorder.stop();stream?.getTracks().forEach(t=>t.stop())}
 }
 async function run(activity,exportVideo){
@@ -82,11 +82,14 @@ async function run(activity,exportVideo){
       let result;
       if(typeof VideoEncoder==='function'){
         try{result=await encodeVideoScene(scene,activity,controller.signal,(_,percent,extension)=>status(`Generando 3D ${extension.toUpperCase()}… ${percent} %. ${scene.localityNote||''}`))}
-        catch(e){if(controller.signal.aborted||e.name==='AbortError')throw e;status('Preparando grabación 3D compatible con este navegador…')}
+        catch(e){if(controller.signal.aborted||e.name==='AbortError')throw e;fallbackReason=`WebCodecs falló: ${e.message||String(e)}`;console.warn('[Video 3D] '+fallbackReason,e);status('Preparando grabación 3D compatible con este navegador…')}
       }
-      if(!result)result=await recordScene(scene,activity.points,controller.signal,status);
+      if(!result){if(typeof VideoEncoder!=='function')fallbackReason='WebCodecs VideoEncoder no está disponible en este navegador.';result=await recordScene(scene,activity.points,controller.signal,status);}
+       const info=result.diagnostics||{};if(fallbackReason)info.reason=[fallbackReason,info.reason].filter(Boolean).join(' ');
+       const report=`${result.extension.toUpperCase()} · ${info.engine||'Codificador desconocido'} · ${info.codec||'Códec no identificado'} · ${info.width||scene.canvas.width}×${info.height||scene.canvas.height} · ${info.fps||scene.fps} FPS. ${info.reason||''}`;
+       console.info('[Video 3D] Diagnóstico de exportación:',{style:options.cameraStyle,format:result.extension,...info});
       if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');
-      download(result.blob,activity.name,result.extension);showExportedVideo(result.blob);status(`Video 3D ${result.extension.toUpperCase()} descargado. ${scene.localityNote||''}`);
+      download(result.blob,activity.name,result.extension);showExportedVideo(result.blob);status(`Video 3D descargado. ${report} ${scene.localityNote||''}`);
     }else{
       const frames=scene.fps*scene.seconds;
       playback={paused:false,wake:null};playbackButtons(false,true);
