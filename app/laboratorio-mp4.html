@@ -47,14 +47,20 @@ $('convert').onclick=async()=>{
   const library='https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/umd';
   const base='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
   status('Paso 2/4: preparando Worker y núcleo WebAssembly…');
-  workerBlobURL=await fetchBlobURL(library+'/814.ffmpeg.js','text/javascript');
+  const upstreamWorkerURL=await fetchBlobURL(library+'/814.ffmpeg.js','text/javascript');
+  // Worker instrumentado: informa si el módulo arranca o falla antes de responder a FFmpeg.load.
+  const workerSource=`self.postMessage({__lab:'Worker iniciado'});self.addEventListener('error',e=>self.postMessage({__lab:'Error Worker: '+e.message}));self.addEventListener('unhandledrejection',e=>self.postMessage({__lab:'Rechazo Worker: '+String(e.reason)}));try{importScripts(${JSON.stringify(upstreamWorkerURL)});self.postMessage({__lab:'Script Worker importado'});}catch(e){self.postMessage({__lab:'Falló importScripts: '+String(e)});throw e;}`;
+  workerBlobURL=URL.createObjectURL(new Blob([workerSource],{type:'text/javascript'}));
   const coreURL=await fetchBlobURL(base+'/ffmpeg-core.js','text/javascript');
   const wasmURL=await fetchBlobURL(base+'/ffmpeg-core.wasm','application/wasm');
   if(cancelled)throw Error('Conversión cancelada.');
   status('Paso 3/4: iniciando FFmpeg.wasm…');
-  try{await timed(ffmpeg.load({workerURL:workerBlobURL,coreURL,wasmURL}),60000,'Inicio de FFmpeg.wasm')}
+  // FFmpeg crea su propio Worker: registrar mensajes de diagnóstico sin alterar sus mensajes internos.
+  const OriginalWorker=window.Worker;
+  window.Worker=class extends OriginalWorker{constructor(url,options){super(url,options);if(url===workerBlobURL){this.addEventListener('message',event=>{if(event.data?.__lab)log(event.data.__lab)});this.addEventListener('error',event=>log('Error de Worker: '+event.message));this.addEventListener('messageerror',()=>log('Error de transferencia de mensaje del Worker'))}}};
+  try{await timed(ffmpeg.load({workerURL:workerBlobURL,coreURL,wasmURL}),30000,'Inicio de FFmpeg.wasm')}
   catch(error){log('Fallo de inicialización: '+(error.message||error));try{ffmpeg.terminate()}catch{}throw error}
-  finally{URL.revokeObjectURL(coreURL);URL.revokeObjectURL(wasmURL)}
+  finally{window.Worker=OriginalWorker;URL.revokeObjectURL(coreURL);URL.revokeObjectURL(wasmURL);URL.revokeObjectURL(upstreamWorkerURL)}
   log('FFmpeg.wasm iniciado correctamente.');
   if(cancelled)throw Error('Conversión cancelada.');
   status('Leyendo WebM…');await ffmpeg.writeFile('entrada.webm',new Uint8Array(await file.arrayBuffer()));
