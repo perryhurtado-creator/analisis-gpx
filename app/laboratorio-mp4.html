@@ -16,7 +16,7 @@ const $=id=>document.getElementById(id);
 const MAX=25*1024*1024;let running=false,ffmpeg=null,outputURL=null,wake=null,cancelled=false,abortController=null,workerBlobURL=null;
 const status=s=>{$('state').textContent=s};
 const log=s=>{const el=$('log');el.textContent+=(el.textContent?'\n':'')+s;el.scrollTop=el.scrollHeight};
-const timed=(promise,ms,label)=>Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(Error(label+' superó '+Math.round(ms/1000)+' segundos.')),ms))]);
+const timed=(promise,ms,label)=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error(label+' superó '+Math.round(ms/1000)+' segundos.')),ms);Promise.resolve(promise).then(v=>{clearTimeout(timer);resolve(v)},e=>{clearTimeout(timer);reject(e)})});
 const fetchBlobURL=async(url,type)=>{const response=await timed(fetch(url,{signal:abortController.signal}),45000,'Descarga '+url);if(!response.ok)throw Error('HTTP '+response.status+' descargando '+url);const blob=await timed(response.blob(),45000,'Lectura '+url);log('Descargado: '+url.split('/').at(-1)+' ('+(blob.size/1048576).toFixed(1)+' MiB)');return URL.createObjectURL(new Blob([blob],{type}))};
 const releaseWake=async()=>{try{await wake?.release()}catch{}wake=null};
 $('file').onchange=()=>{const f=$('file').files[0];$('info').textContent=f?f.name+' · '+(f.size/1048576).toFixed(1)+' MiB':'Sin archivo seleccionado.';$('convert').disabled=!f||f.size>MAX||running;if(f?.size>MAX)status('Este laboratorio limita la entrada a 25 MiB para la primera prueba.')};
@@ -40,6 +40,8 @@ $('convert').onclick=async()=>{
   }
   if(cancelled)throw Error('Conversión cancelada.');
   ffmpeg=new window.FFmpegWASM.FFmpeg();
+  log('Navegador: '+navigator.userAgent);
+  log('WebAssembly: '+(typeof WebAssembly==='object')+' · Worker: '+(typeof Worker==='function')+' · memoria dispositivo: '+(navigator.deviceMemory||'desconocida')+' GiB');
   ffmpeg.on('log',({message})=>{if(message&&(/error|encoder|frame=|time=|invalid|unknown/i.test(message)))log(message.slice(0,240))});
   ffmpeg.on('progress',({progress})=>{if(Number.isFinite(progress))$('progress').value=Math.min(99,Math.max(0,Math.round(progress*100)))});
   const library='https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/umd';
@@ -50,11 +52,12 @@ $('convert').onclick=async()=>{
   const wasmURL=await fetchBlobURL(base+'/ffmpeg-core.wasm','application/wasm');
   if(cancelled)throw Error('Conversión cancelada.');
   status('Paso 3/4: iniciando FFmpeg.wasm…');
-  try{await timed(ffmpeg.load({workerURL:workerBlobURL,coreURL,wasmURL}),90000,'Inicio de FFmpeg.wasm')}
+  try{await timed(ffmpeg.load({workerURL:workerBlobURL,coreURL,wasmURL}),60000,'Inicio de FFmpeg.wasm')}
+  catch(error){log('Fallo de inicialización: '+(error.message||error));try{ffmpeg.terminate()}catch{}throw error}
   finally{URL.revokeObjectURL(coreURL);URL.revokeObjectURL(wasmURL)}
   log('FFmpeg.wasm iniciado correctamente.');
   if(cancelled)throw Error('Conversión cancelada.');
-  status('Leyendo WebM…');await ffmpeg.writeFile('entrada.webm',await fetchFile(file));
+  status('Leyendo WebM…');await ffmpeg.writeFile('entrada.webm',new Uint8Array(await file.arrayBuffer()));
   status('Paso 4/4: codificando H.264… Esto puede tardar varios minutos.');
   const code=await ffmpeg.exec(['-i','entrada.webm','-an','-c:v','libx264','-preset','ultrafast','-crf','28','-pix_fmt','yuv420p','-movflags','+faststart','salida.mp4']);
   if(cancelled)throw Error('Conversión cancelada.');
