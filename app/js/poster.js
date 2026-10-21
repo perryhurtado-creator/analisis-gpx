@@ -2,7 +2,7 @@ import {posterData,posterMapSnapshot,POSTER_LEVELS,posterRuns} from './poster-da
 import {fmt} from './metrics.js';
 const $=id=>document.getElementById(id);
 let activity=null,controller=null,resources=null,canvas=null,revision=0;
-const TITLE_FONT='MTB Teko';
+const TITLE_FONT='Teko';
 let titleFontPromise=null;
 async function ensureTitleFont(){
   if(document.fonts.check('900 52px Teko'))return true;
