@@ -1,6 +1,6 @@
 import {withApiLimits} from './rate-limit.mjs';
-import {regionalLocalities} from './localities-regional.mjs';
-import {cachedLocalities} from './localities-cache.mjs';
+import {regionalLocalities} from '../js/catalogues/localities-regional.mjs';
+import {cachedLocalities} from '../js/catalogues/localities-cache.mjs';
 import {boundedJSON} from './safety.mjs';
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':status===200?'public, s-maxage=86400, stale-while-revalidate=3600':'no-store'}});
 async function handle(request){
