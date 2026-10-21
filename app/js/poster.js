@@ -65,8 +65,8 @@ export function drawPoster(target,source,data,assets){
   }
   // Paneles compactos: la ruta permanece visible en el centro del cartel.
   panel(ctx,20,20,235,212,'rgba(3,8,12,.87)',16);
-  const logo=assets.logo,ratio=Math.min(212/logo.naturalWidth,196/logo.naturalHeight);
-  ctx.drawImage(logo,31+(212-logo.naturalWidth*ratio)/2,26,logo.naturalWidth*ratio,logo.naturalHeight*ratio);
+  const logo=assets.logo,ratio=Math.min(230/logo.naturalWidth,205/logo.naturalHeight);
+  ctx.drawImage(logo,22+(230-logo.naturalWidth*ratio)/2,23,logo.naturalWidth*ratio,logo.naturalHeight*ratio);
   panel(ctx,270,22,490,160,'rgba(3,8,12,.87)',14);
   ctx.fillStyle='#fff';ctx.font='italic 800 23px Arial';ctx.fillText('RUTA MTB',290,53);
   let size=52,lines;do{
@@ -93,7 +93,7 @@ export function drawPoster(target,source,data,assets){
   // Perfil de elevación ampliado: 220px de alto y escala visible.
   if(data.showProfile){
     panel(ctx,30,1195,1020,236,'rgba(3,8,12,.91)',17);
-    ctx.fillStyle='#fff';ctx.font='bold 23px Arial';ctx.fillText('PERFIL DE ELEVACIÓN',54,1230);
+    ctx.fillStyle='#fff';ctx.font='bold 23px Arial';ctx.fillText('PERFIL DE ELEVACIÓN',54,1230);ctx.font='bold 20px Arial';ctx.textAlign='right';ctx.fillText('ASCENSO ACUMULADO: '+data.ascent,1020,1230);ctx.textAlign='left';
     const pts=source.points,valid=pts.filter(p=>Number.isFinite(p.ele));
     if(valid.length){
       const bounds=valid.reduce((b,p)=>({min:Math.min(b.min,p.ele),max:Math.max(b.max,p.ele)}),{min:Infinity,max:-Infinity});const {min,max}=bounds,range=max-min||1;
@@ -134,7 +134,7 @@ async function resolveLocalities(points,signal){
   if(points.length<2)return [];
   const found=[],seen=new Set();
   // Consultas acotadas para respetar el servicio público de Nominatim.
-  const indices=[0,Math.floor(points.length/5),Math.floor(points.length*2/5),Math.floor(points.length*3/5),Math.floor(points.length*4/5),points.length-1];
+  const indices=Array.from({length:9},(_,i)=>Math.min(points.length-1,Math.floor(i*(points.length-1)/8)));
   for(let k=0;k<indices.length;k++){
     if(signal.aborted)throw aborted();
     const index=indices[k],p=points[index];
@@ -144,7 +144,7 @@ async function resolveLocalities(points,signal){
       const response=await fetch(url,{signal,headers:{'Accept-Language':'es'}});
       if(!response.ok)continue;
       const json=await response.json(),a=json.address||{};
-      const name=a.village||a.town||a.city||a.hamlet||a.municipality;
+      const name=a.village||a.hamlet||a.town||a.suburb||a.city_district||a.city||a.municipality;
       if(typeof name==='string'&&!seen.has(name.toLowerCase())){seen.add(name.toLowerCase());found.push({name:name.slice(0,26),index})}
     }catch(e){if(signal.aborted)throw aborted()}
     if(k<indices.length-1)await new Promise(resolve=>setTimeout(resolve,1100));
@@ -154,7 +154,7 @@ async function resolveLocalities(points,signal){
 function options(){return {name:$('posterName')?.value.trim()||activity?.name,level:$('posterLevel')?.value||'',showProfile:$('posterProfile')?.checked!==false,showTips:$('posterTips')?.checked!==false,showLocalities:$('posterLocalities')?.checked!==false}}
 function update(){
   revision++;$('downloadPoster').disabled=true;if(!activity)return;
-  const data={...posterData(activity,options()),...options()};$('posterMetrics').textContent=`${data.distance} · ${data.ascent} · ${data.time}`;
+  const data={...options(),...posterData(activity,options())};$('posterMetrics').textContent=`${data.distance} · ${data.ascent} · ${data.time}`;
   $('posterScore').textContent=`Puntos distancia: ${data.distancePts??'—'} · Desnivel: ${data.elevationPts??'—'}. El nivel se elige considerando también terreno, técnica y exposición.`;
   if(resources&&canvas){drawPoster(canvas,activity,data,resources);$('downloadPoster').disabled=false;$('posterStatus').textContent='Cartel listo · 1080 × 1620'}
   else $('posterStatus').textContent='Personaliza los datos y genera tu cartel';
@@ -188,7 +188,7 @@ export async function generatePoster(){
       ]);
       if(abort.signal.aborted)throw aborted();tiles.forEach(tile=>ctx.drawImage(tile.image,tile.x,tile.y,256,256));resources={logo,map,snapshot,localities};
     }
-    canvas=document.createElement('canvas');canvas.className='poster-canvas';canvas.setAttribute('aria-label','Cartel de la ruta con mapa, clasificación y datos');drawPoster(canvas,selected,{...posterData(selected,options()),...options()},resources);canvas.getContext('2d').getImageData(0,0,1,1);
+    canvas=document.createElement('canvas');canvas.className='poster-canvas';canvas.setAttribute('aria-label','Cartel de la ruta con mapa, clasificación y datos');drawPoster(canvas,selected,{...options(),...posterData(selected,options())},resources);canvas.getContext('2d').getImageData(0,0,1,1);
     if(abort.signal.aborted||activity!==selected)throw aborted();$('posterPreview').replaceChildren(canvas);$('posterStatus').textContent='Cartel listo · 1080 × 1620';$('downloadPoster').disabled=false;
   }catch(e){if(activity===selected)$('posterStatus').textContent=e.name==='AbortError'?'Generación cancelada.':e.message;abort.abort()}
   finally{if(controller===abort){controller=null;$('makePoster').disabled=!activity;fields.forEach(e=>e.disabled=false)}}
