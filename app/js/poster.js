@@ -3,16 +3,16 @@ import {fmt} from './metrics.js';
 const $=id=>document.getElementById(id);
 let activity=null,controller=null,resources=null,canvas=null,revision=0;
 const TITLE_FONTS={
-  teko:{label:'Teko · MTB',family:'Teko',weight:700},
-  oswald:{label:'Oswald · Deportivo',family:'Oswald',weight:700},
-  anton:{label:'Anton · Impacto',family:'Anton',weight:400},
-  bebas:{label:'Bebas Neue · Condensada',family:'Bebas Neue',weight:400},
-  barlow:{label:'Barlow Condensed · Racing',family:'Barlow Condensed',weight:800},
-  classic:{label:'Clásica · Arial',family:'Arial',weight:900,local:true}
+  anton:{label:'Anton · Potente',family:'Anton',weight:400},
+  bebas:{label:'Bebas Neue · Estrecha',family:'Bebas Neue',weight:400},
+  bangers:{label:'Bangers · Cómic extremo',family:'Bangers',weight:400},
+  marker:{label:'Permanent Marker · Pincel',family:'Permanent Marker',weight:400},
+  blackops:{label:'Black Ops One · Militar',family:'Black Ops One',weight:400},
+  classic:{label:'Arial · Clásica',family:'Arial',weight:900,local:true}
 };
 const fontPromises=new Map();
 async function ensureTitleFont(key){
-  const font=TITLE_FONTS[key]||TITLE_FONTS.teko;
+  const font=TITLE_FONTS[key]||TITLE_FONTS.anton;
   if(font.local)return true;
   const descriptor=font.weight+' 52px "'+font.family+'"';
   if(fontPromises.has(key))return fontPromises.get(key);
@@ -98,7 +98,7 @@ export function drawPoster(target,source,data,assets){
   panel(ctx,270,22,490,160,'rgba(3,8,12,.87)',14);
   ctx.fillStyle='#fff';ctx.font='italic 800 23px Arial, sans-serif';ctx.fillText('RUTA MTB',290,53);
   let size=52,lines;do{
-    const chosen=TITLE_FONTS[data.titleFont]||TITLE_FONTS.teko;
+    const chosen=TITLE_FONTS[data.titleFont]||TITLE_FONTS.anton;
     ctx.font=chosen.weight+' '+size+'px '+(data.titleFontReady?'"'+chosen.family+'"':'Arial, sans-serif');lines=titleLines(ctx,data.name.toLocaleUpperCase('es-MX'),445);
     if(lines.length<=2&&lines.every(t=>ctx.measureText(t).width<=445))break;size-=2;
   }while(size>18);
@@ -184,7 +184,7 @@ async function resolveLocalities(points,signal){
   }
   return found;
 }
-function options(){return {name:$('posterName')?.value.trim()||activity?.name,level:$('posterLevel')?.value||'',showProfile:$('posterProfile')?.checked!==false,showTips:$('posterTips')?.checked!==false,showLocalities:$('posterLocalities')?.checked!==false,titleFont:$('posterFont')?.value||'teko'}}
+function options(){return {name:$('posterName')?.value.trim()||activity?.name,level:$('posterLevel')?.value||'',showProfile:$('posterProfile')?.checked!==false,showTips:$('posterTips')?.checked!==false,showLocalities:$('posterLocalities')?.checked!==false,titleFont:$('posterFont')?.value||'anton'}}
 function update(){
   revision++;$('downloadPoster').disabled=true;if(!activity)return;
   const data={...options(),...posterData(activity,options())};$('posterMetrics').textContent=`${data.distance} · ${data.ascent} · ${data.time}`;
@@ -209,7 +209,7 @@ export function setPosterActivity(next){
   if(!next){$('posterStatus').textContent='Esperando ruta';return}
   $('posterData').innerHTML='<label class="poster-field">Nombre de la ruta<input id="posterName" maxlength="140" type="text"></label><label class="poster-field">Clasificación MTB<select id="posterLevel"><option value="">Sin clasificar</option></select></label><label class="poster-field">Tipografía del título<select id="posterFont"></select></label><label class="poster-field"><input id="posterLocalities" type="checkbox" checked> Mostrar localidades</label><label class="poster-field"><input id="posterProfile" type="checkbox" checked> Perfil de elevación</label><label class="poster-field"><input id="posterTips" type="checkbox" checked> Recomendaciones de seguridad</label><p id="posterMetrics" class="poster-route-name"></p><p id="posterScore" class="poster-note"></p><p class="poster-note">Formato vertical 1080 × 1620. Los nombres de localidades se consultan en OpenStreetMap; pueden no estar disponibles.</p>';
   for(const [key,font] of Object.entries(TITLE_FONTS)){const opt=document.createElement('option');opt.value=key;opt.textContent=font.label;$('posterFont').appendChild(opt)}
-  $('posterFont').value='teko';
+  $('posterFont').value='anton';
   $('posterName').value=next.name.slice(0,140);for(const [value,level] of Object.entries(POSTER_LEVELS)){const opt=document.createElement('option');opt.value=value;opt.textContent=level.label;$('posterLevel').appendChild(opt)}
   $('posterName').addEventListener('input',update);$('posterLevel').addEventListener('change',update);$('posterFont').addEventListener('change',update);
   for(const id of ['posterLocalities','posterProfile','posterTips'])$(id).addEventListener('change',update);
