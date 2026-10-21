@@ -7,7 +7,7 @@ async function handle(request){
   if(!q||q.length<3||q.length>160)return json({error:'Escribe una localidad de entre 3 y 160 caracteres.'},400);
   const key=process.env.ORS_API_KEY;
   if(!key)return json({error:'Falta configurar la clave del servicio de búsqueda en Vercel.'},503);
-  const url=new URL('https://api.openrouteservice.org/geocode/search');
+  const url=new URL('https://api.heigit.org/pelias/v1/search');
   url.searchParams.set('api_key',key);url.searchParams.set('text',q);url.searchParams.set('size','5');
   const lat=params.get('lat'),lon=params.get('lon');
   if(lat!==null&&lon!==null&&lat.trim()&&lon.trim()&&Number.isFinite(Number(lat))&&Number.isFinite(Number(lon))&&Math.abs(Number(lat))<=90&&Math.abs(Number(lon))<=180){url.searchParams.set('focus.point.lat',lat);url.searchParams.set('focus.point.lon',lon)}

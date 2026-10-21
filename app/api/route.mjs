@@ -13,7 +13,7 @@ async function handle(request){
   const key=process.env.ORS_API_KEY;
   if(!key)return json({error:'Falta configurar ORS_API_KEY en Vercel y desplegar de nuevo.'},503);
   try{
-    const response=await fetch('https://api.openrouteservice.org/v2/directions/cycling-mountain/geojson',{method:'POST',headers:{'Content-Type':'application/json','Authorization':key},body:JSON.stringify({coordinates:coords,instructions:false,elevation:false,radiuses:coords.map(()=>200)}),signal:AbortSignal.timeout(20000)});
+    const response=await fetch('https://api.heigit.org/openrouteservice/v2/directions/cycling-mountain/geojson',{method:'POST',headers:{'Content-Type':'application/json','Authorization':key},body:JSON.stringify({coordinates:coords,instructions:false,elevation:false,radiuses:coords.map(()=>200)}),signal:AbortSignal.timeout(20000)});
     if(!response.ok){
       console.error('MTB routing provider status:',response.status);
       const message=response.status===429?'Se alcanzó el límite de consultas. Intenta más tarde.':response.status===401||response.status===403?'Revisa la clave de OpenRouteService en Vercel.':response.status>=500?'El servicio de rutas no está disponible. Intenta de nuevo.':'No se encontró una ruta MTB entre estos puntos. Prueba acercarlos a un camino.';
@@ -24,7 +24,7 @@ async function handle(request){
     let elevated={type:'LineString',coordinates:geometry.coordinates.map(c=>c.slice(0,2))},elevationMessage=null,spacing=null;
     try{
       const plan=terrainSamples(elevated.coordinates);
-      const result=await fetch('https://api.openrouteservice.org/elevation/line',{method:'POST',headers:{'Content-Type':'application/json','Authorization':key},body:JSON.stringify({format_in:'geojson',format_out:'geojson',geometry:{type:'LineString',coordinates:plan.samples.map(p=>p.coordinate)}}),signal:AbortSignal.timeout(20000)});
+      const result=await fetch('https://api.heigit.org/openelevationservice/v0/line',{method:'POST',headers:{'Content-Type':'application/json','Authorization':key},body:JSON.stringify({format_in:'geojson',format_out:'geojson',geometry:{type:'LineString',coordinates:plan.samples.map(p=>p.coordinate)}}),signal:AbortSignal.timeout(20000)});
       if(!result.ok){console.error('Terrain elevation provider status:',result.status);throw Error('Terrain service unavailable')}
       const terrain=await boundedJSON(result,1024*1024),values=terrain.geometry?.coordinates;
       if(!Array.isArray(values)||values.length!==plan.samples.length||!values.every((c,i)=>Array.isArray(c)&&Number.isFinite(c[0])&&Number.isFinite(c[1])&&Math.abs(c[0]-plan.samples[i].coordinate[0])<0.00001&&Math.abs(c[1]-plan.samples[i].coordinate[1])<0.00001))throw Error('Invalid terrain geometry');
