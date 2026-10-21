@@ -38,78 +38,106 @@ function icon(ctx,type,x,y,accent){
 }
 export function drawPoster(target,source,data,assets){
   target.width=1080;target.height=1620;
-  const ctx=target.getContext('2d'),accent=data.level?.color||'#35c77f';
+  const ctx=target.getContext('2d'),accent=data.level?.color||'#35c77f',snap=assets.snapshot;
   ctx.fillStyle='#080b0d';ctx.fillRect(0,0,1080,1620);
-  // Mapa vertical con su propia proyección: nunca estirar el recorrido.
-  const snap=assets.snapshot;
-  ctx.save();ctx.beginPath();ctx.rect(540,0,540,1480);ctx.clip();ctx.translate(540,0);
+  // El mapa es el fondo completo. No se deforma la geometría GPX.
   ctx.drawImage(assets.map,0,0);
-  ctx.fillStyle='rgba(0,0,0,.08)';ctx.fillRect(0,0,540,1480);
-  for(const [color,width] of [['#fff',11],['#f47724',6]]){
+  ctx.fillStyle='rgba(0,0,0,.12)';ctx.fillRect(0,0,1080,1460);
+  for(const [color,width] of [['#fff',10],[accent,6]]){
     ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineJoin=ctx.lineCap='round';ctx.beginPath();
     for(const run of snap.runs)run.forEach((i,j)=>{const p=snap.positions[i];if(j)ctx.lineTo(p.x,p.y);else ctx.moveTo(p.x,p.y)});
     ctx.stroke();
   }
   [snap.positions[0],snap.positions.at(-1)].forEach((p,i)=>{
-    ctx.fillStyle=i?'#111':'#25ae76';ctx.beginPath();ctx.arc(p.x,p.y,10,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.stroke();
+    if(!p)return;ctx.fillStyle=i?'#161a1d':'#23b978';ctx.beginPath();ctx.arc(p.x,p.y,11,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.stroke();
   });
-  ctx.fillStyle='rgba(255,255,255,.94)';ctx.fillRect(0,1450,540,30);
-  ctx.fillStyle='#243f32';ctx.font='14px Arial';ctx.fillText('© OpenStreetMap · © OpenTopoMap (CC BY-SA)',8,1471);ctx.restore();
-  // Localidades: únicamente nombres obtenidos de cartografía, no inventados.
+  // Nombres de poblaciones verificados por geocodificación.
   if(data.showLocalities&&Array.isArray(assets.localities)){
-    ctx.save();ctx.font='bold 18px Arial';ctx.textAlign='left';
-    assets.localities.forEach(({name,index},j)=>{
-      const p=snap.positions[index];if(!p)return;
-      const x=540+p.x,y=p.y;
-      if(x<560||x>1030||y<185||y>1360)return;
-      const w=Math.min(235,ctx.measureText(name).width+18);
-      ctx.fillStyle='rgba(0,0,0,.83)';ctx.fillRect(Math.max(544,Math.min(1070-w,x+13)),y-24,w,30);
-      ctx.fillStyle='#fff';ctx.fillText(name,Math.max(551,Math.min(1077-w,x+20)),y-3);
-      ctx.fillStyle=accent;ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
-    });ctx.restore();
+    ctx.font='bold 19px Arial';ctx.textAlign='left';
+    for(const {name,index} of assets.localities){
+      const p=snap.positions[index];if(!p||p.y<240||p.y>1220)continue;
+      const w=Math.min(290,ctx.measureText(name).width+22),x=Math.max(15,Math.min(1065-w,p.x+14));
+      panel(ctx,x,p.y-29,w,35,'rgba(0,0,0,.87)',7);
+      ctx.fillStyle='#fff';ctx.fillText(name,x+11,p.y-5);
+      ctx.fillStyle=accent;ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill();
+    }
   }
-  // Borde irregular inspirado en el cartel de referencia.
-  ctx.fillStyle='#080b0d';ctx.beginPath();ctx.moveTo(520,0);
-  for(let y=0;y<=1480;y+=24)ctx.lineTo(540+18*Math.sin(y*.17)+12*Math.cos(y*.07),y);
-  ctx.lineTo(500,1480);ctx.lineTo(500,0);ctx.closePath();ctx.fill();
-  const logo=assets.logo,ratio=Math.min(410/logo.naturalWidth,350/logo.naturalHeight);
-  ctx.drawImage(logo,55+(410-logo.naturalWidth*ratio)/2,24,logo.naturalWidth*ratio,logo.naturalHeight*ratio);
-  ctx.fillStyle='#fff';ctx.font='italic 800 32px Arial';ctx.fillText('RUTA MTB',40,422);
-  ctx.fillStyle=accent;ctx.fillText('›››',245,422);
-  let size=70,lines;
-  do{ctx.font=`900 ${size}px Arial`;lines=titleLines(ctx,data.name.toLocaleUpperCase('es-MX'),465);if(lines.length<=4&&lines.every(t=>ctx.measureText(t).width<=465))break;size-=2}while(size>18);
-  lines.forEach((line,i)=>{ctx.fillStyle=i===lines.length-1?accent:'#fff';ctx.fillText(line,40,495+i*(size+8))});
-  panel(ctx,40,810,455,380,'#101519',22);ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(40,810,455,380,22);ctx.stroke();
+  // Capas de información semitransparentes sobre el mapa.
+  const grad=ctx.createLinearGradient(0,0,760,0);
+  grad.addColorStop(0,'rgba(3,7,10,.96)');grad.addColorStop(.68,'rgba(3,7,10,.87)');grad.addColorStop(1,'rgba(3,7,10,0)');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,820,760);
+  panel(ctx,24,20,330,315,'rgba(0,0,0,.58)',18);
+  const logo=assets.logo,ratio=Math.min(305/logo.naturalWidth,290/logo.naturalHeight);
+  ctx.drawImage(logo,32+(310-logo.naturalWidth*ratio)/2,28,logo.naturalWidth*ratio,logo.naturalHeight*ratio);
+  ctx.fillStyle='#fff';ctx.font='italic 800 30px Arial';ctx.fillText('RUTA MTB',38,375);
+  ctx.fillStyle=accent;ctx.fillText('›››',230,375);
+  let size=70,lines;do{
+    ctx.font='900 '+size+'px Arial';lines=titleLines(ctx,data.name.toLocaleUpperCase('es-MX'),690);
+    if(lines.length<=4&&lines.every(t=>ctx.measureText(t).width<=690))break;size-=2;
+  }while(size>24);
+  lines.forEach((line,i)=>{ctx.fillStyle=i===lines.length-1?accent:'#fff';ctx.fillText(line,38,454+i*(size+6))});
+  panel(ctx,760,24,294,118,'rgba(4,9,12,.92)',13);
+  ctx.fillStyle='#fff';ctx.font='bold 20px Arial';ctx.fillText('CLASIFICACIÓN MTB',780,60);
+  const level=data.level?.label||'Sin clasificar';let levelSize=26;
+  do{ctx.font='800 '+levelSize+'px Arial';if(ctx.measureText(level).width<=252)break;levelSize--}while(levelSize>16);
+  ctx.fillStyle=accent;ctx.fillText(level,780,108);
+  // Datos principales, con fondo legible y sin tapar todo el mapa.
+  panel(ctx,30,805,465,370,'rgba(3,8,12,.89)',20);
+  ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(30,805,465,370,20);ctx.stroke();
   const stats=[['DISTANCIA',data.distance],[data.elevationLabel,data.ascent],['TIEMPO REGISTRADO',data.time]];
   stats.forEach(([label,value],i)=>{
-    const y=840+i*120;icon(ctx,i,65,y+14,accent);ctx.fillStyle='#cbd3d8';ctx.font='600 18px Arial';ctx.fillText(label,120,y+22);
-    let font=44;do{ctx.font=`800 ${font}px Arial`;if(ctx.measureText(value).width<=345)break;font--}while(font>18);
-    ctx.fillStyle='#fff';ctx.fillText(value,120,y+76);
-    if(i<2){ctx.strokeStyle=accent;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(60,y+98);ctx.lineTo(475,y+98);ctx.stroke()}
+    const y=830+i*118;icon(ctx,i,52,y+10,accent);
+    ctx.fillStyle='#cbd3d8';ctx.font='600 19px Arial';ctx.fillText(label,105,y+22);
+    let font=43;do{ctx.font='800 '+font+'px Arial';if(ctx.measureText(value).width<=365)break;font--}while(font>18);
+    ctx.fillStyle='#fff';ctx.fillText(value,105,y+77);
+    if(i<2){ctx.strokeStyle=accent;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(52,y+101);ctx.lineTo(473,y+101);ctx.stroke()}
   });
-  panel(ctx,590,30,450,132,'#101519',12);ctx.fillStyle=accent;ctx.fillRect(590,30,8,132);
-  ctx.fillStyle='#fff';ctx.font='italic 800 22px Arial';ctx.fillText('CLASIFICACIÓN MTB',614,65);
-  const level=data.level?.label||'Sin clasificar';let levelSize=30;
-  do{ctx.font=`800 ${levelSize}px Arial`;if(ctx.measureText(level).width<=400)break;levelSize--}while(levelSize>16);
-  ctx.fillStyle=accent;ctx.fillText(level,614,118);
-  // Perfil basado en puntos originales, conservando interrupciones.
-  if(data.showProfile){ctx.save();ctx.translate(14,120);ctx.scale(.47,1);profile(ctx,source.points,accent);ctx.restore();}
-  ctx.fillStyle='#bfc9ce';ctx.font='18px Arial';ctx.fillText('Distancia (km)',40,1392);
-  ctx.textAlign='right';ctx.fillText(fmt(source.distance/1000)+' km',495,1392);ctx.textAlign='left';
-  if(data.showTips){
-    panel(ctx,40,1410,1000,74,'#101519',12);
-    ctx.fillStyle='#fff';ctx.font='bold 21px Arial';
-    ctx.fillText('AGUA SUFICIENTE  ·  PROTÉGETE DEL SOL  ·  REVISA TU BICI  ·  RESPETA EL SENDERO',59,1454);
+  // Perfil de elevación ampliado: 220px de alto y escala visible.
+  if(data.showProfile){
+    panel(ctx,30,1195,1020,236,'rgba(3,8,12,.91)',17);
+    ctx.fillStyle='#fff';ctx.font='bold 23px Arial';ctx.fillText('PERFIL DE ELEVACIÓN',54,1230);
+    const pts=source.points,valid=pts.filter(p=>Number.isFinite(p.ele));
+    if(valid.length){
+      const min=Math.min(...valid.map(p=>p.ele)),max=Math.max(...valid.map(p=>p.ele)),range=max-min||1;
+      const total=pts.at(-1)?.d||source.distance||1;
+      ctx.font='17px Arial';ctx.fillStyle='#d5dee4';
+      for(let i=0;i<=3;i++){
+        const y=1380-i*42,value=min+range*i/3;
+        ctx.fillText(fmt(value,0)+' m',52,y+5);
+        ctx.strokeStyle='rgba(255,255,255,.16)';ctx.beginPath();ctx.moveTo(135,y);ctx.lineTo(1020,y);ctx.stroke();
+      }
+      ctx.strokeStyle=accent;ctx.lineWidth=4;ctx.beginPath();
+      for(const run of posterRuns(pts)){
+        let previous=false;for(const index of run){
+          const p=pts[index];if(!Number.isFinite(p.ele)||!Number.isFinite(p.d)){previous=false;continue}
+          const x=135+Math.max(0,Math.min(1,p.d/total))*885,y=1380-(p.ele-min)/range*126;
+          if(previous)ctx.lineTo(x,y);else ctx.moveTo(x,y);previous=true;
+        }
+      }
+      ctx.stroke();
+      ctx.fillStyle='#d5dee4';ctx.font='17px Arial';
+      ctx.fillText('0 km',135,1411);ctx.textAlign='right';ctx.fillText(data.distance,1020,1411);ctx.textAlign='left';
+    }else{ctx.fillStyle='#fff';ctx.font='21px Arial';ctx.fillText('Sin datos de elevación',54,1320)}
   }
-  ctx.fillStyle=accent;ctx.fillRect(40,1500,1000,3);
-  ctx.fillStyle='#fff';ctx.font='italic 800 34px Arial';ctx.textAlign='center';ctx.fillText('¡PEDALEA, DISFRUTA, SUPERA TUS LÍMITES!',540,1563);
-  ctx.fillStyle='#adb9c1';ctx.font='600 18px Arial';ctx.fillText('PERROS EN BICICLETA · RUTA Y COMUNIDAD',540,1598);ctx.textAlign='left';
+  if(data.showTips){
+    panel(ctx,30,1445,1020,64,'rgba(3,8,12,.95)',12);
+    ctx.fillStyle='#fff';ctx.font='bold 19px Arial';
+    ctx.fillText('AGUA SUFICIENTE  ·  PROTÉGETE DEL SOL  ·  REVISA TU BICI  ·  RESPETA EL SENDERO',49,1485);
+  }
+  ctx.fillStyle='#080b0d';ctx.fillRect(0,1520,1080,100);
+  ctx.fillStyle=accent;ctx.fillRect(30,1521,1020,3);
+  ctx.fillStyle='#fff';ctx.font='italic 800 31px Arial';ctx.textAlign='center';
+  ctx.fillText('¡PEDALEA, DISFRUTA, SUPERA TUS LÍMITES!',540,1571);
+  ctx.fillStyle='#b5c0c8';ctx.font='16px Arial';ctx.fillText('PERROS EN BICICLETA · RUTA Y COMUNIDAD',540,1599);
+  ctx.font='13px Arial';ctx.fillText('© OpenStreetMap contributors · © OpenTopoMap (CC BY-SA)',540,1616);
+  ctx.textAlign='left';
 }
 async function resolveLocalities(points,signal){
   if(points.length<2)return [];
   const found=[],seen=new Set();
   // Consultas acotadas para respetar el servicio público de Nominatim.
-  const indices=[0,Math.floor(points.length/3),Math.floor(points.length*2/3),points.length-1];
+  const indices=[0,Math.floor(points.length/5),Math.floor(points.length*2/5),Math.floor(points.length*3/5),Math.floor(points.length*4/5),points.length-1];
   for(let k=0;k<indices.length;k++){
     if(signal.aborted)throw aborted();
     const index=indices[k],p=points[index];
@@ -151,7 +179,7 @@ export async function generatePoster(){
   const selected=activity,abort=new AbortController();controller=abort;const fields=[$('posterName'),$('posterLevel'),$('posterLocalities'),$('posterProfile'),$('posterTips')];fields.forEach(e=>e.disabled=true);$('makePoster').disabled=true;$('downloadPoster').disabled=true;
   try{
     $('posterStatus').textContent='Cargando mapa de relieve, localidades y logo…';
-    if(!resources){const snapshot=posterMapSnapshot(selected.points,540,1480,62),map=document.createElement('canvas');map.width=snapshot.width;map.height=snapshot.height;const ctx=map.getContext('2d');ctx.fillStyle='#e6eade';ctx.fillRect(0,0,map.width,map.height);
+    if(!resources){const snapshot=posterMapSnapshot(selected.points,1080,1460,70),map=document.createElement('canvas');map.width=snapshot.width;map.height=snapshot.height;const ctx=map.getContext('2d');ctx.fillStyle='#e6eade';ctx.fillRect(0,0,map.width,map.height);
       const [logo,tiles,localities]=await Promise.all([
         image(new URL('../assets/logo-perros-en-bicicleta.png',import.meta.url).href,abort.signal),
         Promise.all(snapshot.tiles.map(async tile=>{
