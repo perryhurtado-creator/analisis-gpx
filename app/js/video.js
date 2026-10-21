@@ -6,6 +6,19 @@ import {completeWebmDuration} from './webm-duration.js';
 import {fmt} from './metrics.js';
 import {createVideoScene,recordingFormat,encodeVideoScene,VIDEO_SECONDS,VIDEO_FPS,sampleVideoPoint} from './video-capture.js';
 
+// Etiqueta orientativa: la extensión definitiva se confirma al terminar la codificación.
+function predictedVideoExtension(){
+  try{
+    if(typeof VideoEncoder==='function')return null; // WebCodecs negocia el códec al iniciar.
+    return recordingFormat().extension;
+  }catch{return null}
+}
+export function updateVideoSaveLabel(){
+  const button=document.getElementById('makeVideo');if(!button)return;
+  const extension=predictedVideoExtension();
+  button.textContent=extension?'⬇ Guardar '+extension.toUpperCase():'⬇ Guardar vídeo';
+  button.title=extension?'Formato previsto: '+extension.toUpperCase()+'. El formato real se confirma al finalizar.':'El formato final se determina al iniciar la codificación.';
+}
 let playFrame=null,videoPoints=[],profileState={ele:null,speed:null},capture=null,routePlayback=null;
 export function clearVideoActivity(){stopRouteAnimation();videoPoints=[];profileState={ele:null,speed:null};for(const id of ['videoElevationChart','videoSpeedChart'])document.getElementById(id)?.replaceChildren()}
 export function stopRouteAnimation(){routePlayback=null;document.getElementById('pauseVideo')?.setAttribute('disabled','');stopVideo3D();if(playFrame)cancelAnimationFrame(playFrame);playFrame=null;if(capture)capture.cancel();}
@@ -62,6 +75,7 @@ export function prepareVideoMap(points){
     drawProfile('videoSpeedChart',points,'speed','Velocidad','km/h');
     updateProfile('ele',0);updateProfile('speed',0);
     applyVideoMode();
+    updateVideoSaveLabel();
   }
 }
 export function playRoute(points,onDone=()=>{},onFrame=()=>{}){
@@ -183,6 +197,7 @@ function applyVideoMode(){
   const is3D=document.getElementById('videoMode')?.value==='3d';
   const stage2D=document.getElementById('video2DStage'),stage3D=document.getElementById('video3DStage');
   if(stage2D)stage2D.hidden=is3D;if(stage3D)stage3D.hidden=!is3D;
+  updateVideoSaveLabel();
   const mapStatus=document.getElementById('videoMapStatus');if(mapStatus)mapStatus.textContent=is3D?'CesiumJS · Relieve Esri':'OpenStreetMap';
 }
 const mode=document.getElementById('videoMode');
