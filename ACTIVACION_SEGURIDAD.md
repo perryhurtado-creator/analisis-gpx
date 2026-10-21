@@ -8,7 +8,7 @@
 - A05: la ventana de pendientes avanza con dos punteros, evitando el recorrido cuadrático del historial durante las paradas. Parsing XML y otras tareas todavía se ejecutan en el hilo principal; no se declara resuelto todo el rendimiento móvil.
 - A06: cualquier cancelación de la vista 3D despierta la espera en pausa y permite liberar tarea y controles.
 - A07: el cartel respeta Sin clasificar; solo usa el nivel seleccionado. La sugerencia física no se aplica sin confirmación ni con altitud incompleta.
-- A08: actualizados proveedores, consultas puntuales de Nominatim, fuentes, estadísticas y contadores en el borrador de privacidad. Se incorporaron los datos proporcionados por el responsable; falta confirmar su identificación y verificar configuración/retención de proveedores.
+- A08: actualizados proveedores, consultas puntuales de Nominatim, fuentes, estadísticas y contadores en el borrador de privacidad. Se incorporaron los datos proporcionados por el responsable; se incorporaron el nombre completo y domicilio de contacto proporcionados; sigue pendiente verificar configuración/retención de proveedores.
 - A09: límites por minuto, presupuesto diario y concurrencia; Redis opcional para compartir contadores entre instancias. Sin Redis el modo local es una mitigación por instancia, no una protección distribuida. Ver activación debajo.
 - A10: corregidas expectativas de catálogo y velocidad cero, y el doble Leaflet. Nuevas regresiones, comando único y CI con pruebas de navegador y descargas. El fallo de clasificación conserva la expectativa original y se corrige en la implementación.
 
@@ -38,7 +38,7 @@ Se confía en X-Forwarded-For solo cuando `VERCEL=1`, bajo el proxy de Vercel qu
 
 ## Cerrar el aviso de privacidad
 
-Se incorporaron en `app/privacidad.html` el autor/nombre público **Perros en Bicicleta** y el correo **perrosenbicicletaperrosguaugua@gmail.com**, proporcionados por el usuario. Se añadió el domicilio indicado **Querétaro, México**. Falta confirmar la identificación del responsable. Confirmar Analytics, proveedores, conservación y contratos. Mantener el rótulo de borrador hasta completar esa revisión. El código no sustituye la validación legal de un aviso definitivo.
+Se incorporaron en `app/privacidad.html` el nombre completo y domicilio de contacto proporcionados por el responsable, el nombre público **Perros en Bicicleta** y el correo **perrosenbicicletaperrosguaugua@gmail.com**. Los datos de identificación solicitados ya están incluidos. Sigue pendiente confirmar Analytics, proveedores, conservación y contratos. Mantener el rótulo de borrador hasta completar esa revisión. El código no sustituye la validación legal de un aviso definitivo.
 
 ## Validación y publicación
 
@@ -76,4 +76,4 @@ El cartel usa el catálogo local y ofrece ampliación por área mediante el endp
 
 Las cinco tipografías se alojan en `app/assets/fonts` con licencias y hashes; ya no se descargan desde Google. Redis aún no está vinculado: las consultas disponibles no muestran integración ni variables del contador. El plan Free figura en el catálogo de Upstash para Vercel, pero su creación y vinculación de cuenta deben completarse en https://vercel.com/marketplace/upstash/upstash-kv. Conectar primero preview; después validar el recurso y seleccionar producción. No activar `API_RATE_LIMIT_MODE=distributed` antes de tener un par completo y operativo. El código reconoce ambos pares de variables y rechaza pares parciales sin recurrir al proveedor.
 
-Para cerrar el aviso falta confirmar nombre completo o razón social del responsable y domicilio que debe publicarse, y documentar configuración/contratos/retención efectivos de proveedores. El autor público, correo y ciudad proporcionados se conservan; no se inventan datos ni se da por cerrado el aviso.
+El responsable proporcionó su nombre completo y domicilio de contacto y se incorporaron al aviso. Para cerrarlo sigue pendiente documentar configuración/contratos/retención efectivos de proveedores. Redis continúa pendiente de vinculación y el aviso conserva el estado de borrador.
