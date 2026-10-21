@@ -59,3 +59,20 @@
 .video-player:fullscreen #video3DPreview canvas,.video-player:fullscreen #video3DPreview video{max-height:calc(100vh - 220px);width:auto;max-width:100%;object-fit:contain}
 .video-player:fullscreen .video-controls{flex-shrink:0}
 @media(max-width:600px){.video-controls .action-btn{font-size:12px;padding:9px}.video-player:fullscreen{padding:8px}}
+
+/* Explorador MTB · Página Resumen */
+.route-explorer{margin:14px 0;padding:16px}
+.route-explorer[hidden]{display:none!important}
+.explorer-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}
+.explorer-metrics>div{background:var(--paper);border:1px solid var(--line);padding:11px;border-radius:9px;min-width:0}
+.explorer-metrics small{display:block;color:var(--muted);font-size:12px}
+.explorer-metrics strong{display:block;font-size:19px;font-variant-numeric:tabular-nums}
+.explorer-progress{height:7px;background:var(--line);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.explorer-progress>div{height:100%;width:0;background:var(--green);transition:width .1s linear}
+.route-explorer>label{font-weight:650;display:block;margin-bottom:4px}
+#explorerSeek{width:100%;accent-color:var(--green);min-height:32px;touch-action:pan-y}
+.explorer-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.explorer-controls button{min-height:42px}
+.explorer-controls label{display:flex;align-items:center;gap:6px;font-size:12px}
+.explorer-controls select{padding:8px;border:1px solid var(--line);border-radius:7px;background:var(--card)}
+@media(max-width:650px){.route-explorer{padding:12px}.explorer-metrics strong{font-size:16px}.explorer-controls button{flex:1 1 42%}.explorer-controls label{width:100%;justify-content:flex-end}}
