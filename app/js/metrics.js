@@ -48,28 +48,32 @@ function smoothedElevation(points,i,starts){
 }
 // Ventanas de distancia y tiempo: evitan máximos falsos por ruido GPS/altímetro.
 // Nunca se calculan valores cruzando trkseg/Track ni puntos sin datos.
-export function slopeStats(points){
- const starts=runStarts(points),windowM=60,minM=30,slopes=[];
- let positiveGain=0,positiveDistance=0;
+function gradeWindow(points,starts,windowM,minM,maxM){
+ const slopes=[];
  for(let i=1;i<points.length;i++){
   const cur=points[i],first=starts[i];
   if(i<=first||!Number.isFinite(cur.ele))continue;
   let j=i-1;
   while(j>first&&cur.d-points[j].d<windowM)j--;
   const dd=cur.d-points[j].d;
-  if(dd<minM||dd>180)continue;
+  if(dd<minM||dd>maxM)continue;
   const e1=smoothedElevation(points,j,starts),e2=smoothedElevation(points,i,starts);
   if(!Number.isFinite(e1)||!Number.isFinite(e2))continue;
   const slope=(e2-e1)/dd*100;
-  if(!Number.isFinite(slope))continue;
-  slopes.push(slope);
-  if(slope>0){positiveGain+=e2-e1;positiveDistance+=dd}
+  if(Number.isFinite(slope))slopes.push({slope,dd,e1,e2});
  }
- return {
-  maxUp:slopes.length?slopes.reduce((m,v)=>Math.max(m,v),0):null,
-  maxDown:slopes.length?slopes.reduce((m,v)=>Math.min(m,v),0):null,
-  avgUp:positiveDistance>0?positiveGain/positiveDistance*100:null
- };
+ return slopes;
+}
+export function slopeStats(points){
+ const starts=runStarts(points);
+ const short=gradeWindow(points,starts,12,8,35);
+ const sustained=gradeWindow(points,starts,60,30,180);
+ const maxUp=values=>values.length?values.reduce((m,v)=>Math.max(m,v.slope),0):null;
+ const maxDown=values=>values.length?values.reduce((m,v)=>Math.min(m,v.slope),0):null;
+ let gain=0,distance=0;
+ for(const x of sustained)if(x.slope>0){gain+=x.e2-x.e1;distance+=x.dd}
+ return {maxUp:maxUp(sustained),maxDown:maxDown(sustained),
+  shortUp:maxUp(short),shortDown:maxDown(short),avgUp:distance>0?gain/distance*100:null};
 }
 export function speedStats(points){
  if(points.some(p=>Number.isFinite(p.recordedDistance))){
