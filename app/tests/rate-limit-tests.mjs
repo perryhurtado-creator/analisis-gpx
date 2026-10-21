@@ -34,3 +34,20 @@ counts.clear();
 for(let i=0;i<200;i++)assert.equal((await withApiLimits(request(`203.0.113.${i%250+1}`),'route',ok,{env,now:()=>now()+Math.floor(i/20)*60000,fetcher})).status,200);
 assert.equal((await other.withApiLimits(request('203.0.113.251'),'route',ok,{env,now:()=>now()+600000,fetcher})).status,429);
 console.log('PASS límites: minuto, presupuesto diario, concurrencia/liberación, Redis compartido entre instancias, HMAC, 429/Retry-After y fallo cerrado del contador.');
+
+// Variables que inyecta la integración Marketplace. No mezclar credenciales.
+const kvEnv={VERCEL:'1',VERCEL_ENV:'preview-kv',KV_REST_API_URL:env.UPSTASH_REDIS_REST_URL,KV_REST_API_TOKEN:env.UPSTASH_REDIS_REST_TOKEN};
+assert.equal(rateLimitMode(kvEnv),'distributed');counts.clear();
+for(let i=0;i<30;i++)assert.equal((await (i%2?other.withApiLimits:withApiLimits)(request(),'route',ok,{env:kvEnv,now,fetcher})).status,200);
+assert.equal((await other.withApiLimits(request(),'route',ok,{env:kvEnv,now,fetcher})).status,429);
+for(const partial of [
+ {UPSTASH_REDIS_REST_URL:'https://audit.upstash.io'},
+ {KV_REST_API_TOKEN:'partial'},
+ {UPSTASH_REDIS_REST_URL:'https://audit.upstash.io',KV_REST_API_TOKEN:'partial'},
+ {...kvEnv,UPSTASH_REDIS_REST_TOKEN:'partial'}
+]){
+ assert.equal(rateLimitMode(partial),'unconfigured');let called=false;
+ assert.equal((await withApiLimits(request(),'route',async()=>{called=true;return ok()},{env:partial,fetcher:async()=>{called=true;throw Error('No llamar')}})).status,503);
+ assert.equal(called,false);
+}
+console.log('PASS integración Redis: pares Upstash/Marketplace, contadores entre instancias y rechazo de configuración parcial sin llamar al proveedor.');

@@ -1,0 +1,57 @@
+{
+  "repository": "https://github.com/google/fonts",
+  "commit": "45e3d5269e4a17d823f6d84470bc084dc5ae46f6",
+  "conversion": "fontTools: WOFF sin recorte de caracteres ni cambios de diseño",
+  "fonts": [
+    {
+      "family": "Anton",
+      "file": "anton.woff",
+      "source": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/anton/Anton-Regular.ttf",
+      "sourceGitBlob": "4d65707db9d8663ccfa99cd28cd3a4e0025be178",
+      "sourceSHA256": "a4ba3a92350ebb031da0cb47630ac49eb265082ca1bc0450442f4a83ab947cab",
+      "woffSHA256": "c14d748c18e4829255925fe27dba9d2ca522567fc4d490d24b4e4f0f8d979809",
+      "license": "anton-LICENSE.txt",
+      "bytes": 79840
+    },
+    {
+      "family": "Bebas Neue",
+      "file": "bebasneue.woff",
+      "source": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/bebasneue/BebasNeue-Regular.ttf",
+      "sourceGitBlob": "c328c6e08b20a20a1de47d823e007ee73812a438",
+      "sourceSHA256": "08e4623805102d819f58601e46e345648846075e363b2ceb23313c2d1c83ec73",
+      "woffSHA256": "775ba06a77141f6af33ed664ba083a011378b27bd464f127c5ab985e57c4b7ab",
+      "license": "bebasneue-LICENSE.txt",
+      "bytes": 28536
+    },
+    {
+      "family": "Bangers",
+      "file": "bangers.woff",
+      "source": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/bangers/Bangers-Regular.ttf",
+      "sourceGitBlob": "9b0f8c1f1b45e7bb4971b7d6a8604f9aacacdd32",
+      "sourceSHA256": "4160a7311de9342674cce9160cde9fcbb30f48190397d86ff1b70b455af65824",
+      "woffSHA256": "dfda52391736b5d81ceace998fbb4fa1d4f142fcbbd8c21a4a4f8a087497f875",
+      "license": "bangers-LICENSE.txt",
+      "bytes": 46448
+    },
+    {
+      "family": "Permanent Marker",
+      "file": "permanentmarker.woff",
+      "source": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/apache/permanentmarker/PermanentMarker-Regular.ttf",
+      "sourceGitBlob": "3218fc5b3d395c3a3fc207fdf17a27bb32af3242",
+      "sourceSHA256": "28f82c8a7943cb8e9d599f8554da1d4fc75dbcf69b9885ad6c0611d20c6946c5",
+      "woffSHA256": "7fbba1ef6bf7b1db8d73232f5036c3c8e128743377b3c28d43e0a36ef61d9382",
+      "license": "permanentmarker-LICENSE.txt",
+      "bytes": 40344
+    },
+    {
+      "family": "Black Ops One",
+      "file": "blackopsone.woff",
+      "source": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/blackopsone/BlackOpsOne-Regular.ttf",
+      "sourceGitBlob": "672d8e285231ab0ff58fac66ec21ef3f5a005a48",
+      "sourceSHA256": "282a825b5f294377387e3969f765408157dbea8da0f5d0aae68c6bc704b145b3",
+      "woffSHA256": "1747134c54b69c30f4137db666e3fd0abff29916f915dff895dd9d7326816c9e",
+      "license": "blackopsone-LICENSE.txt",
+      "bytes": 73568
+    }
+  ]
+}

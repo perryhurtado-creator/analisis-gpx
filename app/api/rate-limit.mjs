@@ -16,9 +16,15 @@ for i=1,2 do
 end
 return {1,0}`;
 const error=(message,status,retry=60)=>Response.json({error:message},{status,headers:{'Cache-Control':'no-store','Retry-After':String(retry)}});
+function redisConfig(env){
+  // Nunca combinar la URL de un par con el token de otro.
+  if(env.UPSTASH_REDIS_REST_URL||env.UPSTASH_REDIS_REST_TOKEN)return {url:env.UPSTASH_REDIS_REST_URL,token:env.UPSTASH_REDIS_REST_TOKEN};
+  return {url:env.KV_REST_API_URL,token:env.KV_REST_API_TOKEN};
+}
 export function rateLimitMode(env=process.env){
-  if(env.UPSTASH_REDIS_REST_URL&&env.UPSTASH_REDIS_REST_TOKEN)return 'distributed';
-  return env.API_RATE_LIMIT_MODE==='distributed'?'unconfigured':'local';
+  const {url,token}=redisConfig(env);
+  if(url&&token)return 'distributed';
+  return url||token||env.API_RATE_LIMIT_MODE==='distributed'?'unconfigured':'local';
 }
 function localAllowance(keys,caps,ttls,now){
   for(const [key,v] of local)if(v.expires<=now)local.delete(key);
@@ -32,19 +38,20 @@ export async function withApiLimits(request,scope,handler,options={}){
   if(request.headers.get('sec-fetch-site')==='cross-site')return error('Solicitud no permitida.',403);
   if(mode==='unconfigured')return error('La protección de consultas aún no está configurada. Intenta más tarde.',503);
   if(mode==='local'&&env.VERCEL==='1'&&!warned){warned=true;console.warn('API: protección local activa; falta activar los contadores distribuidos.');}
+  const redis=redisConfig(env);
   const forwarded=env.VERCEL==='1'?request.headers.get('x-forwarded-for'):null;
   const candidate=forwarded?.split(',')[0]?.trim();
   const identity=candidate&&isIP(candidate)?candidate:'unknown';
-  const hash=createHmac('sha256',env.UPSTASH_REDIS_REST_TOKEN||localSalt).update(identity).digest('hex');
+  const hash=createHmac('sha256',redis.token||localSalt).update(identity).digest('hex');
   const prefix=env.VERCEL_ENV||'local',minute=Math.floor(now/60000),day=Math.floor(now/86400000);
   const keys=[`gpx:${prefix}:${scope}:${hash}:${minute}`,`gpx:${prefix}:${scope}:all:${day}`];
   const caps=[limit.minute,limit.day],ttls=[60-Math.floor(now/1000)%60,86400-Math.floor(now/1000)%86400];
   let allowance;
   if(mode==='distributed'){
     try{
-      const url=new URL(env.UPSTASH_REDIS_REST_URL);
+      const url=new URL(redis.url);
       if(url.protocol!=='https:'||!url.hostname.endsWith('.upstash.io'))throw Error('Invalid counter endpoint');
-      const response=await (options.fetcher||fetch)(url.href,{method:'POST',headers:{Authorization:'Bearer '+env.UPSTASH_REDIS_REST_TOKEN,'Content-Type':'application/json'},body:JSON.stringify(['EVAL',script,'2',...keys,...caps.map(String),...ttls.map(String)]),signal:AbortSignal.timeout(2000)});
+      const response=await (options.fetcher||fetch)(url.href,{method:'POST',headers:{Authorization:'Bearer '+redis.token,'Content-Type':'application/json'},body:JSON.stringify(['EVAL',script,'2',...keys,...caps.map(String),...ttls.map(String)]),signal:AbortSignal.timeout(2000)});
       if(!response.ok)throw Error('Counter unavailable');
       const data=await boundedJSON(response,4096);
       if(!Array.isArray(data.result)||data.result.length!==2||![0,1].includes(data.result[0])||!Number.isFinite(data.result[1]))throw Error('Invalid counter response');
