@@ -99,7 +99,7 @@ export function drawPoster(target,source,data,assets){
     ctx.fillStyle='#fff';ctx.font='bold 23px Arial';ctx.fillText('PERFIL DE ELEVACIÓN',54,1230);
     const pts=source.points,valid=pts.filter(p=>Number.isFinite(p.ele));
     if(valid.length){
-      const min=Math.min(...valid.map(p=>p.ele)),max=Math.max(...valid.map(p=>p.ele)),range=max-min||1;
+      const bounds=valid.reduce((b,p)=>({min:Math.min(b.min,p.ele),max:Math.max(b.max,p.ele)}),{min:Infinity,max:-Infinity});const {min,max}=bounds,range=max-min||1;
       const total=pts.at(-1)?.d||source.distance||1;
       ctx.font='17px Arial';ctx.fillStyle='#d5dee4';
       for(let i=0;i<=3;i++){
