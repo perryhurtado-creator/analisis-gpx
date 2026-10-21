@@ -65,3 +65,5 @@ Ver [REVISION_PROVEEDORES_PRIVACIDAD.md](REVISION_PROVEEDORES_PRIVACIDAD.md) par
 ### Migración de HeiGIT — 21 de octubre de 2026
 
 Rutas, búsquedas y elevación usan ahora `api.heigit.org`, con sus rutas `openrouteservice/v2`, `pelias/v1` y `openelevationservice/v0`. Se conserva `ORS_API_KEY` y los controles existentes. Se actualizaron las pruebas de API para exigir los nuevos destinos. Pasaron todas las suites Node, sintaxis y `git diff --check`. La confirmación del servicio real se realiza tras el despliegue sin extraer credenciales.
+
+La comprobación real detectó que Vercel convertía los módulos compartidos de terreno de `.js` a CommonJS, incompatibles con la importación ESM de la función. Se renombraron `terrain-profile` y `planner-elevation` a `.mjs` y se actualizaron sus importaciones de servidor, navegador y pruebas para conservar explícitamente ESM. No cambia el cálculo.

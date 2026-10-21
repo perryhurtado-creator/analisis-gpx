@@ -1,7 +1,7 @@
 import {withApiLimits} from './rate-limit.mjs';
 import {boundedJSON} from './safety.mjs';
-import {terrainSamples,mergeTerrain,TERRAIN_FILTER} from '../js/terrain-profile.js';
-import {elevationProfile} from '../js/planner-elevation.js';
+import {terrainSamples,mergeTerrain,TERRAIN_FILTER} from '../js/terrain-profile.mjs';
+import {elevationProfile} from '../js/planner-elevation.mjs';
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 async function handle(request){
   if(request.headers.get('sec-fetch-site')==='cross-site')return json({error:'Solicitud no permitida.'},403);

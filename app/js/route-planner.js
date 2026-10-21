@@ -1,6 +1,6 @@
 import {requestDeadline} from './network-timeout.js';
 import {currentLocation} from './device-location.js';
-import {elevationProfile,elevationSVG} from './planner-elevation.js';
+import {elevationProfile,elevationSVG} from './planner-elevation.mjs';
 import {addPlannerLayers} from './planner-layers.js';
 let map=null,markers=[],routeLayer=null,route=null,controller=null,revision=0,observer=null,editMode=null;
 const $=id=>document.getElementById(id);

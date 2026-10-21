@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {elevationProfile,elevationSVG} from '../js/planner-elevation.js';
+import {elevationProfile,elevationSVG} from '../js/planner-elevation.mjs';
 const coords=[[-100,20,1800],[-100.01,20.01,1840],[-100.02,20.02,1820]];
 const p=elevationProfile(coords,3000);assert.equal(p.ascent,40);assert.equal(p.descent,20);assert.equal(p.min,1800);assert.equal(p.max,1840);assert.equal(p.points.at(-1).d,3000);assert.ok(p.points[1].d>0);assert.match(elevationSVG(p),/<svg/);
 const provider=elevationProfile(coords,3000,35,18);assert.equal(provider.ascent,40);assert.equal(provider.descent,20);
