@@ -75,3 +75,7 @@ El logo original se incluye en `app/assets/logo-perros-en-bicicleta.png`.
 ## Seguridad y privacidad
 
 La carga acepta hasta 10 MiB y 50 000 puntos por GPX/TCX. Consulta [la revisión](REVISION_SEGURIDAD.md) para cambios, pruebas y pendientes. La app enlaza [Privacidad y uso de datos](app/privacidad.html), un borrador pendiente de los datos del responsable y de verificar la configuración de los proveedores.
+
+## Auditoría: primer bloque de correcciones
+
+Las correcciones de prioridad alta, pruebas y pasos de activación pendientes están documentados en [ACTIVACION_SEGURIDAD.md](ACTIVACION_SEGURIDAD.md). Ejecuta `npm ci`, `npm test` y `npm run check`; la CI también verifica el navegador y descargas. Los contadores distribuidos y el aviso definitivo requieren completar la configuración indicada.

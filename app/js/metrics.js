@@ -1,3 +1,4 @@
+import {elevationCoverage} from './elevation.js';
 export const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 export const fmt=(v,n=1)=>new Intl.NumberFormat('es-MX',{maximumFractionDigits:n}).format(v);
 export function duration(ms){
@@ -6,12 +7,24 @@ export function duration(ms){
   return h?`${h} h ${m} min`:(m?`${m} min`:`${sec} s`);
 }
 export const stamp=ms=>new Date(ms).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'});
+export function averageSpeed(points){
+  const samples=points.filter(p=>p.speedSource!=='gps'&&Number.isFinite(p.recordedDistance)).map(p=>p.speed).filter(v=>Number.isFinite(v)&&v>=0&&v<=150);
+  if(samples.length)return {value:avg(samples),source:'sensor',method:'Media de muestras de velocidad del TCX'};
+  const continuous=continuousSpeed(points);
+  if(continuous!==null)return {value:continuous,source:'gps',method:'Distancia GPS / tiempo entre puntos continuos'};
+  const speeds=points.map(p=>p.speed).filter(v=>Number.isFinite(v)&&v>=0&&v<=150);
+  return {value:avg(speeds),source:speeds.length?'samples':'absent',method:speeds.length?'Media de muestras disponibles':'Sin datos de velocidad'};
+}
+export function elevationText(activity,field='ascent'){
+  const value=activity[field],coverage=elevationCoverage(activity.points);
+  return coverage==='absent'||!Number.isFinite(value)?'Sin datos':(field==='ascent'?'+':'−')+fmt(value)+' m'+(coverage==='partial'?' (parcial)':'');
+}
 export function summary(a){
   const ps=a.points,hrs=ps.map(p=>p.hr).filter(Number.isFinite),cads=ps.map(p=>p.cad).filter(Number.isFinite);
-  const speeds=ps.map(p=>p.speed).filter(Number.isFinite),km=a.distance/1000;
-  const sp=continuousSpeed(ps)??avg(speeds);
-  return {distance:fmt(km)+' km',time:duration(a.duration),speed:sp?fmt(sp)+' km/h':'—',
-    ascent:'+'+fmt(a.ascent)+' m',heart:hrs.length?Math.round(avg(hrs))+' lpm':'—',
+  const km=a.distance/1000;
+  const sp=averageSpeed(ps).value;
+  return {distance:fmt(km)+' km',time:duration(a.duration),speed:sp!==null?fmt(sp)+' km/h':'—',
+    ascent:elevationText(a),heart:hrs.length?Math.round(avg(hrs))+' lpm':'—',
     cadence:cads.length?Math.round(avg(cads))+' rpm':'—'};
 }
 function runStarts(points){
@@ -49,12 +62,15 @@ function smoothedElevation(points,i,starts){
 // Ventanas de distancia y tiempo: evitan máximos falsos por ruido GPS/altímetro.
 // Nunca se calculan valores cruzando trkseg/Track ni puntos sin datos.
 function gradeWindow(points,starts,windowM,minM,maxM){
- const slopes=[];
+ const slopes=[];let j=0,lastMissing=-1;
  for(let i=1;i<points.length;i++){
   const cur=points[i],first=starts[i];
+  if(!Number.isFinite(points[i-1].ele))lastMissing=i-1;
   if(i<=first||!Number.isFinite(cur.ele))continue;
-  let j=i-1;
-  while(j>first&&cur.d-points[j].d<windowM)j--;
+  j=Math.max(j,first,lastMissing+1);
+  if(j>=i)continue;
+  // El extremo izquierdo solo avanza: coste lineal incluso durante paradas.
+  while(j+1<i&&cur.d-points[j+1].d>=windowM)j++;
   const dd=cur.d-points[j].d;
   if(dd<minM||dd>maxM)continue;
   const e1=smoothedElevation(points,j,starts),e2=smoothedElevation(points,i,starts);
@@ -107,22 +123,25 @@ export function speedStats(points){
  const ms=intervals.reduce((sum,x)=>sum+x.dt,0),distance=intervals.reduce((sum,x)=>sum+x.dd,0);
  return {max:speeds.length?speeds.reduce((m,v)=>Math.max(m,v),0):null,avg:ms>0?distance/ms*3600:null};
 }
-export function heartZones(points){
+export function heartZones(points,settings={}){
   const valid=points.filter(p=>Number.isFinite(p.hr));
   if(!valid.length)return [];
-  const max=Math.max(...valid.map(p=>p.hr));
-  const bounds=[0,.60,.70,.80,.90,1.01].map(x=>max*x);
+  const max=Number(settings.max),rest=Number(settings.rest),reserve=settings.method==='reserve';
+  if(!Number.isFinite(max)||max<80||max>240||reserve&&(!Number.isFinite(rest)||rest<20||rest>=max))return [];
+  const base=reserve?rest:0,span=max-base;
+  const bounds=[0,.60,.70,.80,.90].map(x=>base+span*x);bounds[0]=0;
   const ms=[0,0,0,0,0];
   for(let i=0;i<points.length-1;i++){
     const p=points[i],n=points[i+1];
-    if(n.breakBefore||p.segmentId!==n.segmentId||!Number.isFinite(p.hr)||!p.time||!n.time)continue;
+    if(n.breakBefore||p.segmentId!==n.segmentId||!Number.isFinite(p.hr)||!Number.isFinite(p.time)||!Number.isFinite(n.time))continue;
     const dt=n.time-p.time;
     if(dt<=0||dt>120000)continue;
     let z=0;
     if(p.hr>=bounds[4])z=4;else if(p.hr>=bounds[3])z=3;else if(p.hr>=bounds[2])z=2;else if(p.hr>=bounds[1])z=1;
     ms[z]+=dt;
   }
-  return ms.map((time,i)=>({zone:i+1,min:bounds[i],max:i===4?max:bounds[i+1],time}));
+  if(!ms.some(n=>n>0))return [];
+  return ms.map((time,i)=>({zone:i+1,min:bounds[i],max:i===4?null:bounds[i+1],time}));
 }
 export function segments(activity){
   const points=activity.points,rows=[];

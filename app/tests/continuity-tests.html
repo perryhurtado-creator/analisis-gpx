@@ -134,7 +134,7 @@ run('Mapa crea líneas independientes y gráficos interrumpen el path',()=>{
   const chart=document.createElement('div');chart.id='testChart';document.body.appendChild(chart);
   const map={remove(){},fitBounds(){},invalidateSize(){}};
   const marker=()=>({addTo(){return this},bindTooltip(){return this}});
-  window.L={map:()=>map,tileLayer:()=>({addTo(){}}),polyline:coords=>{lines.push(coords);return {}},featureGroup:()=>({addTo(){return this},getBounds(){return {}}}),circleMarker:marker,latLngBounds:coords=>coords};
+  window.L={map:()=>map,tileLayer:()=>({on(){return this},addTo(){return this}}),polyline:coords=>{lines.push(coords);return {}},featureGroup:()=>({addTo(){return this},getBounds(){return {}}}),circleMarker:marker,marker,icon:x=>x,latLngBounds:coords=>coords};
   try{
     const p=[{lat:0,lon:0,segmentId:0,breakBefore:true},{lat:0,lon:1,segmentId:0},{lat:1,lon:1,segmentId:1,breakBefore:true},{lat:1,lon:2,segmentId:1}];
     createMap(p);

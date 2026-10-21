@@ -80,3 +80,5 @@
 /* Seis indicadores compactos en el explorador MTB */
 .explorer-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:440px){.explorer-metrics{gap:6px}.explorer-metrics>div{padding:8px}.explorer-metrics strong{font-size:15px}}
+
+.heart-settings{display:flex;flex-wrap:wrap;gap:12px;border:1px solid #dce6df;border-radius:10px;margin:12px 0;padding:12px}.heart-settings label{display:grid;gap:5px;flex:1 1 120px;font-size:13px}.heart-settings input,.heart-settings select{width:100%;min-width:0;padding:8px;border:1px solid #bacbc1;border-radius:6px;background:#fff;color:#172d25}.heart-settings small{flex-basis:100%;color:#52675e}

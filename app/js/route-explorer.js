@@ -1,6 +1,7 @@
+import {elevationCoverage} from './elevation.js';
 import {showPoint,hidePoint} from './map.js';
 import {setChartCursor} from './charts.js';
-let points=[],total=0,cursorDistance=0,playing=false,frame=0,last=null,rate=1,descent=[];
+let points=[],total=0,cursorDistance=0,playing=false,frame=0,last=null,rate=1,coverage='absent';
 const $=id=>document.getElementById(id);
 function upperIndex(distance){
  let low=0,high=points.length-1;
@@ -13,33 +14,6 @@ function sample(distance){
  const t=Math.max(0,Math.min(1,(distance-a.d)/(b.d-a.d)));
  const lerp=(v,w)=>Number.isFinite(v)&&Number.isFinite(w)?v+(w-v)*t:null;
  return {lat:lerp(a.lat,b.lat),lon:lerp(a.lon,b.lon),ele:lerp(a.ele,b.ele),d:distance};
-}
-function computeDescent(){
- descent=new Array(points.length).fill(0);
- let accumulated=0,anchor=null,direction=0;
- for(let i=0;i<points.length;i++){
-  const p=points[i],prev=points[i-1];
-  const vals=[];
-  for(let j=Math.max(0,i-2);j<=Math.min(points.length-1,i+2);j++){
-   if(points[j].segmentId===p.segmentId&&Number.isFinite(points[j].ele))vals.push(points[j].ele);
-  }
-  const ele=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
-  if(!Number.isFinite(ele)){anchor=null;direction=0;descent[i]=accumulated;continue}
-  if(!prev||p.breakBefore||p.segmentId!==prev.segmentId||anchor===null){anchor=ele;direction=0;descent[i]=accumulated;continue}
-  if(p.d<=prev.d){descent[i]=accumulated;continue}
-  const delta=ele-anchor;
-  if(direction===0){
-   if(delta>=1){anchor=ele;direction=1}
-   else if(delta<=-1){accumulated-=delta;anchor=ele;direction=-1}
-  }else if(direction===1){
-   if(delta>0)anchor=ele;
-   else if(delta<=-1){accumulated-=delta;anchor=ele;direction=-1}
-  }else{
-   if(delta<0){accumulated-=delta;anchor=ele}
-   else if(delta>=1){anchor=ele;direction=1}
-  }
-  descent[i]=accumulated;
- }
 }
 function gradeAt(distance){
  const i=upperIndex(distance),p=points[i];
@@ -60,15 +34,15 @@ function render(){
  const continuous=i>0&&!next.breakBefore&&previous.segmentId===next.segmentId&&next.d>previous.d;
  const fraction=continuous?Math.max(0,Math.min(1,(cursorDistance-previous.d)/(next.d-previous.d))):1;
  const ascent=continuous&&Number.isFinite(previous.up)&&Number.isFinite(next.up)?previous.up+(next.up-previous.up)*fraction:next.up;
- const down=continuous?descent[i-1]+(descent[i]-descent[i-1])*fraction:descent[i];
+ const down=continuous?Number.isFinite(previous.down)&&Number.isFinite(next.down)?previous.down+(next.down-previous.down)*fraction:null:next.down;
  const slope=gradeAt(cursorDistance);
  $('explorerSeek').value=String(total?Math.round(cursorDistance/total*1000):0);
  $('explorerDistance').textContent=(cursorDistance/1000).toFixed(2)+' km';
  $('explorerAltitude').textContent=Number.isFinite(p.ele)?Math.round(p.ele)+' m':'—';
  $('explorerProgress').textContent=(total?Math.round(cursorDistance/total*100):0)+' %';
  $('explorerSlope').textContent=Number.isFinite(slope)?(slope>0?'+':'')+slope.toFixed(1)+' %':'—';
- $('explorerAscent').textContent=Number.isFinite(ascent)?'+'+Math.round(ascent)+' m':'—';
- $('explorerDescent').textContent=Number.isFinite(down)?'−'+Math.round(down)+' m':'—';
+ $('explorerAscent').textContent=Number.isFinite(ascent)?'+'+Math.round(ascent)+' m'+(coverage==='partial'?' (parcial)':''):'—';
+ $('explorerDescent').textContent=Number.isFinite(down)?'−'+Math.round(down)+' m'+(coverage==='partial'?' (parcial)':''):'—';
  $('explorerProgressBar').style.width=(total?cursorDistance/total*100:0)+'%';
  showPoint(p);setChartCursor(cursorDistance/1000);
 }
@@ -81,7 +55,7 @@ function tick(time){
  frame=requestAnimationFrame(tick);
 }
 export function pause(){playing=false;cancelAnimationFrame(frame);last=null;if($('explorerPlay'))$('explorerPlay').textContent='▶ Reproducir'}
-export function clearExplorer(){pause();points=[];descent=[];cursorDistance=0;total=0;$('routeExplorer').hidden=true;hidePoint();setChartCursor(null)}
+export function clearExplorer(){pause();points=[];cursorDistance=0;total=0;$('routeExplorer').hidden=true;hidePoint();setChartCursor(null)}
 export function initExplorer(){
  $('explorerPlay').addEventListener('click',()=>{
   if(points.length<2||total<=0)return;
@@ -98,7 +72,7 @@ export function initExplorer(){
 }
 export function setExplorerActivity(routePoints){
  pause();points=Array.isArray(routePoints)?routePoints.filter(p=>Number.isFinite(p.d)&&Number.isFinite(p.lat)&&Number.isFinite(p.lon)):[];
- cursorDistance=0;total=points.length?points[points.length-1].d:0;computeDescent();
+ coverage=elevationCoverage(points);cursorDistance=0;total=points.length?points[points.length-1].d:0;
  $('routeExplorer').hidden=points.length<2||total<=0;
  if(points.length>1&&total>0)render();
 }

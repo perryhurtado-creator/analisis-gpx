@@ -16,6 +16,7 @@ function parsePoint(node){
   const recordedDistance=optionalNumber(childText(node,'DistanceMeters'));
   return {lat,lon,ele,time:Number.isFinite(parsedTime)?parsedTime:null,
     hr:hr!==null&&hr>0?hr:null,cad:cad!==null&&cad>0?cad:null,
+    speedSource:speed!==null&&speed>=0?'sensor':null,
     speed:speed!==null&&speed>=0?speed*3.6:null,recordedDistance,d:0,up:0};
 }
 

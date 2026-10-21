@@ -1,6 +1,7 @@
+import {withApiLimits} from './rate-limit.mjs';
 import {boundedJSON} from './safety.mjs';
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
-export async function GET(request){
+async function handle(request){
   if(request.headers.get('sec-fetch-site')==='cross-site')return json({error:'Solicitud no permitida.'},403);
   const params=new URL(request.url).searchParams,q=params.get('q')?.trim();
   if(!q||q.length<3||q.length>160)return json({error:'Escribe una localidad de entre 3 y 160 caracteres.'},400);
@@ -18,3 +19,5 @@ export async function GET(request){
     return json({places});
   }catch(error){console.error('Place search failed:',error.name);return json({error:error.name==='TimeoutError'?'La búsqueda tardó demasiado. Intenta de nuevo.':'No se pudo conectar con el buscador de localidades.'},502)}
 }
+
+export const GET=request=>withApiLimits(request,'places',handle);
