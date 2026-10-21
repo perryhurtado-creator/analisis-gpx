@@ -42,7 +42,7 @@ export function drawPoster(target,source,data,assets){
   ctx.fillStyle='#080b0d';ctx.fillRect(0,0,1080,1620);
   // El mapa es el fondo completo. No se deforma la geometría GPX.
   ctx.drawImage(assets.map,0,0);
-  ctx.fillStyle='rgba(0,0,0,.12)';ctx.fillRect(0,0,1080,1460);
+  // No oscurecer el mapa completo: solo los paneles llevan fondo.
   for(const [color,width] of [['#fff',10],[accent,6]]){
     ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineJoin=ctx.lineCap='round';ctx.beginPath();
     for(const run of snap.runs)run.forEach((i,j)=>{const p=snap.positions[i];if(j)ctx.lineTo(p.x,p.y);else ctx.moveTo(p.x,p.y)});
@@ -63,35 +63,32 @@ export function drawPoster(target,source,data,assets){
       ctx.fillStyle=accent;ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill();
     }
   }
-  // Capas de información semitransparentes sobre el mapa.
-  const grad=ctx.createLinearGradient(0,0,760,0);
-  grad.addColorStop(0,'rgba(3,7,10,.96)');grad.addColorStop(.68,'rgba(3,7,10,.87)');grad.addColorStop(1,'rgba(3,7,10,0)');
-  ctx.fillStyle=grad;ctx.fillRect(0,0,820,760);
-  panel(ctx,24,20,330,315,'rgba(0,0,0,.58)',18);
-  const logo=assets.logo,ratio=Math.min(305/logo.naturalWidth,290/logo.naturalHeight);
-  ctx.drawImage(logo,32+(310-logo.naturalWidth*ratio)/2,28,logo.naturalWidth*ratio,logo.naturalHeight*ratio);
-  ctx.fillStyle='#fff';ctx.font='italic 800 30px Arial';ctx.fillText('RUTA MTB',38,375);
-  ctx.fillStyle=accent;ctx.fillText('›››',230,375);
-  let size=70,lines;do{
-    ctx.font='900 '+size+'px Arial';lines=titleLines(ctx,data.name.toLocaleUpperCase('es-MX'),690);
-    if(lines.length<=4&&lines.every(t=>ctx.measureText(t).width<=690))break;size-=2;
-  }while(size>24);
-  lines.forEach((line,i)=>{ctx.fillStyle=i===lines.length-1?accent:'#fff';ctx.fillText(line,38,454+i*(size+6))});
-  panel(ctx,760,24,294,118,'rgba(4,9,12,.92)',13);
-  ctx.fillStyle='#fff';ctx.font='bold 20px Arial';ctx.fillText('CLASIFICACIÓN MTB',780,60);
-  const level=data.level?.label||'Sin clasificar';let levelSize=26;
-  do{ctx.font='800 '+levelSize+'px Arial';if(ctx.measureText(level).width<=252)break;levelSize--}while(levelSize>16);
-  ctx.fillStyle=accent;ctx.fillText(level,780,108);
+  // Paneles compactos: la ruta permanece visible en el centro del cartel.
+  panel(ctx,20,20,235,212,'rgba(3,8,12,.87)',16);
+  const logo=assets.logo,ratio=Math.min(212/logo.naturalWidth,196/logo.naturalHeight);
+  ctx.drawImage(logo,31+(212-logo.naturalWidth*ratio)/2,26,logo.naturalWidth*ratio,logo.naturalHeight*ratio);
+  panel(ctx,270,22,490,160,'rgba(3,8,12,.87)',14);
+  ctx.fillStyle='#fff';ctx.font='italic 800 23px Arial';ctx.fillText('RUTA MTB',290,53);
+  let size=52,lines;do{
+    ctx.font='900 '+size+'px Arial';lines=titleLines(ctx,data.name.toLocaleUpperCase('es-MX'),445);
+    if(lines.length<=2&&lines.every(t=>ctx.measureText(t).width<=445))break;size-=2;
+  }while(size>18);
+  lines.slice(0,2).forEach((line,i)=>{ctx.fillStyle=i===lines.length-1?accent:'#fff';ctx.fillText(line,290,110+i*(size+7))});
+  panel(ctx,775,22,285,118,'rgba(3,8,12,.9)',12);
+  ctx.fillStyle='#fff';ctx.font='bold 18px Arial';ctx.fillText('CLASIFICACIÓN MTB',791,54);
+  const level=data.level?.label||'Sin clasificar';let levelSize=25;
+  do{ctx.font='800 '+levelSize+'px Arial';if(ctx.measureText(level).width<=250)break;levelSize--}while(levelSize>15);
+  ctx.fillStyle=accent;ctx.fillText(level,791,103);
   // Datos principales, con fondo legible y sin tapar todo el mapa.
-  panel(ctx,30,805,465,370,'rgba(3,8,12,.89)',20);
-  ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(30,805,465,370,20);ctx.stroke();
+  panel(ctx,30,920,405,255,'rgba(3,8,12,.88)',18);
+  ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(30,920,405,255,18);ctx.stroke();
   const stats=[['DISTANCIA',data.distance],[data.elevationLabel,data.ascent],['TIEMPO REGISTRADO',data.time]];
   stats.forEach(([label,value],i)=>{
-    const y=830+i*118;icon(ctx,i,52,y+10,accent);
-    ctx.fillStyle='#cbd3d8';ctx.font='600 19px Arial';ctx.fillText(label,105,y+22);
-    let font=43;do{ctx.font='800 '+font+'px Arial';if(ctx.measureText(value).width<=365)break;font--}while(font>18);
-    ctx.fillStyle='#fff';ctx.fillText(value,105,y+77);
-    if(i<2){ctx.strokeStyle=accent;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(52,y+101);ctx.lineTo(473,y+101);ctx.stroke()}
+    const y=932+i*78;icon(ctx,i,51,y+8,accent);
+    ctx.fillStyle='#cbd3d8';ctx.font='600 16px Arial';ctx.fillText(label,100,y+18);
+    let font=31;do{ctx.font='800 '+font+'px Arial';if(ctx.measureText(value).width<=310)break;font--}while(font>18);
+    ctx.fillStyle='#fff';ctx.fillText(value,100,y+55);
+    if(i<2){ctx.strokeStyle=accent;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(52,y+68);ctx.lineTo(414,y+68);ctx.stroke()}
   });
   // Perfil de elevación ampliado: 220px de alto y escala visible.
   if(data.showProfile){
