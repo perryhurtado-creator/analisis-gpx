@@ -57,8 +57,9 @@ export function drawPoster(target,source,data,assets){
   // Nombres de poblaciones verificados por geocodificación.
   if(data.showLocalities&&Array.isArray(assets.localities)){
     ctx.font='bold 19px Arial';ctx.textAlign='left';
+    let lastY=-1000;
     for(const {name,index} of assets.localities){
-      const p=snap.positions[index];if(!p||p.y<240||p.y>1220)continue;
+      const p=snap.positions[index];if(!p||p.y<255||p.y>1130||Math.abs(p.y-lastY)<60)continue;lastY=p.y;
       const w=Math.min(290,ctx.measureText(name).width+22),x=Math.max(15,Math.min(1065-w,p.x+14));
       panel(ctx,x,p.y-29,w,35,'rgba(0,0,0,.87)',7);
       ctx.fillStyle='#fff';ctx.fillText(name,x+11,p.y-5);
@@ -67,12 +68,12 @@ export function drawPoster(target,source,data,assets){
   }
   // Paneles compactos: la ruta permanece visible en el centro del cartel.
   // Logo sin recuadro: se dibuja directamente el PNG original sobre el mapa.
-  const logo=assets.logo,ratio=Math.min(260/logo.naturalWidth,244/logo.naturalHeight);
-  ctx.drawImage(logo,8+(260-logo.naturalWidth*ratio)/2,8,logo.naturalWidth*ratio,logo.naturalHeight*ratio);
+  const logo=assets.logo,ratio=Math.min(284/logo.naturalWidth,265/logo.naturalHeight);
+  ctx.drawImage(logo,0+(284-logo.naturalWidth*ratio)/2,0,logo.naturalWidth*ratio,logo.naturalHeight*ratio);
   panel(ctx,270,22,490,160,'rgba(3,8,12,.87)',14);
-  ctx.fillStyle='#fff';ctx.font='italic 800 23px Arial';ctx.fillText('RUTA MTB',290,53);
+  ctx.fillStyle='#fff';ctx.font='italic 800 23px Impact, Haettenschweiler, sans-serif';ctx.fillText('RUTA MTB',290,53);
   let size=52,lines;do{
-    ctx.font='900 '+size+'px Arial';lines=titleLines(ctx,data.name.toLocaleUpperCase('es-MX'),445);
+    ctx.font='900 '+size+'px Impact, Haettenschweiler, sans-serif';lines=titleLines(ctx,data.name.toLocaleUpperCase('es-MX'),445);
     if(lines.length<=2&&lines.every(t=>ctx.measureText(t).width<=445))break;size-=2;
   }while(size>18);
   lines.slice(0,2).forEach((line,i)=>{ctx.fillStyle=i===lines.length-1?accent:'#fff';ctx.fillText(line,290,110+i*(size+7))});
@@ -81,6 +82,10 @@ export function drawPoster(target,source,data,assets){
   const level=data.level?.label||'Sin clasificar';let levelSize=25;
   do{ctx.font='800 '+levelSize+'px Arial';if(ctx.measureText(level).width<=250)break;levelSize--}while(levelSize>15);
   ctx.fillStyle=accent;ctx.fillText(level,791,103);
+  if(data.level?.label?.startsWith('Negra')){
+    ctx.fillStyle='#f5d64b';ctx.fillRect(791,116,102,5);
+    ctx.font='bold 13px Arial';ctx.fillText('TRAZO AMARILLO',902,121);
+  }
   // Datos principales, con fondo legible y sin tapar todo el mapa.
   panel(ctx,30,920,405,255,'rgba(3,8,12,.88)',18);
   ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(30,920,405,255,18);ctx.stroke();
@@ -136,18 +141,18 @@ async function resolveLocalities(points,signal){
   if(points.length<2)return [];
   const found=[],seen=new Set();
   // Consultas acotadas para respetar el servicio público de Nominatim.
-  const indices=Array.from({length:9},(_,i)=>Math.min(points.length-1,Math.floor(i*(points.length-1)/8)));
+  const indices=Array.from({length:12},(_,i)=>Math.min(points.length-1,Math.floor(i*(points.length-1)/11)));
   for(let k=0;k<indices.length;k++){
     if(signal.aborted)throw aborted();
     const index=indices[k],p=points[index];
     if(!Number.isFinite(p.lat)||!Number.isFinite(p.lon))continue;
     try{
-      const url='https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&addressdetails=1&lat='+encodeURIComponent(p.lat)+'&lon='+encodeURIComponent(p.lon);
+      const url='https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=15&addressdetails=1&lat='+encodeURIComponent(p.lat)+'&lon='+encodeURIComponent(p.lon);
       const response=await fetch(url,{signal,headers:{'Accept-Language':'es'}});
       if(!response.ok)continue;
       const json=await response.json(),a=json.address||{};
       const name=a.village||a.hamlet||a.town||a.suburb||a.city_district||a.city||a.municipality;
-      if(typeof name==='string'&&!seen.has(name.toLowerCase())){seen.add(name.toLowerCase());found.push({name:name.slice(0,26),index})}
+      if(typeof name==='string'&&!seen.has(name.toLowerCase())&&found.length<7){seen.add(name.toLowerCase());found.push({name:name.slice(0,26),index})}
     }catch(e){if(signal.aborted)throw aborted()}
     if(k<indices.length-1)await new Promise(resolve=>setTimeout(resolve,1100));
   }
