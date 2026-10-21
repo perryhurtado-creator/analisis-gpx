@@ -70,3 +70,13 @@ export function drawChart(id,pairs,color,label,onHover,onLeave){
     onLeave();
   };
 }
+
+export function setChartCursor(km){
+ charts.forEach(chart=>{
+  if(!chart.guide)return;
+  if(km===null||!Number.isFinite(km)){chart.guide.setAttribute('opacity','0');chart.read.textContent='';return}
+  const x=chart.x(Math.max(0,Math.min(chart.xMax,km)));
+  chart.guide.setAttribute('x1',x);chart.guide.setAttribute('x2',x);chart.guide.setAttribute('opacity','1');
+  chart.read.setAttribute('x',Math.min(750,x+7));chart.read.textContent=km.toFixed(2)+' km';
+ });
+}
