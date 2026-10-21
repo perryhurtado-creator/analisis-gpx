@@ -43,7 +43,9 @@ export function drawPoster(target,source,data,assets){
   // El mapa es el fondo completo. No se deforma la geometría GPX.
   ctx.drawImage(assets.map,0,0);
   // No oscurecer el mapa completo: solo los paneles llevan fondo.
-  for(const [color,width] of [['#fff',10],[accent,6]]){
+  // Doble contorno de alto contraste: negro exterior, blanco separador y color central.
+  const routeColor=data.level?.label?.startsWith('Negra')?'#f5d64b':accent;
+  for(const [color,width] of [['#111820',18],['#fff',13],[routeColor,8]]){
     ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineJoin=ctx.lineCap='round';ctx.beginPath();
     for(const run of snap.runs)run.forEach((i,j)=>{const p=snap.positions[i];if(j)ctx.lineTo(p.x,p.y);else ctx.moveTo(p.x,p.y)});
     ctx.stroke();
@@ -60,13 +62,13 @@ export function drawPoster(target,source,data,assets){
       const w=Math.min(290,ctx.measureText(name).width+22),x=Math.max(15,Math.min(1065-w,p.x+14));
       panel(ctx,x,p.y-29,w,35,'rgba(0,0,0,.87)',7);
       ctx.fillStyle='#fff';ctx.fillText(name,x+11,p.y-5);
-      ctx.fillStyle=accent;ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle=routeColor;ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill();
     }
   }
   // Paneles compactos: la ruta permanece visible en el centro del cartel.
-  panel(ctx,20,20,235,212,'rgba(3,8,12,.87)',16);
-  const logo=assets.logo,ratio=Math.min(230/logo.naturalWidth,205/logo.naturalHeight);
-  ctx.drawImage(logo,22+(230-logo.naturalWidth*ratio)/2,23,logo.naturalWidth*ratio,logo.naturalHeight*ratio);
+  // Logo sin recuadro: se dibuja directamente el PNG original sobre el mapa.
+  const logo=assets.logo,ratio=Math.min(260/logo.naturalWidth,244/logo.naturalHeight);
+  ctx.drawImage(logo,8+(260-logo.naturalWidth*ratio)/2,8,logo.naturalWidth*ratio,logo.naturalHeight*ratio);
   panel(ctx,270,22,490,160,'rgba(3,8,12,.87)',14);
   ctx.fillStyle='#fff';ctx.font='italic 800 23px Arial';ctx.fillText('RUTA MTB',290,53);
   let size=52,lines;do{
