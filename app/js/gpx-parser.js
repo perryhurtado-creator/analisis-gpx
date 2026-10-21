@@ -76,7 +76,7 @@ export function finalize(xml,p,type,file){
     cur.d=prev.d+dd;
     const dt=Number.isFinite(cur.time)&&Number.isFinite(prev.time)?(cur.time-prev.time)/1000:null;
     // Una distancia inferior a 1 m sigue siendo válida: incluye marcha lenta y paradas.
-    if(dt!==null&&dt>0&&dt<=30)cur.speed=dd/dt*3.6;
+    if(dt!==null&&dt>0&&dt<=30&&!Number.isFinite(cur.speed))cur.speed=dd/dt*3.6;
   }
   const elevations=p.map((point,i)=>{
     if(!Number.isFinite(point.ele))return null;
