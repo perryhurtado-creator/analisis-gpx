@@ -46,55 +46,58 @@ function smoothedElevation(points,i,starts){
   }
   return vals.length?avg(vals):null;
 }
+// Ventanas de distancia y tiempo: evitan máximos falsos por ruido GPS/altímetro.
+// Nunca se calculan valores cruzando trkseg/Track ni puntos sin datos.
 export function slopeStats(points){
-  const windowM=30,slopes=[],starts=runStarts(points);
-  let windowStart=0;
-  let positiveGain=0,positiveDistance=0;
-  for(let i=0;i<points.length;i++){
-    const cur=points[i];
-    if(cur.breakBefore||!Number.isFinite(cur.ele))continue;
-    const segmentId=cur.segmentId;
-    const first=starts[i];
-    windowStart=Math.max(windowStart,first);
-    while(windowStart<i-1&&cur.d-points[windowStart+1].d>=windowM)windowStart++;
-    const start=windowStart;
-    if(start>=i)continue;
-    const dd=cur.d-points[start].d;
-    if(dd<20)continue;
-    const e1=smoothedElevation(points,start,starts),e2=smoothedElevation(points,i,starts);
-    if(Number.isFinite(e1)&&Number.isFinite(e2)){
-      const slope=(e2-e1)/dd*100;
-      slopes.push(slope);
-      if(e2>e1){positiveGain+=e2-e1;positiveDistance+=dd;}
-    }
-  }
-  const avgUp=positiveDistance>0?positiveGain/positiveDistance*100:null;
-  return {maxUp:slopes.length?Math.max(...slopes):null,maxDown:slopes.length?Math.min(...slopes):null,avgUp};
+ const starts=runStarts(points),windowM=60,minM=30,slopes=[];
+ let positiveGain=0,positiveDistance=0;
+ for(let i=1;i<points.length;i++){
+  const cur=points[i],first=starts[i];
+  if(i<=first||!Number.isFinite(cur.ele))continue;
+  let j=i-1;
+  while(j>first&&cur.d-points[j].d<windowM)j--;
+  const dd=cur.d-points[j].d;
+  if(dd<minM||dd>180)continue;
+  const e1=smoothedElevation(points,j,starts),e2=smoothedElevation(points,i,starts);
+  if(!Number.isFinite(e1)||!Number.isFinite(e2))continue;
+  const slope=(e2-e1)/dd*100;
+  if(!Number.isFinite(slope))continue;
+  slopes.push(slope);
+  if(slope>0){positiveGain+=e2-e1;positiveDistance+=dd}
+ }
+ return {
+  maxUp:slopes.length?Math.max(0,...slopes):null,
+  maxDown:slopes.length?Math.min(0,...slopes):null,
+  avgUp:positiveDistance>0?positiveGain/positiveDistance*100:null
+ };
 }
 export function speedStats(points){
-  const intervals=[],starts=runStarts(points);
-  for(let i=1;i<points.length;i++){
-    const a=points[i-1],b=points[i];
-    if(b.breakBefore||a.segmentId!==b.segmentId||!a.time||!b.time)continue;
-    const dt=b.time-a.time,dd=b.d-a.d;
-    if(dt<1000||dt>15000||dd<1)continue;
-    const speed=dd/(dt/3600000)/1000;
-    if(Number.isFinite(speed)&&speed>=0&&speed<=100)intervals.push({i,speed,dt,dd});
+ const starts=runStarts(points),speeds=[],intervals=[];
+ // Ventana de al menos 5 s para no confundir saltos aislados de GPS con velocidad real.
+ // Se limita el tiempo entre muestras a 30 s y se rechazan desplazamientos físicamente
+ // inverosímiles; el límite no sustituye una medición válida.
+ for(let i=1;i<points.length;i++){
+  const b=points[i],a=points[i-1];
+  if(b.breakBefore||a.segmentId!==b.segmentId||!Number.isFinite(a.time)||!Number.isFinite(b.time))continue;
+  const dt=b.time-a.time,dd=b.d-a.d;
+  if(dt<=0||dt>30000||dd<0)continue;
+  const raw=dd/dt*3600;
+  if(!Number.isFinite(raw)||raw>100)continue;
+  intervals.push({dt,dd});
+  let j=i-1;
+  while(j>starts[i]&&b.time-points[j].time<5000)j--;
+  const windowMs=b.time-points[j].time,windowDist=b.d-points[j].d;
+  if(windowMs<5000||windowMs>30000||windowDist<0)continue;
+  // No se admite una ventana que contenga intervalos de tiempo inválidos.
+  let valid=true;
+  for(let k=j+1;k<=i;k++){
+   const x=points[k],prev=points[k-1],step=x.time-prev.time;
+   if(x.breakBefore||x.segmentId!==prev.segmentId||!Number.isFinite(step)||step<=0||step>30000||((x.d-prev.d)/step*3600)>100){valid=false;break}
   }
-  if(!intervals.length)return {max:null,avg:null};
-  const rolling=[];
-  for(const item of intervals){
-    const end=points[item.i].time,segmentId=points[item.i].segmentId;
-    const first=starts[item.i];
-    let start=item.i-1;
-    while(start>first&&Number.isFinite(points[start].time)&&end-points[start].time<3000)start--;
-    if(start<item.i&&points[start].time){
-      const dt=points[item.i].time-points[start].time,dd=points[item.i].d-points[start].d;
-      if(dt>=3000&&dd>0)rolling.push(dd/(dt/3600000)/1000);
-    }
-  }
-  const totalTime=intervals.reduce((s,x)=>s+x.dt,0),totalDistance=intervals.reduce((s,x)=>s+x.dd,0);
-  return {max:Math.max(...(rolling.length?rolling:intervals.map(x=>x.speed))),avg:totalTime>0?totalDistance/1000/(totalTime/3600000):avg(intervals.map(x=>x.speed))};
+  if(valid)speeds.push(windowDist/windowMs*3600);
+ }
+ const ms=intervals.reduce((sum,x)=>sum+x.dt,0),distance=intervals.reduce((sum,x)=>sum+x.dd,0);
+ return {max:speeds.length?Math.max(...speeds):null,avg:ms>0?distance/ms*3600:null};
 }
 export function heartZones(points){
   const valid=points.filter(p=>Number.isFinite(p.hr));
