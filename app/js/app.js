@@ -43,7 +43,7 @@ function navigate(hash){
 function render(){
   const a=activity,hrs=points.map(p=>p.hr).filter(Number.isFinite),cads=points.map(p=>p.cad).filter(Number.isFinite);
   const speeds=points.map(p=>p.speed).filter(Number.isFinite),eles=points.map(p=>p.ele).filter(Number.isFinite),km=a.distance/1000;
-  const avgs=continuousSpeed(points)??avg(speeds);
+  const avgs=points.some(p=>Number.isFinite(p.recordedDistance))?avg(speeds):(continuousSpeed(points)??avg(speeds));
   const slopes=slopeStats(points),speed=speedStats(points),zones=heartZones(points),maxSpeed=speed.max,avgSpeed=avgs;
   $('analysis').style.display='block';$('routeName').textContent=a.name;
   $('routeMeta').textContent=`${a.type} · ${points.length.toLocaleString('es-MX')} puntos${a.start?' · '+stamp(a.start):''}`;
