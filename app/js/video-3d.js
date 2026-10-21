@@ -68,10 +68,12 @@ async function run(activity,exportVideo){
   const controller=new AbortController(),state=document.getElementById('videoState'),host=document.getElementById('video3DPreview');
   const options={cameraStyle:document.getElementById('video3DStyle')?.value||'aerial',showLocalities:document.getElementById('videoLocalities')?.checked??false};
   const buttons=['playRoute','pauseVideo','makeVideo','videoMode','video3DStyle','videoLocalities','videoBackground'].map(id=>document.getElementById(id));
-  const deadline=exportVideo?setTimeout(()=>{controller.abort();playback?.wake?.()},480000):null;
+  const cancel=()=>{controller.abort();playback?.wake?.()};
+  controller.signal.addEventListener('abort',()=>playback?.wake?.(),{once:true});
+  const deadline=exportVideo?setTimeout(cancel,480000):null;
   let scene;current=controller;buttons.forEach(b=>{if(b)b.disabled=true});
   const allowBackground=exportVideo&&document.getElementById('videoBackground')?.checked===true;
-  const clearVisibility=watchVideoVisibility(document,allowBackground,()=>controller.abort());
+  const clearVisibility=watchVideoVisibility(document,allowBackground,cancel);
   const status=text=>{state.textContent=text};
   try{
     if(previewURL){URL.revokeObjectURL(previewURL);previewURL=null}host.replaceChildren();scene=await createCesiumVideoScene(activity,controller.signal,status,options);if(controller.signal.aborted)throw new DOMException('Grabación cancelada.','AbortError');

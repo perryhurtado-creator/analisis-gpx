@@ -1,3 +1,4 @@
+import {accumulateElevation} from './elevation.js';
 import {validateActivityXML,validatePointCount} from './activity-limits.js';
 const all=(root,name)=>{const n=Array.from(root.getElementsByTagNameNS('*',name));return n.length?n:Array.from(root.getElementsByTagName(name))};
 const childText=(node,name)=>{const n=all(node,name)[0];return n?n.textContent.trim():''};
@@ -48,6 +49,7 @@ function parsePoint(node){
   const speed=optionalNumber(childText(node,'speed'));
   return {lat,lon,ele,time:Number.isFinite(parsedTime)?parsedTime:null,
     hr:hr!==null&&hr>0?hr:null,cad:cad!==null&&cad>0?cad:null,
+    speedSource:speed!==null&&speed>=0?'sensor':null,
     speed:speed!==null&&speed>=0?speed*3.6:null,d:0,up:0};
 }
 
@@ -66,7 +68,6 @@ export function parseGPX(xmlText,file){
 
 export function finalize(xml,p,type,file){
   if(p.length<2) throw Error('Los puntos no contienen coordenadas válidas.');
-  let ascent=0,descent=0;
   for(let i=1;i<p.length;i++){
     const prev=p[i-1],cur=p[i];
     cur.d=prev.d;
@@ -76,42 +77,12 @@ export function finalize(xml,p,type,file){
     cur.d=prev.d+dd;
     const dt=Number.isFinite(cur.time)&&Number.isFinite(prev.time)?(cur.time-prev.time)/1000:null;
     // Una distancia inferior a 1 m sigue siendo válida: incluye marcha lenta y paradas.
-    if(dt!==null&&dt>0&&dt<=30&&!Number.isFinite(cur.speed))cur.speed=dd/dt*3.6;
+    if(dt!==null&&dt>0&&dt<=30&&!Number.isFinite(cur.speed)){cur.speed=dd/dt*3.6;cur.speedSource='gps'}
   }
-  const elevations=p.map((point,i)=>{
-    if(!Number.isFinite(point.ele))return null;
-    const values=[];
-    const segmentId=point.segmentId;
-    for(let j=Math.max(0,i-2);j<=Math.min(p.length-1,i+2);j++){
-      if(p[j].segmentId!==segmentId)continue;
-      if(Number.isFinite(p[j].ele))values.push(p[j].ele);
-    }
-    return values.length?values.reduce((s,v)=>s+v,0)/values.length:null;
-  });
-  // Histéresis sobre la altura acumulada, no un umbral por cada punto.
-  // Una subida lenta suma incluso si cada paso aumenta menos de un metro.
-  let anchor=null,direction=0;
-  for(let i=0;i<p.length;i++){
-    const cur=p[i],prev=p[i-1],ele=elevations[i];
-    if(!Number.isFinite(ele)){anchor=null;direction=0;cur.up=ascent;continue}
-    if(i===0||cur.breakBefore||cur.segmentId!==prev.segmentId||anchor===null){anchor=ele;direction=0;cur.up=ascent;continue}
-    if(cur.d<=prev.d){cur.up=ascent;continue}
-    const delta=ele-anchor;
-    if(direction===0){
-      if(delta>=1){ascent+=delta;anchor=ele;direction=1}
-      else if(delta<=-1){descent-=delta;anchor=ele;direction=-1}
-    }else if(direction===1){
-      if(delta>0){ascent+=delta;anchor=ele}
-      else if(delta<=-1){descent-=delta;anchor=ele;direction=-1}
-    }else{
-      if(delta<0){descent-=delta;anchor=ele}
-      else if(delta>=1){ascent+=delta;anchor=ele;direction=1}
-    }
-    cur.up=ascent;
-  }
-  const times=p.filter(x=>x.time).map(x=>x.time);
+  const elevation=accumulateElevation(p);
+  const times=p.filter(x=>Number.isFinite(x.time)).map(x=>x.time);
   return {points:p,name:childText(xml,'name')||file.replace(/\.(gpx|tcx)$/i,''),type,file,
-    distance:p.at(-1).d,ascent,descent,duration:times.length>1?Math.max(...times)-Math.min(...times):null,
+    distance:p.at(-1).d,...elevation,duration:times.length>1?Math.max(...times)-Math.min(...times):null,
     start:times.length?Math.min(...times):null};
 }
 export {all,childText};

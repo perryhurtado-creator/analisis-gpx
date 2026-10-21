@@ -1,3 +1,4 @@
+import {elevationCoverage} from './elevation.js';
 import {fmt,duration} from './metrics.js';
 export const POSTER_LEVELS={
   verde:{label:'Verde — Principiante',color:'#35c77f'},
@@ -8,7 +9,7 @@ export const POSTER_LEVELS={
 export function suggestedPosterLevel(activity){
   const distance=Number.isFinite(activity.distance)?activity.distance/1000:null;
   const ascent=Number.isFinite(activity.ascent)?activity.ascent:null;
-  if(distance===null||ascent===null)return '';
+  if(distance===null||ascent===null||elevationCoverage(activity.points||[])!=='complete')return '';
   const d=[15,25,40,60,80].filter(n=>distance>n).length+1;
   const e=[200,500,900,1400,2000].filter(n=>ascent>n).length+1;
   // Sugerencia por carga física; la dificultad técnica se confirma manualmente.
@@ -18,7 +19,7 @@ export function suggestedPosterLevel(activity){
 export function posterData(activity,options={}){
   const points=activity.points||[],hasElevation=points.some(p=>Number.isFinite(p.ele));
   const completeElevation=points.length>0&&points.every(p=>Number.isFinite(p.ele));
-  return {name:String(options.name||activity.name||'Ruta MTB').trim(),level:POSTER_LEVELS[options.level||suggestedPosterLevel(activity)]||null,
+  return {name:String(options.name||activity.name||'Ruta MTB').trim(),level:POSTER_LEVELS[options.level]||null,
     distance:Number.isFinite(activity.distance)?`${fmt(activity.distance/1000)} km`:'Sin datos',
     ascent:hasElevation&&Number.isFinite(activity.ascent)?`${fmt(activity.ascent,0)} m+`:'Sin datos',
     elevationLabel:hasElevation&&!completeElevation?'DESNIVEL + · PARCIAL':'DESNIVEL +',

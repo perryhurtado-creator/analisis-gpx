@@ -1,7 +1,7 @@
 import {setPosterActivity,generatePoster,downloadPoster} from './poster.js';
 import {createActivityReader} from './activity-reader.js';
 import {clearCharts} from './charts.js';
-import {avg,fmt,duration,stamp,summary,segments,slopeStats,speedStats,heartZones,continuousSpeed} from './metrics.js';
+import {avg,fmt,duration,stamp,summary,segments,slopeStats,speedStats,heartZones,averageSpeed,elevationText} from './metrics.js';
 import {drawChart} from './charts.js';
 import {createMap,fitRoute,showPoint,hidePoint,clearMap} from './map.js';
 import {initExplorer,setExplorerActivity,clearExplorer,seekExplorerKm,pause as pauseExplorer} from './route-explorer.js';
@@ -42,15 +42,16 @@ function navigate(hash){
 }
 function render(){
   const a=activity,hrs=points.map(p=>p.hr).filter(Number.isFinite),cads=points.map(p=>p.cad).filter(Number.isFinite);
-  const speeds=points.map(p=>p.speed).filter(Number.isFinite),eles=points.map(p=>p.ele).filter(Number.isFinite),km=a.distance/1000;
-  const avgs=points.some(p=>Number.isFinite(p.recordedDistance))?avg(speeds):(continuousSpeed(points)??avg(speeds));
-  const slopes=slopeStats(points),speed=speedStats(points),zones=heartZones(points),maxSpeed=speed.max,avgSpeed=avgs;
+  const eles=points.map(p=>p.ele).filter(Number.isFinite),km=a.distance/1000;
+  const speedAverage=averageSpeed(points),avgs=speedAverage.value;
+  const slopes=slopeStats(points),speed=speedStats(points),maxSpeed=speed.max,avgSpeed=avgs;
   $('analysis').style.display='block';$('routeName').textContent=a.name;
   $('routeMeta').textContent=`${a.type} · ${points.length.toLocaleString('es-MX')} puntos${a.start?' · '+stamp(a.start):''}`;
-  const cards=[['Distancia',fmt(km)+' km',''],['Tiempo',duration(a.duration),''],['Velocidad media',avgs?fmt(avgs)+' km/h':'—',''],['Desnivel +','+'+fmt(a.ascent)+' m','accent'],['FC media',hrs.length?Math.round(avg(hrs))+' lpm':'—',''],['Cadencia',cads.length?Math.round(avg(cads))+' rpm':'—','']];
+  const cards=[['Distancia',fmt(km)+' km',''],['Tiempo',duration(a.duration),''],['Velocidad media',avgs!==null?fmt(avgs)+' km/h':'—',''],['Desnivel +',elevationText(a),'accent'],['FC media',hrs.length?Math.round(avg(hrs))+' lpm':'—',''],['Cadencia',cads.length?Math.round(avg(cads))+' rpm':'—','']];
   $('metrics').innerHTML=cards.map(c=>`<div class="metric ${c[2]}"><div class="k">${c[0]}</div><div class="v">${c[1]}</div><div class="sub"></div></div>`).join('');
   $('details').innerHTML=`<div class="detail-block"><div class="detail-label">Archivo</div><div class="detail-value">${esc(a.file)}</div><div class="detail-muted">${a.type} · análisis local</div></div>
-    <div class="detail-block"><div class="detail-label">Altitud</div><div class="detail-value">${eles.length?fmt(Math.min(...eles))+' – '+fmt(Math.max(...eles))+' m':'No disponible'}</div><div class="detail-muted">Desnivel − ${fmt(a.descent)} m</div></div>
+    <div class="detail-block"><div class="detail-label">Altitud</div><div class="detail-value">${eles.length?fmt(Math.min(...eles))+' – '+fmt(Math.max(...eles))+' m':'No disponible'}</div><div class="detail-muted">Desnivel: ${elevationText(a,'descent')}</div></div>
+    <div class="detail-block"><div class="detail-label">Velocidad media</div><div class="detail-value">${esc(speedAverage.method)}</div></div>
     <div class="detail-block"><div class="detail-label">Motor de mapa</div><div class="engine" id="engine"><span class="tag">Iniciando</span></div><div class="detail-muted">Ruta y gráficas sincronizadas</div></div>`;
   drawChart('elevationChart',points.map(p=>[p.d/1000,p.ele,p]),'#087443','Altitud (m)',k=>{const p=nearest(k);showPoint(p);seekExplorerKm(k);return p},hidePoint);
   const slopeCell=value=>value!==null?fmt(value)+' %':'—';
@@ -59,11 +60,21 @@ function render(){
     <tr><td>Sostenida (≈60 m)</td><td>${slopeCell(slopes.maxUp)}</td><td>${slopeCell(slopes.maxDown)}</td></tr>
     </tbody></table><div class="detail-muted">Pendiente media de subida: ${slopeCell(slopes.avgUp)}. Las pendientes cortas son sensibles al ruido de altitud.</div>`;
   drawChart('heartChart',points.map(p=>[p.d/1000,p.hr,p]),'#c9362d','Frecuencia cardiaca (lpm)',k=>{const p=nearest(k);showPoint(p);return p},hidePoint);
-  $('heartStats').innerHTML=zones.length?`<table><thead><tr><th>Zona</th><th>Rango</th><th>Tiempo</th></tr></thead><tbody>${zones.map(z=>`<tr><td>Z${z.zone}</td><td>${Math.round(z.min)}–${Math.round(z.max)} lpm</td><td>${duration(z.time)}</td></tr>`).join('')}</tbody></table>`:'<div class="chart-empty">No hay datos de tiempo y frecuencia cardiaca suficientes.</div>'; 
+  renderHeartZones();
   drawChart('speedChart',points.map(p=>[p.d/1000,p.speed,p]),'#2d5fd0','Velocidad (km/h)',k=>{const p=nearest(k);showPoint(p);return p},hidePoint);
   $('speedStats').innerHTML=`<table><thead><tr><th>Velocidad máxima</th><th>Velocidad media</th></tr></thead><tbody><tr><td>${maxSpeed!==null?fmt(maxSpeed)+' km/h':'—'}</td><td>${avgSpeed!==null?fmt(avgSpeed)+' km/h':'—'}</td></tr></tbody></table>`;
   renderSegments();if(compareActivity)renderComparison();createMap(points);setExplorerActivity(points);
 }
+
+function renderHeartZones(){
+  const max=Number($('heartMax').value),rest=Number($('heartRest').value),method=$('heartMethod').value;
+  $('heartRest').disabled=method!=='reserve';
+  const zones=heartZones(points,{max,rest,method});
+  const note=!points.some(p=>Number.isFinite(p.hr))?'Este archivo no incluye frecuencia cardiaca.':!max?'Configura tu FC máxima personal para calcular tus zonas.':max<80||max>240?'Introduce una FC máxima entre 80 y 240 lpm.':method==='reserve'&&(rest<20||rest>=max)?'La FC de reposo debe ser al menos 20 lpm y menor que la máxima.':'No hay intervalos válidos de tiempo y frecuencia cardiaca para distribuir las zonas.';
+  $('heartStats').innerHTML=zones.length?`<p class="detail-muted">${method==='reserve'?'Reserva cardiaca':'Porcentaje de FC máxima'} · FC máx. ${max} lpm${method==='reserve'?' · Reposo '+rest+' lpm':''}. No se utiliza el pico del archivo.</p><table><thead><tr><th>Zona</th><th>Rango</th><th>Tiempo</th></tr></thead><tbody>${zones.map(z=>`<tr><td>Z${z.zone}</td><td>${Math.ceil(z.min)}${z.max===null?' o más':'–<'+Math.ceil(z.max)} lpm</td><td>${z.time?duration(z.time):'0 s'}</td></tr>`).join('')}</tbody></table>`:`<div class="chart-empty">${note}</div>`;
+}
+for(const id of ['heartMax','heartRest','heartMethod'])$(id).addEventListener('change',renderHeartZones);
+
 function renderSegments(){
   const rows=segments(activity);
   $('segments').innerHTML=rows.map(r=>`<tr><td><span class="seg-bullet"></span>Tramo ${r.index}</td><td>${fmt(r.distance)} km</td><td>${duration(r.time)}</td><td>${r.speed?fmt(r.speed)+' km/h':'—'}</td><td>${r.hr?Math.round(r.hr)+' lpm':'—'}</td></tr>`).join('')||'<tr><td colspan="5">No hay suficientes datos para calcular segmentos.</td></tr>';

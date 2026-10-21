@@ -1,8 +1,9 @@
+import {withApiLimits} from './rate-limit.mjs';
 import {regionalLocalities} from './localities-regional.mjs';
 import {cachedLocalities} from './localities-cache.mjs';
 import {boundedJSON} from './safety.mjs';
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':status===200?'public, s-maxage=86400, stale-while-revalidate=3600':'no-store'}});
-export async function GET(request){
+async function handle(request){
   if(request.headers.get('sec-fetch-site')==='cross-site')return json({error:'Solicitud no permitida.'},403);
   const raw=new URL(request.url).searchParams.get('bbox')?.split(',');
   if(!raw||raw.length!==4||raw.some(v=>!v.trim()||!Number.isFinite(Number(v))))return json({error:'Área inválida.'},400);
@@ -28,3 +29,5 @@ export async function GET(request){
   if(known.length)return json({places:known,credit:'© OpenStreetMap contributors · GeoNames CC BY 4.0',source:'partial-catalogue',partial:true});
   return json({error:'El servicio de localidades no está disponible. Puedes generar el video sin nombres.'},502);
 }
+
+export const GET=request=>withApiLimits(request,'localities',handle);

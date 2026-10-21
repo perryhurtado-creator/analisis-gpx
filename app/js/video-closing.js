@@ -1,8 +1,9 @@
+import {elevationCoverage} from './elevation.js';
 import {fmt} from './metrics.js';
 export function closingLegend(activity){
   const points=activity.points||[],distance=Number.isFinite(activity.distance)?activity.distance:points.at(-1)?.d;
   const elevation=points.some(p=>Number.isFinite(p.ele));
-  return {name:String(activity.name||'Ruta'),metrics:`Distancia: ${Number.isFinite(distance)?fmt(distance/1000)+' km':'—'}   ·   Desnivel positivo: ${elevation&&Number.isFinite(activity.ascent)?'+'+fmt(activity.ascent,0)+' m':'—'}`};
+  return {name:String(activity.name||'Ruta'),metrics:`Distancia: ${Number.isFinite(distance)?fmt(distance/1000)+' km':'—'}   ·   Desnivel positivo: ${elevation&&Number.isFinite(activity.ascent)?'+'+fmt(activity.ascent,0)+' m'+(elevationCoverage(points)==='partial'?' (parcial)':''):'—'}`};
 }
 // Mantener el resumen final dos segundos, con entrada breve y sin mover la cámara.
 export function drawClosingLegend(ctx,activity,progress,width,height,seconds=40){

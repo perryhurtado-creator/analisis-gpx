@@ -1,0 +1,12 @@
+{
+  "name": "perros-en-bicicleta-gpx",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=24"},
+  "scripts": {
+    "test": "node scripts/run-tests.mjs",
+    "test:browser": "node scripts/browser-tests.mjs",
+    "check": "node scripts/check-syntax.mjs"
+  },
+  "devDependencies": {"jsdom": "30.1.3", "playwright": "1.58.2"}
+}

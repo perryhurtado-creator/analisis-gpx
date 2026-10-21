@@ -1,8 +1,9 @@
+import {withApiLimits} from './rate-limit.mjs';
 import {boundedJSON} from './safety.mjs';
 import {terrainSamples,mergeTerrain,TERRAIN_FILTER} from '../js/terrain-profile.js';
 import {elevationProfile} from '../js/planner-elevation.js';
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
-export async function POST(request){
+async function handle(request){
   if(request.headers.get('sec-fetch-site')==='cross-site')return json({error:'Solicitud no permitida.'},403);
   let body;
   try{body=await boundedJSON(request,8192)}catch(error){return json({error:error.status===413?'Solicitud demasiado grande.':'Solicitud inválida.'},error.status===413?413:400)}
@@ -34,3 +35,5 @@ export async function POST(request){
     return json({geometry:elevated, distance:summary.distance,duration:summary.duration,elevation:{ascent:profile.ascent,descent:profile.descent,min:profile.min,max:profile.max,complete:profile.complete,source:'SRTM · openrouteservice elevation',filter:TERRAIN_FILTER,spacing,message:elevationMessage},attribution:'© openrouteservice · © OpenStreetMap contributors'});
   }catch(error){console.error('MTB routing failed:',error.name);return json({error:error.name==='TimeoutError'?'El cálculo tardó demasiado. Intenta de nuevo.':'No se pudo conectar con el servicio de rutas.'},502)}
 }
+
+export const POST=request=>withApiLimits(request,'route',handle);

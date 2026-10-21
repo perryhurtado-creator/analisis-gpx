@@ -31,6 +31,6 @@ assert.equal((await POST(new Request('https://example.test/api/route',{method:'P
 
 // Un segmento largo con distancia cero no debe recorrer su historial para cada pendiente.
 const points=Array.from({length:MAX_TRACK_POINTS},(_,i)=>({segmentId:0,breakBefore:i===0,ele:100,d:0,time:i*1000}));
-const start=performance.now();assert.equal(slopeStats(points).maxUp,null);assert.equal(speedStats(points).max,null);
+const start=performance.now();assert.equal(slopeStats(points).maxUp,null);assert.equal(speedStats(points).max,0);
 assert.ok(performance.now()-start<3000,'Métricas acotadas para 50 000 puntos');
 console.log('Security checks passed: file size/type, DTD/entities, raw point cap, UTF-8, stale reads, cancel/reset, bounded API streams, 413, cross-site rejection and long-segment performance.');
