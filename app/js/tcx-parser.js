@@ -13,9 +13,10 @@ function parsePoint(node){
   const hr=optionalNumber(childText(heart||node,'Value'));
   const cad=optionalNumber(childText(node,'Cadence'));
   const speed=optionalNumber(childText(node,'Speed'));
+  const recordedDistance=optionalNumber(childText(node,'DistanceMeters'));
   return {lat,lon,ele,time:Number.isFinite(parsedTime)?parsedTime:null,
     hr:hr!==null&&hr>0?hr:null,cad:cad!==null&&cad>0?cad:null,
-    speed:speed!==null&&speed>=0?speed*3.6:null,d:0,up:0};
+    speed:speed!==null&&speed>=0?speed*3.6:null,recordedDistance,d:0,up:0};
 }
 
 export function parseTCX(xmlText,file){
