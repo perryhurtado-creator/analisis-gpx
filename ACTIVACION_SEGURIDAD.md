@@ -60,10 +60,14 @@ La rama se publicó tras recibir autorización explícita del usuario. No se dec
 
 ## Revisión documental de proveedores
 
-Ver [REVISION_PROVEEDORES_PRIVACIDAD.md](REVISION_PROVEEDORES_PRIVACIDAD.md) para el inventario, fuentes oficiales, conservación documentada y pendientes. Prioridad alta: adaptar Nominatim al límite global y al tratamiento de puntos privados; completar evidencia de cuenta y contratos. La revisión pública no cierra el aviso definitivo.
+Ver [REVISION_PROVEEDORES_PRIVACIDAD.md](REVISION_PROVEEDORES_PRIVACIDAD.md) para el inventario, fuentes oficiales, conservación documentada y pendientes. La retirada de Nominatim del cartel y la minimización de estadísticas están implementadas; sigue pendiente completar evidencia de cuenta y contratos. La revisión pública no cierra el aviso definitivo.
 
 ### Migración de HeiGIT — 21 de octubre de 2026
 
 Rutas, búsquedas y elevación usan ahora `api.heigit.org`, con sus rutas `openrouteservice/v2`, `pelias/v1` y `openelevationservice/v0`. Se conserva `ORS_API_KEY` y los controles existentes. Se actualizaron las pruebas de API para exigir los nuevos destinos. Pasaron todas las suites Node, sintaxis y `git diff --check`. La confirmación del servicio real se realiza tras el despliegue sin extraer credenciales.
 
 La comprobación real detectó que Vercel convertía los módulos compartidos de terreno de `.js` a CommonJS, incompatibles con la importación ESM de la función. Se renombraron `terrain-profile` y `planner-elevation` a `.mjs` y se actualizaron sus importaciones de servidor, navegador y pruebas para conservar explícitamente ESM. No cambia el cálculo.
+
+### Localidades del cartel y estadísticas — 21 de octubre de 2026
+
+El cartel usa el catálogo local y ofrece ampliación por área mediante el endpoint Overpass existente, desactivada inicialmente. Se retiró Nominatim. Los catálogos se comparten desde `app/js/catalogues`. Analytics recibe solo identificadores de páginas conocidas desde una página auxiliar sin referente; se eliminan parámetros, fragmentos y eventos personalizados. Se añadieron regresiones de privacidad y comprobaciones de navegador para la activación explícita y los datos enviados. No cambian la retención del proveedor ni la protección distribuida pendiente.
