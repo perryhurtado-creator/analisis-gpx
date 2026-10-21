@@ -2,22 +2,30 @@ import {posterData,posterMapSnapshot,POSTER_LEVELS,posterRuns} from './poster-da
 import {fmt} from './metrics.js';
 const $=id=>document.getElementById(id);
 let activity=null,controller=null,resources=null,canvas=null,revision=0;
-const TITLE_FONT='Teko';
-let titleFontPromise=null;
-async function ensureTitleFont(){
-  if(document.fonts.check('900 52px Teko'))return true;
-  if(!titleFontPromise){
-    titleFontPromise=(async()=>{
-      const link=document.createElement('link');
-      link.rel='stylesheet';
-      link.href='https://fonts.googleapis.com/css2?family=Teko:wght@700&display=swap';
-      document.head.appendChild(link);
-      await new Promise((resolve,reject)=>{link.onload=resolve;link.onerror=()=>reject(Error('Fuente no disponible'))});
-      await document.fonts.load('700 52px Teko','LA MAGNÍFICA');
-      return document.fonts.check('700 52px Teko','LA MAGNÍFICA');
-    })().catch(()=>false);
-  }
-  return titleFontPromise;
+const TITLE_FONTS={
+  teko:{label:'Teko · MTB',family:'Teko',weight:700},
+  oswald:{label:'Oswald · Deportivo',family:'Oswald',weight:700},
+  anton:{label:'Anton · Impacto',family:'Anton',weight:400},
+  bebas:{label:'Bebas Neue · Condensada',family:'Bebas Neue',weight:400},
+  barlow:{label:'Barlow Condensed · Racing',family:'Barlow Condensed',weight:800},
+  classic:{label:'Clásica · Arial',family:'Arial',weight:900,local:true}
+};
+const fontPromises=new Map();
+async function ensureTitleFont(key){
+  const font=TITLE_FONTS[key]||TITLE_FONTS.teko;
+  if(font.local)return true;
+  const descriptor=font.weight+' 52px "'+font.family+'"';
+  if(fontPromises.has(key))return fontPromises.get(key);
+  const promise=(async()=>{
+    const link=document.createElement('link');link.rel='stylesheet';
+    link.href='https://fonts.googleapis.com/css2?family='+encodeURIComponent(font.family).replace(/%20/g,'+')+':wght@'+font.weight+'&display=swap';
+    document.head.appendChild(link);
+    await new Promise((resolve,reject)=>{link.onload=resolve;link.onerror=()=>reject(Error('No se pudo cargar la tipografía'))});
+    const loaded=await document.fonts.load(descriptor,'LA MAGNÍFICA V2026');
+    if(!loaded.length||!document.fonts.check(descriptor,'LA MAGNÍFICA V2026'))throw Error('La tipografía no está disponible');
+    return true;
+  })().catch(()=>false);
+  fontPromises.set(key,promise);return promise;
 }
 function aborted(){return new DOMException('Cartel cancelado.','AbortError')}
 function image(url,signal){
@@ -90,7 +98,8 @@ export function drawPoster(target,source,data,assets){
   panel(ctx,270,22,490,160,'rgba(3,8,12,.87)',14);
   ctx.fillStyle='#fff';ctx.font='italic 800 23px Arial, sans-serif';ctx.fillText('RUTA MTB',290,53);
   let size=52,lines;do{
-    ctx.font='700 '+size+'px '+(data.titleFontReady?'"'+TITLE_FONT+'"':'Arial Narrow, sans-serif');lines=titleLines(ctx,data.name.toLocaleUpperCase('es-MX'),445);
+    const chosen=TITLE_FONTS[data.titleFont]||TITLE_FONTS.teko;
+    ctx.font=chosen.weight+' '+size+'px '+(data.titleFontReady?'"'+chosen.family+'"':'Arial, sans-serif');lines=titleLines(ctx,data.name.toLocaleUpperCase('es-MX'),445);
     if(lines.length<=2&&lines.every(t=>ctx.measureText(t).width<=445))break;size-=2;
   }while(size>18);
   lines.slice(0,2).forEach((line,i)=>{ctx.fillStyle=i===lines.length-1?accent:'#fff';ctx.fillText(line,290,110+i*(size+7))});
@@ -175,12 +184,21 @@ async function resolveLocalities(points,signal){
   }
   return found;
 }
-function options(){return {name:$('posterName')?.value.trim()||activity?.name,level:$('posterLevel')?.value||'',showProfile:$('posterProfile')?.checked!==false,showTips:$('posterTips')?.checked!==false,showLocalities:$('posterLocalities')?.checked!==false}}
+function options(){return {name:$('posterName')?.value.trim()||activity?.name,level:$('posterLevel')?.value||'',showProfile:$('posterProfile')?.checked!==false,showTips:$('posterTips')?.checked!==false,showLocalities:$('posterLocalities')?.checked!==false,titleFont:$('posterFont')?.value||'teko'}}
 function update(){
   revision++;$('downloadPoster').disabled=true;if(!activity)return;
   const data={...options(),...posterData(activity,options())};$('posterMetrics').textContent=`${data.distance} · ${data.ascent} · ${data.time}`;
   $('posterScore').textContent=`Puntos distancia: ${data.distancePts??'—'} · Desnivel: ${data.elevationPts??'—'}. El nivel se elige considerando también terreno, técnica y exposición.`;
-  if(resources&&canvas){drawPoster(canvas,activity,data,resources);$('downloadPoster').disabled=false;$('posterStatus').textContent='Cartel listo · 1080 × 1620'}
+  if(resources&&canvas){
+    const selected=activity,version=revision,key=data.titleFont;
+    $('posterStatus').textContent='Aplicando tipografía…';
+    ensureTitleFont(key).then(ok=>{
+      if(selected!==activity||version!==revision||!canvas)return;
+      if(!ok){$('posterStatus').textContent='No se pudo cargar la tipografía. Revisa tu conexión.';return}
+      drawPoster(canvas,activity,{...data,titleFontReady:true},resources);
+      $('downloadPoster').disabled=false;$('posterStatus').textContent='Cartel listo · 1080 × 1620';
+    });
+  }
   else $('posterStatus').textContent='Personaliza los datos y genera tu cartel';
 }
 function empty(){const div=document.createElement('div');div.className='poster-empty';const b=document.createElement('b');b.textContent='Aún no hay una ruta cargada';const span=document.createElement('span');span.textContent='Sube una actividad desde Resumen para preparar tu cartel.';div.append(b,span);return div}
@@ -189,15 +207,17 @@ export function setPosterActivity(next){
   controller?.abort();controller=null;revision++;activity=next;resources=null;canvas=null;
   $('posterPreview').replaceChildren(empty());$('posterData').replaceChildren();$('makePoster').disabled=!next;$('downloadPoster').disabled=true;
   if(!next){$('posterStatus').textContent='Esperando ruta';return}
-  $('posterData').innerHTML='<label class="poster-field">Nombre de la ruta<input id="posterName" maxlength="140" type="text"></label><label class="poster-field">Clasificación MTB<select id="posterLevel"><option value="">Sin clasificar</option></select></label><label class="poster-field"><input id="posterLocalities" type="checkbox" checked> Mostrar localidades</label><label class="poster-field"><input id="posterProfile" type="checkbox" checked> Perfil de elevación</label><label class="poster-field"><input id="posterTips" type="checkbox" checked> Recomendaciones de seguridad</label><p id="posterMetrics" class="poster-route-name"></p><p id="posterScore" class="poster-note"></p><p class="poster-note">Formato vertical 1080 × 1620. Los nombres de localidades se consultan en OpenStreetMap; pueden no estar disponibles.</p>';
+  $('posterData').innerHTML='<label class="poster-field">Nombre de la ruta<input id="posterName" maxlength="140" type="text"></label><label class="poster-field">Clasificación MTB<select id="posterLevel"><option value="">Sin clasificar</option></select></label><label class="poster-field">Tipografía del título<select id="posterFont"></select></label><label class="poster-field"><input id="posterLocalities" type="checkbox" checked> Mostrar localidades</label><label class="poster-field"><input id="posterProfile" type="checkbox" checked> Perfil de elevación</label><label class="poster-field"><input id="posterTips" type="checkbox" checked> Recomendaciones de seguridad</label><p id="posterMetrics" class="poster-route-name"></p><p id="posterScore" class="poster-note"></p><p class="poster-note">Formato vertical 1080 × 1620. Los nombres de localidades se consultan en OpenStreetMap; pueden no estar disponibles.</p>';
+  for(const [key,font] of Object.entries(TITLE_FONTS)){const opt=document.createElement('option');opt.value=key;opt.textContent=font.label;$('posterFont').appendChild(opt)}
+  $('posterFont').value='teko';
   $('posterName').value=next.name.slice(0,140);for(const [value,level] of Object.entries(POSTER_LEVELS)){const opt=document.createElement('option');opt.value=value;opt.textContent=level.label;$('posterLevel').appendChild(opt)}
-  $('posterName').addEventListener('input',update);$('posterLevel').addEventListener('change',update);
+  $('posterName').addEventListener('input',update);$('posterLevel').addEventListener('change',update);$('posterFont').addEventListener('change',update);
   for(const id of ['posterLocalities','posterProfile','posterTips'])$(id).addEventListener('change',update);
   update();$('posterPreview').firstChild.querySelector('b').textContent='Tu cartel aparecerá aquí';$('posterPreview').firstChild.querySelector('span').textContent='Elige el nombre y la clasificación, y pulsa Generar cartel.';
 }
 export async function generatePoster(){
   if(!activity||controller)return;
-  const selected=activity,abort=new AbortController();controller=abort;const fields=[$('posterName'),$('posterLevel'),$('posterLocalities'),$('posterProfile'),$('posterTips')];fields.forEach(e=>e.disabled=true);$('makePoster').disabled=true;$('downloadPoster').disabled=true;
+  const selected=activity,abort=new AbortController();controller=abort;const fields=[$('posterName'),$('posterLevel'),$('posterFont'),$('posterLocalities'),$('posterProfile'),$('posterTips')];fields.forEach(e=>e.disabled=true);$('makePoster').disabled=true;$('downloadPoster').disabled=true;
   try{
     $('posterStatus').textContent='Cargando mapa de relieve, localidades y logo…';
     if(!resources){const snapshot=posterMapSnapshot(selected.points,1080,1460,70),map=document.createElement('canvas');map.width=snapshot.width;map.height=snapshot.height;const ctx=map.getContext('2d');ctx.fillStyle='#e6eade';ctx.fillRect(0,0,map.width,map.height);
@@ -212,7 +232,7 @@ export async function generatePoster(){
       ]);
       if(abort.signal.aborted)throw aborted();tiles.forEach(tile=>ctx.drawImage(tile.image,tile.x,tile.y,256,256));resources={logo,map,snapshot,localities};
     }
-    const titleFontReady=await ensureTitleFont();if(abort.signal.aborted)throw aborted();
+    const chosenFont=options().titleFont,titleFontReady=await ensureTitleFont(chosenFont);if(abort.signal.aborted)throw aborted();if(!titleFontReady)throw Error('No se pudo cargar la tipografía seleccionada. Revisa tu conexión o elige Clásica.');
     canvas=document.createElement('canvas');canvas.className='poster-canvas';canvas.setAttribute('aria-label','Cartel de la ruta con mapa, clasificación y datos');drawPoster(canvas,selected,{...options(),...posterData(selected,options()),titleFontReady},resources);canvas.getContext('2d').getImageData(0,0,1,1);
     if(abort.signal.aborted||activity!==selected)throw aborted();$('posterPreview').replaceChildren(canvas);$('posterStatus').textContent='Cartel listo · 1080 × 1620';$('downloadPoster').disabled=false;
   }catch(e){if(activity===selected)$('posterStatus').textContent=e.name==='AbortError'?'Generación cancelada.':e.message;abort.abort()}
