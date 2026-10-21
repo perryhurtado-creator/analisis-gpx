@@ -52,6 +52,8 @@ npm run test:browser
 
 CI ejecuta los mismos pasos sin secretos ni llamadas a proveedores reales. Las pruebas de navegador usan tiles simulados y la biblioteca Leaflet real. Una descarga válida de video en Chromium no garantiza WebGL ni codecs de un Android o Windows particular. La regresión de pausa 3D usa el controlador real con la escena simulada.
 
-### Resultado de esta sesión
+### Resultado de la validación — 21 de octubre de 2026
 
-Pasaron las 23 suites Node, la revisión de sintaxis, git diff --check y npm audit (0 vulnerabilidades reportadas). La instalación local de Chromium devolvió un archivo truncado/no ZIP; `npm run test:browser` no pudo iniciar por ausencia de ejecutable. Se incluye el flujo de navegador en CI, pendiente de ejecutarlo después de publicar la rama. No se declaran aprobadas las pruebas de navegador de esta nueva versión ni un vuelo Cesium real. La subida a GitHub fue rechazada por revisión automática por falta de autorización explícita de publicación; la rama y los commits permanecen locales.
+Pasaron las 23 suites Node, la revisión de sintaxis, git diff --check y npm audit (0 vulnerabilidades reportadas). La descarga local de Chromium falló, pero GitHub Actions sí ejecutó correctamente Chromium: continuidad 12/12, mapas con Leaflet real 5/5 y flujo de carga GPX, zonas personales, explorador, cartel PNG y video descargado. Evidencia: https://github.com/perryhurtado-creator/analisis-gpx/actions/runs/39656375108 (código 75f83f13ca89e3b460dca1c60d7534d7d474e4be).
+
+La rama se publicó tras recibir autorización explícita del usuario. No se declara validado un vuelo Cesium real ni la reproducción física en Android/Windows. Siguen pendientes la activación de contadores distribuidos y completar el aviso definitivo.
