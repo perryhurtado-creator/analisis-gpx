@@ -16,6 +16,9 @@ const W=1280,H=720,FPS=30,N=450,BITRATE=4_000_000;
 const canvas=document.querySelector('#stage'),ctx=canvas.getContext('2d'),status=document.querySelector('#status');
 const file=document.querySelector('#file'),run=document.querySelector('#run'),cancel=document.querySelector('#cancel');
 let points=[],routeName='',busy=false,stopped=false;
+window.addEventListener('error',e=>say('Error de JavaScript: '+e.message));
+window.addEventListener('unhandledrejection',e=>say('Error inesperado: '+(e.reason?.message||e.reason)));
+status.textContent='Selecciona un GPX para iniciar la prueba.';
 const say=s=>{status.textContent=s};
 const finite=x=>Number.isFinite(x);
 function parse(xml){
@@ -48,8 +51,8 @@ function parse(xml){
  return out;
 }
 function bounds(){
- const xs=points.map(p=>p.lon),ys=points.map(p=>p.lat);
- const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+ let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+ for(const p of points){minX=Math.min(minX,p.lon);maxX=Math.max(maxX,p.lon);minY=Math.min(minY,p.lat);maxY=Math.max(maxY,p.lat)}
  const spanX=Math.max(maxX-minX,0.00001),spanY=Math.max(maxY-minY,0.00001);
  const scale=Math.min(680/spanX,440/spanY),ox=95+(680-spanX*scale)/2,oy=170+(440-spanY*scale)/2;
  return p=>[ox+(p.lon-minX)*scale,oy+(maxY-p.lat)*scale];
@@ -90,11 +93,13 @@ async function support(){
  const cfg={codec:'avc1.42001f',width:W,height:H,framerate:FPS,bitrate:BITRATE,hardwareAcceleration:'prefer-hardware',avc:{format:'avc'}};
  if(!(await VideoEncoder.isConfigSupported(cfg)).supported)throw Error('H.264 720p/30 no compatible');
 }
-file.onchange=async()=>{run.disabled=true;points=[];try{
+file.addEventListener('change',async()=>{run.disabled=true;points=[];say('Archivo seleccionado. Leyendo y analizando GPX…');await new Promise(r=>setTimeout(r,0));try{
  const f=file.files[0];if(!f)return;if(f.size>10*1024*1024)throw Error('GPX demasiado grande (máximo 10 MiB)');
- points=parse(await f.text());routeName=f.name.replace(/\.gpx$/i,'');draw(0);await support();run.disabled=false;
+ points=parse(await f.text());routeName=f.name.replace(/\.gpx$/i,'');say('GPX analizado: '+points.length+' puntos. Preparando vista…');await new Promise(r=>setTimeout(r,0));
+ if(points.length>3000){const original=points;const step=Math.ceil(original.length/3000);points=original.filter((p,i)=>i===0||i===original.length-1||p.breakBefore||i%step===0);say('Ruta simplificada para exportación: '+points.length+' puntos.');}
+ draw(0);await support();run.disabled=false;
  say('Ruta cargada: '+points.length+' puntos, '+(points.at(-1).d/1000).toFixed(2)+' km. Lista para exportar.');
- }catch(e){say('Error: '+e.message)}};
+ }catch(e){say('Error al cargar GPX: '+e.message);console.error(e)}});
 document.querySelector('#check').onclick=async()=>{try{await support();say('H.264 compatible. Carga un GPX para comenzar.')}catch(e){say('No compatible: '+e.message)}};
 cancel.onclick=()=>{stopped=true;say('Cancelando...')};
 run.onclick=async()=>{if(busy||!points.length)return;busy=true;stopped=false;run.disabled=true;cancel.disabled=false;let output;
