@@ -44,7 +44,7 @@ export function drawPoster(target,source,data,assets){
   const snap=assets.snapshot;
   ctx.save();ctx.beginPath();ctx.rect(540,0,540,1480);ctx.clip();ctx.translate(540,0);
   ctx.drawImage(assets.map,0,0);
-  ctx.fillStyle='rgba(255,255,255,.22)';ctx.fillRect(0,0,540,1480);
+  ctx.fillStyle='rgba(0,0,0,.08)';ctx.fillRect(0,0,540,1480);
   for(const [color,width] of [['#fff',11],['#f47724',6]]){
     ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineJoin=ctx.lineCap='round';ctx.beginPath();
     for(const run of snap.runs)run.forEach((i,j)=>{const p=snap.positions[i];if(j)ctx.lineTo(p.x,p.y);else ctx.moveTo(p.x,p.y)});
@@ -54,7 +54,20 @@ export function drawPoster(target,source,data,assets){
     ctx.fillStyle=i?'#111':'#25ae76';ctx.beginPath();ctx.arc(p.x,p.y,10,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.stroke();
   });
   ctx.fillStyle='rgba(255,255,255,.94)';ctx.fillRect(0,1450,540,30);
-  ctx.fillStyle='#243f32';ctx.font='16px Arial';ctx.fillText('© OpenStreetMap contributors',16,1471);ctx.restore();
+  ctx.fillStyle='#243f32';ctx.font='14px Arial';ctx.fillText('© OpenStreetMap · © OpenTopoMap (CC BY-SA)',8,1471);ctx.restore();
+  // Localidades: únicamente nombres obtenidos de cartografía, no inventados.
+  if(data.showLocalities&&Array.isArray(assets.localities)){
+    ctx.save();ctx.font='bold 18px Arial';ctx.textAlign='left';
+    assets.localities.forEach(({name,index},j)=>{
+      const p=snap.positions[index];if(!p)return;
+      const x=540+p.x,y=p.y;
+      if(x<560||x>1030||y<185||y>1360)return;
+      const w=Math.min(235,ctx.measureText(name).width+18);
+      ctx.fillStyle='rgba(0,0,0,.83)';ctx.fillRect(Math.max(544,Math.min(1070-w,x+13)),y-24,w,30);
+      ctx.fillStyle='#fff';ctx.fillText(name,Math.max(551,Math.min(1077-w,x+20)),y-3);
+      ctx.fillStyle=accent;ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
+    });ctx.restore();
+  }
   // Borde irregular inspirado en el cartel de referencia.
   ctx.fillStyle='#080b0d';ctx.beginPath();ctx.moveTo(520,0);
   for(let y=0;y<=1480;y+=24)ctx.lineTo(540+18*Math.sin(y*.17)+12*Math.cos(y*.07),y);
@@ -80,17 +93,43 @@ export function drawPoster(target,source,data,assets){
   do{ctx.font=`800 ${levelSize}px Arial`;if(ctx.measureText(level).width<=400)break;levelSize--}while(levelSize>16);
   ctx.fillStyle=accent;ctx.fillText(level,614,118);
   // Perfil basado en puntos originales, conservando interrupciones.
-  ctx.save();ctx.translate(14,120);ctx.scale(.47,1);profile(ctx,source.points,accent);ctx.restore();
+  if(data.showProfile){ctx.save();ctx.translate(14,120);ctx.scale(.47,1);profile(ctx,source.points,accent);ctx.restore();}
   ctx.fillStyle='#bfc9ce';ctx.font='18px Arial';ctx.fillText('Distancia (km)',40,1392);
   ctx.textAlign='right';ctx.fillText(fmt(source.distance/1000)+' km',495,1392);ctx.textAlign='left';
+  if(data.showTips){
+    panel(ctx,40,1410,1000,74,'#101519',12);
+    ctx.fillStyle='#fff';ctx.font='bold 21px Arial';
+    ctx.fillText('AGUA SUFICIENTE  ·  PROTÉGETE DEL SOL  ·  REVISA TU BICI  ·  RESPETA EL SENDERO',59,1454);
+  }
   ctx.fillStyle=accent;ctx.fillRect(40,1500,1000,3);
   ctx.fillStyle='#fff';ctx.font='italic 800 34px Arial';ctx.textAlign='center';ctx.fillText('¡PEDALEA, DISFRUTA, SUPERA TUS LÍMITES!',540,1563);
   ctx.fillStyle='#adb9c1';ctx.font='600 18px Arial';ctx.fillText('PERROS EN BICICLETA · RUTA Y COMUNIDAD',540,1598);ctx.textAlign='left';
 }
-function options(){return {name:$('posterName')?.value.trim()||activity?.name,level:$('posterLevel')?.value||''}}
+async function resolveLocalities(points,signal){
+  if(points.length<2)return [];
+  const found=[],seen=new Set();
+  // Consultas acotadas para respetar el servicio público de Nominatim.
+  const indices=[0,Math.floor(points.length/3),Math.floor(points.length*2/3),points.length-1];
+  for(let k=0;k<indices.length;k++){
+    if(signal.aborted)throw aborted();
+    const index=indices[k],p=points[index];
+    if(!Number.isFinite(p.lat)||!Number.isFinite(p.lon))continue;
+    try{
+      const url='https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&addressdetails=1&lat='+encodeURIComponent(p.lat)+'&lon='+encodeURIComponent(p.lon);
+      const response=await fetch(url,{signal,headers:{'Accept-Language':'es'}});
+      if(!response.ok)continue;
+      const json=await response.json(),a=json.address||{};
+      const name=a.village||a.town||a.city||a.hamlet||a.municipality;
+      if(typeof name==='string'&&!seen.has(name.toLowerCase())){seen.add(name.toLowerCase());found.push({name:name.slice(0,26),index})}
+    }catch(e){if(signal.aborted)throw aborted()}
+    if(k<indices.length-1)await new Promise(resolve=>setTimeout(resolve,1100));
+  }
+  return found;
+}
+function options(){return {name:$('posterName')?.value.trim()||activity?.name,level:$('posterLevel')?.value||'',showProfile:$('posterProfile')?.checked!==false,showTips:$('posterTips')?.checked!==false,showLocalities:$('posterLocalities')?.checked!==false}}
 function update(){
   revision++;$('downloadPoster').disabled=true;if(!activity)return;
-  const data=posterData(activity,options());$('posterMetrics').textContent=`${data.distance} · ${data.ascent} · ${data.time}`;
+  const data={...posterData(activity,options()),...options()};$('posterMetrics').textContent=`${data.distance} · ${data.ascent} · ${data.time}`;
   $('posterScore').textContent=`Puntos distancia: ${data.distancePts??'—'} · Desnivel: ${data.elevationPts??'—'}. El nivel se elige considerando también terreno, técnica y exposición.`;
   if(resources&&canvas){drawPoster(canvas,activity,data,resources);$('downloadPoster').disabled=false;$('posterStatus').textContent='Cartel listo · 1080 × 1620'}
   else $('posterStatus').textContent='Personaliza los datos y genera tu cartel';
@@ -101,20 +140,30 @@ export function setPosterActivity(next){
   controller?.abort();controller=null;revision++;activity=next;resources=null;canvas=null;
   $('posterPreview').replaceChildren(empty());$('posterData').replaceChildren();$('makePoster').disabled=!next;$('downloadPoster').disabled=true;
   if(!next){$('posterStatus').textContent='Esperando ruta';return}
-  $('posterData').innerHTML='<label class="poster-field">Nombre de la ruta<input id="posterName" maxlength="140" type="text"></label><label class="poster-field">Clasificación MTB<select id="posterLevel"><option value="">Sin clasificar</option></select></label><p id="posterMetrics" class="poster-route-name"></p><p id="posterScore" class="poster-note"></p><p class="poster-note">El tiempo procede del archivo. Los datos ausentes aparecen como “Sin datos”.</p>';
+  $('posterData').innerHTML='<label class="poster-field">Nombre de la ruta<input id="posterName" maxlength="140" type="text"></label><label class="poster-field">Clasificación MTB<select id="posterLevel"><option value="">Sin clasificar</option></select></label><label class="poster-field"><input id="posterLocalities" type="checkbox" checked> Mostrar localidades</label><label class="poster-field"><input id="posterProfile" type="checkbox" checked> Perfil de elevación</label><label class="poster-field"><input id="posterTips" type="checkbox" checked> Recomendaciones de seguridad</label><p id="posterMetrics" class="poster-route-name"></p><p id="posterScore" class="poster-note"></p><p class="poster-note">Formato vertical 1080 × 1620. Los nombres de localidades se consultan en OpenStreetMap; pueden no estar disponibles.</p>';
   $('posterName').value=next.name.slice(0,140);for(const [value,level] of Object.entries(POSTER_LEVELS)){const opt=document.createElement('option');opt.value=value;opt.textContent=level.label;$('posterLevel').appendChild(opt)}
-  $('posterName').addEventListener('input',update);$('posterLevel').addEventListener('change',update);update();$('posterPreview').firstChild.querySelector('b').textContent='Tu cartel aparecerá aquí';$('posterPreview').firstChild.querySelector('span').textContent='Elige el nombre y la clasificación, y pulsa Generar cartel.';
+  $('posterName').addEventListener('input',update);$('posterLevel').addEventListener('change',update);
+  for(const id of ['posterLocalities','posterProfile','posterTips'])$(id).addEventListener('change',update);
+  update();$('posterPreview').firstChild.querySelector('b').textContent='Tu cartel aparecerá aquí';$('posterPreview').firstChild.querySelector('span').textContent='Elige el nombre y la clasificación, y pulsa Generar cartel.';
 }
 export async function generatePoster(){
   if(!activity||controller)return;
-  const selected=activity,abort=new AbortController();controller=abort;const fields=[$('posterName'),$('posterLevel')];fields.forEach(e=>e.disabled=true);$('makePoster').disabled=true;$('downloadPoster').disabled=true;
+  const selected=activity,abort=new AbortController();controller=abort;const fields=[$('posterName'),$('posterLevel'),$('posterLocalities'),$('posterProfile'),$('posterTips')];fields.forEach(e=>e.disabled=true);$('makePoster').disabled=true;$('downloadPoster').disabled=true;
   try{
-    $('posterStatus').textContent='Cargando mapa real y logo…';
+    $('posterStatus').textContent='Cargando mapa de relieve, localidades y logo…';
     if(!resources){const snapshot=posterMapSnapshot(selected.points,540,1480,62),map=document.createElement('canvas');map.width=snapshot.width;map.height=snapshot.height;const ctx=map.getContext('2d');ctx.fillStyle='#e6eade';ctx.fillRect(0,0,map.width,map.height);
-      const [logo,tiles]=await Promise.all([image(new URL('../assets/logo-perros-en-bicicleta.png',import.meta.url).href,abort.signal),Promise.all(snapshot.tiles.map(async tile=>({...tile,image:await image(tile.url,abort.signal)})))]);
-      if(abort.signal.aborted)throw aborted();tiles.forEach(tile=>ctx.drawImage(tile.image,tile.x,tile.y,256,256));resources={logo,map,snapshot};
+      const [logo,tiles,localities]=await Promise.all([
+        image(new URL('../assets/logo-perros-en-bicicleta.png',import.meta.url).href,abort.signal),
+        Promise.all(snapshot.tiles.map(async tile=>{
+          const terrain=tile.url.replace('https://tile.openstreetmap.org/','https://a.tile.opentopomap.org/');
+          let loaded;try{loaded=await image(terrain,abort.signal)}catch(e){if(abort.signal.aborted)throw e;loaded=await image(tile.url,abort.signal)}
+          return {...tile,image:loaded};
+        })),
+        $('posterLocalities').checked?resolveLocalities(selected.points,abort.signal):Promise.resolve([])
+      ]);
+      if(abort.signal.aborted)throw aborted();tiles.forEach(tile=>ctx.drawImage(tile.image,tile.x,tile.y,256,256));resources={logo,map,snapshot,localities};
     }
-    canvas=document.createElement('canvas');canvas.className='poster-canvas';canvas.setAttribute('aria-label','Cartel de la ruta con mapa, clasificación y datos');drawPoster(canvas,selected,posterData(selected,options()),resources);canvas.getContext('2d').getImageData(0,0,1,1);
+    canvas=document.createElement('canvas');canvas.className='poster-canvas';canvas.setAttribute('aria-label','Cartel de la ruta con mapa, clasificación y datos');drawPoster(canvas,selected,{...posterData(selected,options()),...options()},resources);canvas.getContext('2d').getImageData(0,0,1,1);
     if(abort.signal.aborted||activity!==selected)throw aborted();$('posterPreview').replaceChildren(canvas);$('posterStatus').textContent='Cartel listo · 1080 × 1620';$('downloadPoster').disabled=false;
   }catch(e){if(activity===selected)$('posterStatus').textContent=e.name==='AbortError'?'Generación cancelada.':e.message;abort.abort()}
   finally{if(controller===abort){controller=null;$('makePoster').disabled=!activity;fields.forEach(e=>e.disabled=false)}}
