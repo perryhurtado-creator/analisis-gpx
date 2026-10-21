@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prueba 2 · GPX a MP4</title><style>
+body{background:#101b24;color:#fff;font:16px system-ui;margin:0 auto;padding:16px;max-width:850px}
+canvas{width:100%;border-radius:12px;background:#122633}button,input{font:inherit;padding:10px;margin:6px 4px 6px 0}
+button:disabled{opacity:.4}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#7ee6d3}
+</style></head><body>
+<h1>Prueba 2 · GPX a MP4</h1>
+<p>Recorrido real del archivo GPX, gráfica de altimetría y velocidad estimada, 1280×720, 30 FPS, 15 s, 4 Mbps. Sin mapa base ni 3D en esta etapa.</p>
+<label>Seleccionar GPX <input id="file" type="file" accept=".gpx,application/gpx+xml,application/xml,text/xml"></label>
+<canvas id="stage" width="1280" height="720"></canvas>
+<p><button id="check">Comprobar compatibilidad</button><button id="run" disabled>Exportar MP4 de la ruta</button><button id="cancel" disabled>Cancelar</button></p>
+<pre id="status" role="status"></pre>
+<script type="module">
+const W=1280,H=720,FPS=30,N=450,BITRATE=4_000_000;
+const canvas=document.querySelector('#stage'),ctx=canvas.getContext('2d'),status=document.querySelector('#status');
+const file=document.querySelector('#file'),run=document.querySelector('#run'),cancel=document.querySelector('#cancel');
+let points=[],routeName='',busy=false,stopped=false;
+const say=s=>{status.textContent=s};
+const finite=x=>Number.isFinite(x);
+function parse(xml){
+ const doc=new DOMParser().parseFromString(xml,'application/xml');
+ if(doc.querySelector('parsererror'))throw Error('GPX XML inválido');
+ const tracks=[...doc.getElementsByTagName('*')].filter(n=>n.localName==='trkseg');
+ let segs=tracks.length?tracks:[...doc.getElementsByTagName('*')].filter(n=>n.localName==='rte')];
+ if(!segs.length)throw Error('El archivo no contiene trkseg ni rte');
+ const out=[];
+ for(const seg of segs){let prev=null;
+ for(const node of [...seg.children].filter(n=>n.localName==='trkpt'||n.localName==='rtept')){
+ const lat=Number(node.getAttribute('lat')),lon=Number(node.getAttribute('lon'));
+ if(!finite(lat)||!finite(lon)||Math.abs(lat)>90||Math.abs(lon)>180||!node.hasAttribute('lat')||!node.hasAttribute('lon')){prev=null;continue}
+ const eNode=[...node.children].find(n=>n.localName==='ele'),tNode=[...node.children].find(n=>n.localName==='time');
+ const ele=eNode&&eNode.textContent.trim()!==''?Number(eNode.textContent):null;
+ const time=tNode?Date.parse(tNode.textContent):NaN;
+ const p={lat,lon,ele:finite(ele)?ele:null,time:finite(time)?time:null,d:out.length?out[out.length-1].d:0,speed:null,breakBefore:!prev};
+ if(prev){
+ const rad=Math.PI/180,dl=(lat-prev.lat)*rad,doLon=(lon-prev.lon)*rad;
+ const a=Math.sin(dl/2)**2+Math.cos(prev.lat*rad)*Math.cos(lat*rad)*Math.sin(doLon/2)**2;
+ const dist=6371000*2*Math.asin(Math.min(1,Math.sqrt(a)));
+ p.d+=dist;
+ const dt=(p.time-prev.time)/1000;
+ if(dt>0&&dist>=0)p.speed=Math.min(120,dist/dt*3.6);
+ }
+ out.push(p);prev=p;
+ if(out.length>50000)throw Error('Máximo 50 000 puntos');
+ }}
+ if(out.length<2||out[out.length-1].d===0)throw Error('La ruta necesita al menos dos puntos válidos y distancia positiva');
+ return out;
+}
+function bounds(){
+ const xs=points.map(p=>p.lon),ys=points.map(p=>p.lat);
+ const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+ const spanX=Math.max(maxX-minX,0.00001),spanY=Math.max(maxY-minY,0.00001);
+ const scale=Math.min(680/spanX,440/spanY),ox=95+(680-spanX*scale)/2,oy=170+(440-spanY*scale)/2;
+ return p=>[ox+(p.lon-minX)*scale,oy+(maxY-p.lat)*scale];
+}
+function draw(i){
+ const f=i/(N-1),total=points.at(-1).d,target=f*total,project=bounds();
+ let k=0;while(k<points.length-1&&points[k+1].d<=target)k++;
+ const p=points[k],next=points[Math.min(k+1,points.length-1)],ratio=next.d>p.d?(target-p.d)/(next.d-p.d):0;
+ const x=p.lon+(next.lon-p.lon)*ratio,y=p.lat+(next.lat-p.lat)*ratio;
+ ctx.fillStyle='#122633';ctx.fillRect(0,0,W,H);
+ ctx.fillStyle='#fff';ctx.font='bold 39px system-ui';ctx.fillText(routeName.slice(0,42),65,78);
+ ctx.font='23px system-ui';ctx.fillStyle='#b8d5dd';ctx.fillText('Perros en Bicicleta · GPX real · exportación de prueba',65,120);
+ ctx.fillStyle='#1a3441';ctx.fillRect(65,150,750,500);
+ ctx.lineWidth=5;ctx.strokeStyle='#567b8b';ctx.beginPath();
+ points.forEach((pt,j)=>{const [px,py]=project(pt);if(j===0||pt.breakBefore)ctx.moveTo(px,py);else ctx.lineTo(px,py)});ctx.stroke();
+ ctx.strokeStyle='#23dfb1';ctx.lineWidth=7;ctx.beginPath();let last=null;
+ for(let j=0;j<points.length;j++){const pt=points[j];if(pt.d>target)break;const [px,py]=project(pt);if(!last||pt.breakBefore)ctx.moveTo(px,py);else ctx.lineTo(px,py);last=pt}
+ const [cx,cy]=project({lon:x,lat:y});if(last)ctx.lineTo(cx,cy);ctx.stroke();
+ ctx.fillStyle='#ffdb67';ctx.beginPath();ctx.arc(cx,cy,12,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#fff';ctx.font='bold 31px system-ui';ctx.fillText((target/1000).toFixed(2)+' km',850,195);
+ ctx.font='22px system-ui';ctx.fillText('Distancia recorrida',850,232);
+ const chart=(key,top,color,label,unit)=>{
+ const valid=points.filter(z=>finite(z[key]));ctx.fillStyle='#b8d5dd';ctx.font='21px system-ui';ctx.fillText(label,850,top-12);
+ ctx.fillStyle='#1a3441';ctx.fillRect(850,top,365,140);
+ if(valid.length<2){ctx.fillStyle='#fff';ctx.fillText('Sin datos',870,top+75);return}
+ let lo=Math.min(...valid.map(z=>z[key])),hi=Math.max(...valid.map(z=>z[key]));if(hi===lo)hi=lo+1;
+ ctx.beginPath();let began=false;
+ for(const pt of points){if(!finite(pt[key])){began=false;continue}const xx=850+365*pt.d/total,yy=top+125-110*(pt[key]-lo)/(hi-lo);if(!began||pt.breakBefore)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);began=true}
+ ctx.strokeStyle=color;ctx.lineWidth=3;ctx.stroke();
+ ctx.strokeStyle='#fff';ctx.globalAlpha=.65;ctx.beginPath();ctx.moveTo(850+365*f,top);ctx.lineTo(850+365*f,top+140);ctx.stroke();ctx.globalAlpha=1;
+ ctx.fillStyle='#fff';ctx.font='17px system-ui';ctx.fillText((finite(p[key])?p[key].toFixed(1):'—')+' '+unit,860,top+130);
+ };
+ chart('ele',295,'#ffcf6b','Altimetría','m');chart('speed',485,'#63d3ff','Velocidad calculada','km/h');
+ ctx.fillStyle='#23dfb1';ctx.fillRect(65,675,1150*f,10);ctx.fillStyle='#fff';ctx.font='20px system-ui';ctx.fillText((15*f).toFixed(2)+' / 15.00 s',1050,660);
+}
+async function support(){
+ if(!isSecureContext||!('VideoEncoder'in window))throw Error('Este navegador no ofrece VideoEncoder por HTTPS');
+ const cfg={codec:'avc1.42001f',width:W,height:H,framerate:FPS,bitrate:BITRATE,hardwareAcceleration:'prefer-hardware',avc:{format:'avc'}};
+ if(!(await VideoEncoder.isConfigSupported(cfg)).supported)throw Error('H.264 720p/30 no compatible');
+}
+file.onchange=async()=>{run.disabled=true;points=[];try{
+ const f=file.files[0];if(!f)return;if(f.size>10*1024*1024)throw Error('GPX demasiado grande (máximo 10 MiB)');
+ points=parse(await f.text());routeName=f.name.replace(/\.gpx$/i,'');draw(0);await support();run.disabled=false;
+ say('Ruta cargada: '+points.length+' puntos, '+(points.at(-1).d/1000).toFixed(2)+' km. Lista para exportar.');
+ }catch(e){say('Error: '+e.message)}};
+document.querySelector('#check').onclick=async()=>{try{await support();say('H.264 compatible. Carga un GPX para comenzar.')}catch(e){say('No compatible: '+e.message)}};
+cancel.onclick=()=>{stopped=true;say('Cancelando...')};
+run.onclick=async()=>{if(busy||!points.length)return;busy=true;stopped=false;run.disabled=true;cancel.disabled=false;let output;
+ const start=performance.now();
+ try{
+ await support();const {Output,Mp4OutputFormat,BufferTarget,CanvasSource}=await import('https://cdn.jsdelivr.net/npm/mediabunny@1.30.1/+esm');
+ const source=new CanvasSource(canvas,{codec:'avc',bitrate:BITRATE});
+ output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});output.addVideoTrack(source,{frameRate:FPS});await output.start();
+ for(let i=0;i<N;i++){if(stopped)throw Error('Cancelado');draw(i);await source.add(i/FPS,1/FPS);
+ if(i%15===0){say('Procesando '+(i+1)+'/'+N+' cuadros · '+((performance.now()-start)/1000).toFixed(1)+' s');await new Promise(r=>setTimeout(r,0));}}
+ await output.finalize();const blob=new Blob([output.target.buffer],{type:'video/mp4'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='prueba-gpx-webcodecs.mp4';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
+ say('Finalizado: '+(blob.size/1048576).toFixed(2)+' MiB en '+((performance.now()-start)/1000).toFixed(1)+' s');
+ }catch(e){say('Error: '+e.message);if(output?.state==='started')await output.cancel().catch(()=>{})}
+ finally{busy=false;cancel.disabled=true;run.disabled=false;}
+};
+</script></body></html>
