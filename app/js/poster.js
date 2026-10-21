@@ -2,6 +2,21 @@ import {posterData,posterMapSnapshot,POSTER_LEVELS,posterRuns} from './poster-da
 import {fmt} from './metrics.js';
 const $=id=>document.getElementById(id);
 let activity=null,controller=null,resources=null,canvas=null,revision=0;
+const TITLE_FONT='MTB Teko';
+let titleFontPromise=null;
+async function ensureTitleFont(){
+  if(document.fonts.check('900 52px "'+TITLE_FONT+'"'))return true;
+  if(!titleFontPromise){
+    titleFontPromise=(async()=>{
+      const face=new FontFace(TITLE_FONT,'url(https://fonts.gstatic.com/s/teko/v23/LYjCdG7kmE0gdQhfgCNqqVIuTN4.woff2)',{weight:'900',style:'normal'});
+      await face.load();document.fonts.add(face);
+      await document.fonts.load('900 52px "'+TITLE_FONT+'"');
+      return document.fonts.check('900 52px "'+TITLE_FONT+'"');
+    })().catch(()=>false);
+  }
+  return titleFontPromise;
+}
+
 function aborted(){return new DOMException('Cartel cancelado.','AbortError')}
 function image(url,signal){
   return new Promise((resolve,reject)=>{
@@ -71,9 +86,9 @@ export function drawPoster(target,source,data,assets){
   const logo=assets.logo,ratio=Math.min(284/logo.naturalWidth,265/logo.naturalHeight);
   ctx.drawImage(logo,0+(284-logo.naturalWidth*ratio)/2,0,logo.naturalWidth*ratio,logo.naturalHeight*ratio);
   panel(ctx,270,22,490,160,'rgba(3,8,12,.87)',14);
-  ctx.fillStyle='#fff';ctx.font='italic 800 23px Impact, Haettenschweiler, sans-serif';ctx.fillText('RUTA MTB',290,53);
+  ctx.fillStyle='#fff';ctx.font='italic 800 23px Arial, sans-serif';ctx.fillText('RUTA MTB',290,53);
   let size=52,lines;do{
-    ctx.font='900 '+size+'px Impact, Haettenschweiler, sans-serif';lines=titleLines(ctx,data.name.toLocaleUpperCase('es-MX'),445);
+    ctx.font='900 '+size+'px '+(data.titleFontReady?'"'+TITLE_FONT+'"':'Arial Narrow, sans-serif');lines=titleLines(ctx,data.name.toLocaleUpperCase('es-MX'),445);
     if(lines.length<=2&&lines.every(t=>ctx.measureText(t).width<=445))break;size-=2;
   }while(size>18);
   lines.slice(0,2).forEach((line,i)=>{ctx.fillStyle=i===lines.length-1?accent:'#fff';ctx.fillText(line,290,110+i*(size+7))});
@@ -195,7 +210,8 @@ export async function generatePoster(){
       ]);
       if(abort.signal.aborted)throw aborted();tiles.forEach(tile=>ctx.drawImage(tile.image,tile.x,tile.y,256,256));resources={logo,map,snapshot,localities};
     }
-    canvas=document.createElement('canvas');canvas.className='poster-canvas';canvas.setAttribute('aria-label','Cartel de la ruta con mapa, clasificación y datos');drawPoster(canvas,selected,{...options(),...posterData(selected,options())},resources);canvas.getContext('2d').getImageData(0,0,1,1);
+    const titleFontReady=await ensureTitleFont();if(abort.signal.aborted)throw aborted();
+    canvas=document.createElement('canvas');canvas.className='poster-canvas';canvas.setAttribute('aria-label','Cartel de la ruta con mapa, clasificación y datos');drawPoster(canvas,selected,{...options(),...posterData(selected,options()),titleFontReady},resources);canvas.getContext('2d').getImageData(0,0,1,1);
     if(abort.signal.aborted||activity!==selected)throw aborted();$('posterPreview').replaceChildren(canvas);$('posterStatus').textContent='Cartel listo · 1080 × 1620';$('downloadPoster').disabled=false;
   }catch(e){if(activity===selected)$('posterStatus').textContent=e.name==='AbortError'?'Generación cancelada.':e.message;abort.abort()}
   finally{if(controller===abort){controller=null;$('makePoster').disabled=!activity;fields.forEach(e=>e.disabled=false)}}
