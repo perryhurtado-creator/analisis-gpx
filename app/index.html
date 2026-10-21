@@ -46,6 +46,25 @@
         <section id="analysis">
           <div class="route-head"><div><h2 id="routeName">Actividad</h2><p id="routeMeta">Archivo analizado localmente</p></div><button class="tiny-btn route-fit" id="fitRoute">Encuadrar ruta</button></div>
           <div id="metrics" class="metrics"></div>
+          <section class="panel route-explorer" id="routeExplorer" hidden aria-label="Explorador interactivo de ruta">
+            <div class="panel-title"><h3>Explorador interactivo MTB</h3><span>Mapa y gráficas sincronizados</span></div>
+            <div class="explorer-metrics">
+              <div><small>Recorrido</small><strong id="explorerDistance">0 km</strong></div>
+              <div><small>Altitud</small><strong id="explorerAltitude">—</strong></div>
+              <div><small>Progreso</small><strong id="explorerProgress">0 %</strong></div>
+            </div>
+            <div class="explorer-progress"><div id="explorerProgressBar"></div></div>
+            <label for="explorerSeek">Desplazamiento por la ruta</label>
+            <input id="explorerSeek" type="range" min="0" max="1000" value="0" step="1" aria-label="Mover el ciclista por la ruta">
+            <div class="explorer-controls">
+              <button type="button" class="action-btn secondary" id="explorerReset">↺ Inicio</button>
+              <button type="button" class="action-btn secondary" id="explorerBack">− 5 km</button>
+              <button type="button" class="action-btn" id="explorerPlay">▶ Reproducir</button>
+              <button type="button" class="action-btn secondary" id="explorerNext">+ 5 km</button>
+              <label for="explorerSpeed">Velocidad <select id="explorerSpeed"><option value="1">1×</option><option value="3">3×</option><option value="8">8×</option></select></label>
+            </div>
+            <p class="feature-copy">Usa el control de distancia para mover el ciclista sobre el mapa y sincronizar los indicadores de las gráficas. La reproducción es una simulación de navegación, no la velocidad real de la actividad.</p>
+          </section>
           <div class="layout activity-layout">
             <section class="panel route-map-panel"><div class="panel-title"><h3>Recorrido</h3><span id="mapStatus">Preparando mapa</span></div><div class="map-wrap"><div id="map" class="map-host"></div></div></section>
             <aside class="chart-stack">
