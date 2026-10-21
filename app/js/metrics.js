@@ -72,6 +72,10 @@ export function slopeStats(points){
  };
 }
 export function speedStats(points){
+ if(points.some(p=>Number.isFinite(p.recordedDistance))){
+  const samples=points.map(p=>p.speed).filter(v=>Number.isFinite(v)&&v>=0&&v<=150);
+  if(samples.length)return {max:samples.reduce((m,v)=>Math.max(m,v),0),avg:avg(samples)};
+ }
  const starts=runStarts(points),speeds=[],intervals=[];
  // Ventana de al menos 5 s para no confundir saltos aislados de GPS con velocidad real.
  // Se limita el tiempo entre muestras a 30 s y se rechazan desplazamientos físicamente
