@@ -19,8 +19,8 @@ Los hallazgos de prioridad media conservan su seguimiento independiente. No se c
 La inspección de variables del proyecto mostró únicamente ORS_API_KEY en development/preview/production. No se extrajeron sus valores. No se encontró una configuración de firewall activa mediante la consulta disponible (404); eso no demuestra ausencia de protección básica de Vercel.
 
 1. Conectar una base Redis duradera de Upstash al proyecto Vercel `analisis-gpx-app`. Revisar el plan y sus límites antes de contratar; no se creó una base ni una suscripción.
-2. Configurar directamente en Vercel, como secretos de servidor, `UPSTASH_REDIS_REST_URL` y `UPSTASH_REDIS_REST_TOKEN`. No pegarlos en chats ni en el repositorio. El endpoint debe ser HTTPS en un dominio `.upstash.io`.
-3. Probar primero preview y después configurar las mismas variables en producción. No compartir la base con otra app salvo que se ajusten los prefijos. Las claves separan preview/production.
+2. Configurar directamente en Vercel, como secretos de servidor, `UPSTASH_REDIS_REST_URL` y `UPSTASH_REDIS_REST_TOKEN` (o el par `KV_REST_API_URL`/`KV_REST_API_TOKEN` que puede proporcionar Marketplace). No pegarlos en chats ni en el repositorio. El endpoint debe ser HTTPS en un dominio `.upstash.io`.
+3. Probar primero preview y después conectar el recurso de producción con sus propias credenciales. No reutilizar la base de producción para pruebas. No compartir la base con otra app salvo que se ajusten los prefijos. Las claves separan preview/production.
 4. Tras configurar ambas variables, el modo distribuido se selecciona automáticamente. `API_RATE_LIMIT_MODE=distributed` hace que una configuración incompleta devuelva 503 en vez de degradar a protección local; activarlo solo cuando las credenciales estén listas. Si el contador configurado falla, se devuelve 503 sin llamar al proveedor.
 5. Comprobar llamadas válidas, exceso con 429 y Retry-After, dos instancias compartiendo presupuesto y recuperación al vencer la ventana. No hacer pruebas de carga contra ORS/Overpass: usar un entorno de prueba con proveedores simulados.
 
@@ -71,3 +71,9 @@ La comprobación real detectó que Vercel convertía los módulos compartidos de
 ### Localidades del cartel y estadísticas — 21 de octubre de 2026
 
 El cartel usa el catálogo local y ofrece ampliación por área mediante el endpoint Overpass existente, desactivada inicialmente. Se retiró Nominatim. Los catálogos se comparten desde `app/js/catalogues`. Analytics recibe solo identificadores de páginas conocidas desde una página auxiliar sin referente; se eliminan parámetros, fragmentos y eventos personalizados. Se añadieron regresiones de privacidad y comprobaciones de navegador para la activación explícita y los datos enviados. No cambian la retención del proveedor ni la protección distribuida pendiente.
+
+### Tipografías y preparación de activación — 21 de octubre de 2026
+
+Las cinco tipografías se alojan en `app/assets/fonts` con licencias y hashes; ya no se descargan desde Google. Redis aún no está vinculado: las consultas disponibles no muestran integración ni variables del contador. El plan Free figura en el catálogo de Upstash para Vercel, pero su creación y vinculación de cuenta deben completarse en https://vercel.com/marketplace/upstash/upstash-kv. Conectar primero preview; después validar el recurso y seleccionar producción. No activar `API_RATE_LIMIT_MODE=distributed` antes de tener un par completo y operativo. El código reconoce ambos pares de variables y rechaza pares parciales sin recurrir al proveedor.
+
+Para cerrar el aviso falta confirmar nombre completo o razón social del responsable y domicilio que debe publicarse, y documentar configuración/contratos/retención efectivos de proveedores. El autor público, correo y ciudad proporcionados se conservan; no se inventan datos ni se da por cerrado el aviso.

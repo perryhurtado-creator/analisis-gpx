@@ -1,33 +1,9 @@
+import {TITLE_FONTS,ensureTitleFont} from './poster-fonts.js';
 import {posterData,posterMapSnapshot,POSTER_LEVELS,posterRuns} from './poster-data.js';
 import {fmt} from './metrics.js';
 import {posterLocalities} from './poster-localities.js';
 const $=id=>document.getElementById(id);
 let activity=null,controller=null,resources=null,canvas=null,revision=0;
-const TITLE_FONTS={
-  anton:{label:'Anton · Potente',family:'Anton',weight:400},
-  bebas:{label:'Bebas Neue · Estrecha',family:'Bebas Neue',weight:400},
-  bangers:{label:'Bangers · Cómic extremo',family:'Bangers',weight:400},
-  marker:{label:'Permanent Marker · Pincel',family:'Permanent Marker',weight:400},
-  blackops:{label:'Black Ops One · Militar',family:'Black Ops One',weight:400},
-  classic:{label:'Arial · Clásica',family:'Arial',weight:900,local:true}
-};
-const fontPromises=new Map();
-async function ensureTitleFont(key){
-  const font=TITLE_FONTS[key]||TITLE_FONTS.blackops;
-  if(font.local)return true;
-  const descriptor=font.weight+' 52px "'+font.family+'"';
-  if(fontPromises.has(key))return fontPromises.get(key);
-  const promise=(async()=>{
-    const link=document.createElement('link');link.rel='stylesheet';
-    link.href='https://fonts.googleapis.com/css2?family='+encodeURIComponent(font.family).replace(/%20/g,'+')+':wght@'+font.weight+'&display=swap';
-    document.head.appendChild(link);
-    await new Promise((resolve,reject)=>{link.onload=resolve;link.onerror=()=>reject(Error('No se pudo cargar la tipografía'))});
-    const loaded=await document.fonts.load(descriptor,'LA MAGNÍFICA V2026');
-    if(!loaded.length||!document.fonts.check(descriptor,'LA MAGNÍFICA V2026'))throw Error('La tipografía no está disponible');
-    return true;
-  })().catch(()=>false);
-  fontPromises.set(key,promise);return promise;
-}
 function aborted(){return new DOMException('Cartel cancelado.','AbortError')}
 function image(url,signal){
   return new Promise((resolve,reject)=>{
