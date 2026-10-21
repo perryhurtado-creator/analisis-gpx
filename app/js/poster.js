@@ -5,18 +5,20 @@ let activity=null,controller=null,resources=null,canvas=null,revision=0;
 const TITLE_FONT='MTB Teko';
 let titleFontPromise=null;
 async function ensureTitleFont(){
-  if(document.fonts.check('900 52px "'+TITLE_FONT+'"'))return true;
+  if(document.fonts.check('900 52px Teko'))return true;
   if(!titleFontPromise){
     titleFontPromise=(async()=>{
-      const face=new FontFace(TITLE_FONT,'url(https://fonts.gstatic.com/s/teko/v23/LYjCdG7kmE0gdQhfgCNqqVIuTN4.woff2)',{weight:'900',style:'normal'});
-      await face.load();document.fonts.add(face);
-      await document.fonts.load('900 52px "'+TITLE_FONT+'"');
-      return document.fonts.check('900 52px "'+TITLE_FONT+'"');
+      const link=document.createElement('link');
+      link.rel='stylesheet';
+      link.href='https://fonts.googleapis.com/css2?family=Teko:wght@700&display=swap';
+      document.head.appendChild(link);
+      await new Promise((resolve,reject)=>{link.onload=resolve;link.onerror=()=>reject(Error('Fuente no disponible'))});
+      await document.fonts.load('700 52px Teko','LA MAGNÍFICA');
+      return document.fonts.check('700 52px Teko','LA MAGNÍFICA');
     })().catch(()=>false);
   }
   return titleFontPromise;
 }
-
 function aborted(){return new DOMException('Cartel cancelado.','AbortError')}
 function image(url,signal){
   return new Promise((resolve,reject)=>{
@@ -88,7 +90,7 @@ export function drawPoster(target,source,data,assets){
   panel(ctx,270,22,490,160,'rgba(3,8,12,.87)',14);
   ctx.fillStyle='#fff';ctx.font='italic 800 23px Arial, sans-serif';ctx.fillText('RUTA MTB',290,53);
   let size=52,lines;do{
-    ctx.font='900 '+size+'px '+(data.titleFontReady?'"'+TITLE_FONT+'"':'Arial Narrow, sans-serif');lines=titleLines(ctx,data.name.toLocaleUpperCase('es-MX'),445);
+    ctx.font='700 '+size+'px '+(data.titleFontReady?'"'+TITLE_FONT+'"':'Arial Narrow, sans-serif');lines=titleLines(ctx,data.name.toLocaleUpperCase('es-MX'),445);
     if(lines.length<=2&&lines.every(t=>ctx.measureText(t).width<=445))break;size-=2;
   }while(size>18);
   lines.slice(0,2).forEach((line,i)=>{ctx.fillStyle=i===lines.length-1?accent:'#fff';ctx.fillText(line,290,110+i*(size+7))});
