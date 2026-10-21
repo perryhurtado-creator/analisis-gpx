@@ -8,7 +8,7 @@
 - A05: la ventana de pendientes avanza con dos punteros, evitando el recorrido cuadrático del historial durante las paradas. Parsing XML y otras tareas todavía se ejecutan en el hilo principal; no se declara resuelto todo el rendimiento móvil.
 - A06: cualquier cancelación de la vista 3D despierta la espera en pausa y permite liberar tarea y controles.
 - A07: el cartel respeta Sin clasificar; solo usa el nivel seleccionado. La sugerencia física no se aplica sin confirmación ni con altitud incompleta.
-- A08: actualizados proveedores, consultas puntuales de Nominatim, fuentes, estadísticas y contadores en el borrador de privacidad. Faltan los datos reales del responsable y verificar configuración/retención de proveedores.
+- A08: actualizados proveedores, consultas puntuales de Nominatim, fuentes, estadísticas y contadores en el borrador de privacidad. Se incorporaron los datos proporcionados por el responsable; falta confirmar su identificación y verificar configuración/retención de proveedores.
 - A09: límites por minuto, presupuesto diario y concurrencia; Redis opcional para compartir contadores entre instancias. Sin Redis el modo local es una mitigación por instancia, no una protección distribuida. Ver activación debajo.
 - A10: corregidas expectativas de catálogo y velocidad cero, y el doble Leaflet. Nuevas regresiones, comando único y CI con pruebas de navegador y descargas. El fallo de clasificación conserva la expectativa original y se corrige en la implementación.
 
@@ -38,7 +38,7 @@ Se confía en X-Forwarded-For solo cuando `VERCEL=1`, bajo el proxy de Vercel qu
 
 ## Cerrar el aviso de privacidad
 
-Se incorporaron en `app/privacidad.html` el autor/nombre público **Perros en Bicicleta** y el correo **perrosenbicicletaperrosguaugua@gmail.com**, proporcionados por el usuario. Falta completar el domicilio y confirmar la identificación del responsable. Confirmar Analytics, proveedores, conservación y contratos. Mantener el rótulo de borrador hasta completar esa revisión. El código no sustituye la validación legal de un aviso definitivo.
+Se incorporaron en `app/privacidad.html` el autor/nombre público **Perros en Bicicleta** y el correo **perrosenbicicletaperrosguaugua@gmail.com**, proporcionados por el usuario. Se añadió el domicilio indicado **Querétaro, México**. Falta confirmar la identificación del responsable. Confirmar Analytics, proveedores, conservación y contratos. Mantener el rótulo de borrador hasta completar esa revisión. El código no sustituye la validación legal de un aviso definitivo.
 
 ## Validación y publicación
 
