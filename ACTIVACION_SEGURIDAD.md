@@ -57,3 +57,7 @@ CI ejecuta los mismos pasos sin secretos ni llamadas a proveedores reales. Las p
 Pasaron las 23 suites Node, la revisión de sintaxis, git diff --check y npm audit (0 vulnerabilidades reportadas). La descarga local de Chromium falló, pero GitHub Actions sí ejecutó correctamente Chromium: continuidad 12/12, mapas con Leaflet real 5/5 y flujo de carga GPX, zonas personales, explorador, cartel PNG y video descargado. Evidencia: https://github.com/perryhurtado-creator/analisis-gpx/actions/runs/39656375108 (código 75f83f13ca89e3b460dca1c60d7534d7d474e4be).
 
 La rama se publicó tras recibir autorización explícita del usuario. No se declara validado un vuelo Cesium real ni la reproducción física en Android/Windows. Siguen pendientes la activación de contadores distribuidos y completar el aviso definitivo.
+
+## Revisión documental de proveedores
+
+Ver [REVISION_PROVEEDORES_PRIVACIDAD.md](REVISION_PROVEEDORES_PRIVACIDAD.md) para el inventario, fuentes oficiales, conservación documentada y pendientes. Prioridad alta: adaptar Nominatim al límite global y al tratamiento de puntos privados; migrar el dominio antiguo de HeiGIT antes del cierre anunciado del 2 al 6 de noviembre de 2026; completar evidencia de cuenta y contratos. La revisión pública no cierra el aviso definitivo.
