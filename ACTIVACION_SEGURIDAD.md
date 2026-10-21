@@ -14,9 +14,9 @@
 
 Los hallazgos de prioridad media conservan su seguimiento independiente. No se considera cerrado el aviso definitivo ni el control distribuido por el mero hecho de disponer de este código.
 
-## Activar contadores distribuidos
+## Contadores distribuidos — conexión verificada
 
-La inspección de variables del proyecto mostró únicamente ORS_API_KEY en development/preview/production. No se extrajeron sus valores. No se encontró una configuración de firewall activa mediante la consulta disponible (404); eso no demuestra ausencia de protección básica de Vercel.
+La inspección inicial de variables del proyecto mostró únicamente ORS_API_KEY en development/preview/production. Tras la vinculación realizada por el responsable, se verificaron `KV_REST_API_URL` y `KV_REST_API_TOKEN` en preview/production, con una integración Upstash instalada. El despliegue de producción posterior a esas variables selecciona automáticamente el modo distribuido; las consultas funcionales pasaron. No se extrajeron sus valores. No se encontró una configuración de firewall activa mediante la consulta disponible (404); eso no demuestra ausencia de protección básica de Vercel.
 
 1. Conectar una base Redis duradera de Upstash al proyecto Vercel `analisis-gpx-app`. Revisar el plan y sus límites antes de contratar; no se creó una base ni una suscripción.
 2. Configurar directamente en Vercel, como secretos de servidor, `UPSTASH_REDIS_REST_URL` y `UPSTASH_REDIS_REST_TOKEN` (o el par `KV_REST_API_URL`/`KV_REST_API_TOKEN` que puede proporcionar Marketplace). No pegarlos en chats ni en el repositorio. El endpoint debe ser HTTPS en un dominio `.upstash.io`.
@@ -56,7 +56,7 @@ CI ejecuta los mismos pasos sin secretos ni llamadas a proveedores reales. Las p
 
 Pasaron las 23 suites Node, la revisión de sintaxis, git diff --check y npm audit (0 vulnerabilidades reportadas). La descarga local de Chromium falló, pero GitHub Actions sí ejecutó correctamente Chromium: continuidad 12/12, mapas con Leaflet real 5/5 y flujo de carga GPX, zonas personales, explorador, cartel PNG y video descargado. Evidencia: https://github.com/perryhurtado-creator/analisis-gpx/actions/runs/39656375108 (código 75f83f13ca89e3b460dca1c60d7534d7d474e4be).
 
-La rama se publicó tras recibir autorización explícita del usuario. No se declara validado un vuelo Cesium real ni la reproducción física en Android/Windows. Siguen pendientes la activación de contadores distribuidos y completar el aviso definitivo.
+La rama se publicó tras recibir autorización explícita del usuario. No se declara validado un vuelo Cesium real ni la reproducción física en Android/Windows. La conexión distribuida ya fue verificada en producción; completar el aviso definitivo sigue pendiente.
 
 ## Revisión documental de proveedores
 
@@ -70,10 +70,16 @@ La comprobación real detectó que Vercel convertía los módulos compartidos de
 
 ### Localidades del cartel y estadísticas — 21 de octubre de 2026
 
-El cartel usa el catálogo local y ofrece ampliación por área mediante el endpoint Overpass existente, desactivada inicialmente. Se retiró Nominatim. Los catálogos se comparten desde `app/js/catalogues`. Analytics recibe solo identificadores de páginas conocidas desde una página auxiliar sin referente; se eliminan parámetros, fragmentos y eventos personalizados. Se añadieron regresiones de privacidad y comprobaciones de navegador para la activación explícita y los datos enviados. No cambian la retención del proveedor ni la protección distribuida pendiente.
+El cartel usa el catálogo local y ofrece ampliación por área mediante el endpoint Overpass existente, desactivada inicialmente. Se retiró Nominatim. Los catálogos se comparten desde `app/js/catalogues`. Analytics recibe solo identificadores de páginas conocidas desde una página auxiliar sin referente; se eliminan parámetros, fragmentos y eventos personalizados. Se añadieron regresiones de privacidad y comprobaciones de navegador para la activación explícita y los datos enviados. No cambian la retención del proveedor; la conexión distribuida se verificó posteriormente.
 
 ### Tipografías y preparación de activación — 21 de octubre de 2026
 
-Las cinco tipografías se alojan en `app/assets/fonts` con licencias y hashes; ya no se descargan desde Google. Redis aún no está vinculado: las consultas disponibles no muestran integración ni variables del contador. El plan Free figura en el catálogo de Upstash para Vercel, pero su creación y vinculación de cuenta deben completarse en https://vercel.com/marketplace/upstash/upstash-kv. Conectar primero preview; después validar el recurso y seleccionar producción. No activar `API_RATE_LIMIT_MODE=distributed` antes de tener un par completo y operativo. El código reconoce ambos pares de variables y rechaza pares parciales sin recurrir al proveedor.
+Las cinco tipografías se alojan en `app/assets/fonts` con licencias y hashes; ya no se descargan desde Google. Redis fue vinculado por el responsable y verificado posteriormente mediante las variables e integración disponibles y consultas de producción. El plan Free figura en el catálogo de Upstash para Vercel, y la vinculación realizada por el responsable ya aparece en Vercel. El plan efectivo y su consumo deben consultarse en la cuenta. Conectar primero preview; después validar el recurso y seleccionar producción. No activar `API_RATE_LIMIT_MODE=distributed` antes de tener un par completo y operativo. El código reconoce ambos pares de variables y rechaza pares parciales sin recurrir al proveedor.
 
-El responsable proporcionó su nombre completo y domicilio de contacto y se incorporaron al aviso. Para cerrarlo sigue pendiente documentar configuración/contratos/retención efectivos de proveedores. Redis continúa pendiente de vinculación y el aviso conserva el estado de borrador.
+El responsable proporcionó su nombre completo y domicilio de contacto y se incorporaron al aviso. Para cerrarlo sigue pendiente documentar configuración/contratos/retención efectivos de proveedores. Redis ya está conectado y el aviso conserva el estado de borrador por los demás pendientes documentales.
+
+### Verificación funcional de Redis — 21 de octubre de 2026
+
+Se identificó la instalación Upstash y el par `KV_REST_API_URL`/`KV_REST_API_TOKEN` en preview y producción sin descifrar valores. Su creación precede al despliegue `1b64e2c`, que ya incluye el soporte para ese par. `rateLimitMode` selecciona distribuido y el código no continúa hacia el proveedor si Redis falla. Una búsqueda devolvió 200 con cinco resultados, una petición inválida devolvió 400 y una ruta de prueba devolvió 200 con altimetría completa. Esto verifica el uso funcional del contador en el despliegue, sin pruebas de carga ni inspección de claves o secretos. La concurrencia sigue limitada por instancia; no se afirma haber forzado un 429 entre dos instancias reales.
+
+Las 50 000 unidades incluidas en Vercel Web Analytics Hobby son eventos mensuales (https://vercel.com/docs/analytics/limits-and-pricing), distintos de visitantes únicos y de los comandos Redis. La prueba no confirma plan, región, auto-upgrade o consumo del recurso contratado.
