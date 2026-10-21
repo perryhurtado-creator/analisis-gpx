@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Prueba MP4 · Perros en Bicicleta</title>
+<style>body{font:16px system-ui;background:#101b24;color:#fff;max-width:800px;margin:auto;padding:20px}canvas{width:100%;border-radius:12px}button{padding:12px;margin:8px 8px 8px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head>
+<body><h1>Prueba aislada MP4/H.264</h1><p>1280×720 · 30 FPS · 15 s · 4 Mbps · sin audio. No modifica el exportador actual.</p>
+<canvas id="stage" width="1280" height="720"></canvas><p><button id="check">Comprobar compatibilidad</button><button id="run" disabled>Generar MP4</button><button id="cancel" disabled>Cancelar</button></p><pre id="status" role="status"></pre>
+<script type="module">
+const status=document.querySelector('#status'),run=document.querySelector('#run'),cancel=document.querySelector('#cancel');
+const canvas=document.querySelector('#stage'),ctx=canvas.getContext('2d');
+const W=1280,H=720,FPS=30,FRAMES=450,BITRATE=4_000_000;
+let stopped=false,busy=false;
+function log(message){status.textContent+=message+'\n';}
+function draw(i){const t=i/FPS;ctx.fillStyle='#122633';ctx.fillRect(0,0,W,H);ctx.fillStyle='#1fc6a0';ctx.fillRect(0,H-110,W*(i/(FRAMES-1)),12);ctx.fillStyle='white';ctx.font='bold 64px system-ui';ctx.fillText('Perros en Bicicleta',70,140);ctx.font='38px system-ui';ctx.fillText('Prueba H.264 / MP4',70,210);ctx.fillText(t.toFixed(2)+' s / 15.00 s',70,290);ctx.beginPath();ctx.arc(100+(W-200)*i/(FRAMES-1),H/2,28,0,Math.PI*2);ctx.fillStyle='#ffda65';ctx.fill();}
+draw(0);
+async function supported(){if(!isSecureContext||typeof VideoEncoder==='undefined')throw Error('WebCodecs requiere HTTPS y VideoEncoder disponible');const cfg={codec:'avc1.42001f',width:W,height:H,framerate:FPS,bitrate:BITRATE,hardwareAcceleration:'prefer-hardware',avc:{format:'avc'}};const result=await VideoEncoder.isConfigSupported(cfg);if(!result.supported)throw Error('Este dispositivo no admite H.264 Baseline L3.1 a 720p/30 FPS');return result;}
+document.querySelector('#check').onclick=async()=>{status.textContent='';run.disabled=true;try{const s=await supported();log('Compatible: '+JSON.stringify(s.config));run.disabled=false;}catch(e){log('No compatible: '+e.message);}};
+cancel.onclick=()=>{stopped=true;log('Cancelación solicitada...');};
+run.onclick=async()=>{if(busy)return;busy=true;stopped=false;run.disabled=true;cancel.disabled=false;status.textContent='';let output;const started=performance.now();
+try{await supported();const {Output,Mp4OutputFormat,BufferTarget,CanvasSource,Quality}=await import('https://cdn.jsdelivr.net/npm/mediabunny@1.30.1/+esm');
+const source=new CanvasSource(canvas,{codec:'avc',quality:new Quality({bitrate:BITRATE})});output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});output.addVideoTrack(source,{frameRate:FPS});await output.start();
+for(let i=0;i<FRAMES;i++){if(stopped)throw Error('Cancelado por usuario');draw(i);await source.add(i/FPS,1/FPS);if(i%15===0){status.textContent='Procesando '+(i+1)+'/'+FRAMES+' cuadros\nTiempo: '+((performance.now()-started)/1000).toFixed(1)+' s';await new Promise(r=>setTimeout(r,0));}}
+await output.finalize();const bytes=output.target.buffer;const blob=new Blob([bytes],{type:'video/mp4'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='prueba-webcodecs-720p30.mp4';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);log('Finalizado: '+(blob.size/1048576).toFixed(2)+' MiB en '+((performance.now()-started)/1000).toFixed(1)+' s');
+}catch(e){log('Error: '+e.message);if(output&&output.state==='started')await output.cancel().catch(()=>{});}finally{busy=false;cancel.disabled=true;run.disabled=false;}};
+</script></body></html>
