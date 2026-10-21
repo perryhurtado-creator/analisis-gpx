@@ -66,8 +66,8 @@ export function slopeStats(points){
   if(slope>0){positiveGain+=e2-e1;positiveDistance+=dd}
  }
  return {
-  maxUp:slopes.length?Math.max(0,...slopes):null,
-  maxDown:slopes.length?Math.min(0,...slopes):null,
+  maxUp:slopes.length?slopes.reduce((m,v)=>Math.max(m,v),0):null,
+  maxDown:slopes.length?slopes.reduce((m,v)=>Math.min(m,v),0):null,
   avgUp:positiveDistance>0?positiveGain/positiveDistance*100:null
  };
 }
@@ -97,7 +97,7 @@ export function speedStats(points){
   if(valid)speeds.push(windowDist/windowMs*3600);
  }
  const ms=intervals.reduce((sum,x)=>sum+x.dt,0),distance=intervals.reduce((sum,x)=>sum+x.dd,0);
- return {max:speeds.length?Math.max(...speeds):null,avg:ms>0?distance/ms*3600:null};
+ return {max:speeds.length?speeds.reduce((m,v)=>Math.max(m,v),0):null,avg:ms>0?distance/ms*3600:null};
 }
 export function heartZones(points){
   const valid=points.filter(p=>Number.isFinite(p.hr));
