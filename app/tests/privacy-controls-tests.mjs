@@ -13,6 +13,7 @@ const online=await posterLocalities(outside,signal,{external:true,fetcher:async(
 assert.equal(calls,1);assert.equal(online.places[0].name,'Lugar de prueba');
 const failed=await posterLocalities(points,signal,{external:true,fetcher:async()=>Response.json({},{status:503})});assert(failed.places.length);assert.match(failed.message,/catálogo/);
 const cancelled=new AbortController();cancelled.abort();await assert.rejects(posterLocalities(points,cancelled.signal),{name:'AbortError'});
+assert.deepEqual(JSON.parse(readFileSync('vercel.json','utf8')),JSON.parse(readFileSync('app/vercel.json','utf8')),'Las dos raíces de despliegue deben conservar las mismas cabeceras');
 const script=readFileSync('app/js/analytics.js','utf8');
 const parentDOM=new JSDOM('<body></body>',{url:'https://app.test/?correo=privado#cartel',referrer:'https://otra.test/persona?token=secreto',runScripts:'outside-only'});
 parentDOM.window.eval(script);const frame=parentDOM.window.document.querySelector('iframe');assert.equal(frame.referrerPolicy,'no-referrer');assert.equal(frame.src,'https://app.test/analytics-frame.html');
