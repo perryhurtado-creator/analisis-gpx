@@ -12,8 +12,8 @@ const flat=parseGPX(gpx([100,100,100,100,100]),'plana.gpx');assert.equal(flat.as
 const partial=parseGPX(gpx([300,290,null,260,250,240,230,220]),'parcial.gpx');
 assert.equal(partial.elevationStatus,'partial');assert.equal(partial.points.at(-1).up,partial.ascent);assert.equal(partial.points.at(-1).down,partial.descent);assert.match(summary(partial).ascent,/parcial/);assert.equal(suggestedPosterLevel(partial),'');
 assert.equal(posterData(flat,{level:''}).level,null);assert.equal(posterData(flat,{level:'verde'}).level.label,'Verde — Principiante');assert.equal(posterData(flat).level,null);
-const xml='<TrainingCenterDatabase><Activities><Activity><Lap><Track>'+[0,1,2].map(i=>`<Trackpoint><Time>${new Date(1700000000000+i*10000).toISOString()}</Time><Position><LatitudeDegrees>20</LatitudeDegrees><LongitudeDegrees>${-100+i*.0001}</LongitudeDegrees></Position><DistanceMeters>${i*20}</DistanceMeters><Extensions><Speed>${i===0?0:10}</Speed></Extensions></Trackpoint>`).join('')+'</Track></Lap></Activity></Activities></TrainingCenterDatabase>';
-const tcx=parseTCX(xml,'sensor.tcx');assert.equal(averageSpeed(tcx.points).value,24);assert.equal(summary(tcx).speed,'24 km/h');assert.equal(averageSpeed(tcx.points).source,'sensor');
+const xml='<TrainingCenterDatabase><Activities><Activity><Lap><Track>'+[0,1,2].map(i=>`<Trackpoint><Time>${new Date(1700000000000+i*10000).toISOString()}</Time><Position><LatitudeDegrees>20</LatitudeDegrees><LongitudeDegrees>${-100+i*.0001}</LongitudeDegrees></Position><DistanceMeters>${i*100}</DistanceMeters><Extensions><Speed>${10}</Speed></Extensions></Trackpoint>`).join('')+'</Track></Lap></Activity></Activities></TrainingCenterDatabase>';
+const tcx=parseTCX(xml,'sensor.tcx');assert.equal(averageSpeed(tcx.points).value,36);assert.equal(summary(tcx).speed,'36 km/h');assert.equal(averageSpeed(tcx.points).source,'sensor');
 assert.equal(summary({...flat,points:flat.points.map(p=>({...p,time:null,speed:0}))}).speed,'0 km/h');
 const pulse=[0,1,2].map(i=>({segmentId:0,breakBefore:i===0,time:i*60000,hr:160}));
 assert.deepEqual(heartZones(pulse),[]);assert.equal(heartZones(pulse,{max:202}).find(z=>z.zone===3).time,120000);assert.equal(heartZones(pulse,{max:180}).find(z=>z.zone===4).time,120000);
@@ -23,5 +23,5 @@ assert.equal(heartZones(pulse,{max:202,rest:50,method:'reserve'}).find(z=>z.zone
 const interrupted=[pulse[0],{...pulse[1],breakBefore:true},{...pulse[2],time:180000}];assert.equal(heartZones(interrupted,{max:202}).reduce((sum,z)=>sum+z.time,0),120000);
 const dense=Array.from({length:50000},(_,i)=>({segmentId:0,breakBefore:i===0,d:0,ele:100,time:i*1000}));
 const began=performance.now();assert.equal(slopeStats(dense).maxUp,null);const elapsed=performance.now()-began;assert(elapsed<2000,`50 000 puntos inmóviles: ${elapsed} ms`);
-const separated=[{d:0,ele:100,segmentId:0,breakBefore:true},{d:50,ele:100,segmentId:0},{d:50,ele:1000,segmentId:1,breakBefore:true},{d:100,ele:1000,segmentId:1}];assert.equal(slopeStats(separated).maxUp,0);
+const separated=[{d:0,ele:100,segmentId:0,breakBefore:true},{d:50,ele:100,segmentId:0},{d:50,ele:1000,segmentId:1,breakBefore:true},{d:100,ele:1000,segmentId:1}];assert.equal(slopeStats(separated).maxUp,null);
 console.log(`PASS auditoría alta: velocidad coherente, cero válido, zonas personales, timestamps en cero, altitud ausente/parcial, acumulados, clasificación explícita y pendientes lineales (${Math.round(elapsed)} ms).`);

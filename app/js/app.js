@@ -55,14 +55,15 @@ function render(){
     <div class="detail-block"><div class="detail-label">Motor de mapa</div><div class="engine" id="engine"><span class="tag">Iniciando</span></div><div class="detail-muted">Ruta y gráficas sincronizadas</div></div>`;
   drawChart('elevationChart',points.map(p=>[p.d/1000,p.ele,p]),'#087443','Altitud (m)',k=>{const p=nearest(k);showPoint(p);seekExplorerKm(k);return p},hidePoint);
   const slopeCell=value=>value!==null?fmt(value)+' %':'—';
+  const slopeLocation=(label,v)=>v?`${label}: km ${fmt(v.from/1000,3)}–${fmt(v.to/1000,3)} (${fmt(v.dd)} m).`:'';
   $('elevationStats').innerHTML=`<table><thead><tr><th>Medición</th><th>Subida máx. +</th><th>Bajada máx. −</th></tr></thead><tbody>
     <tr><td>Corta (≈12 m)</td><td>${slopeCell(slopes.shortUp)}</td><td>${slopeCell(slopes.shortDown)}</td></tr>
-    <tr><td>Sostenida (≈60 m)</td><td>${slopeCell(slopes.maxUp)}</td><td>${slopeCell(slopes.maxDown)}</td></tr>
-    </tbody></table><div class="detail-muted">Pendiente media de subida: ${slopeCell(slopes.avgUp)}. Las pendientes cortas son sensibles al ruido de altitud.</div>`;
+    <tr><td>Sostenida (60 m)</td><td>${slopeCell(slopes.maxUp)}</td><td>${slopeCell(slopes.maxDown)}</td></tr>
+    </tbody></table><div class="detail-muted">Media de ventanas ascendentes: ${slopeCell(slopes.avgUp)}. ${slopeLocation('Subida sostenida máxima',slopes.sustainedUp)} ${slopeLocation('Bajada sostenida máxima',slopes.sustainedDown)} Se interpolan los extremos a 60 m; los huecos de altitud y los cortes se excluyen. Fuente: altitudes del archivo (no permite confirmar GPS, barómetro o SRTM). Las pendientes son sensibles al ruido de altitud.</div>`;
   drawChart('heartChart',points.map(p=>[p.d/1000,p.hr,p]),'#c9362d','Frecuencia cardiaca (lpm)',k=>{const p=nearest(k);showPoint(p);return p},hidePoint);
   renderHeartZones();
   drawChart('speedChart',points.map(p=>[p.d/1000,p.speed,p]),'#2d5fd0','Velocidad (km/h)',k=>{const p=nearest(k);showPoint(p);return p},hidePoint);
-  $('speedStats').innerHTML=`<table><thead><tr><th>Velocidad máxima</th><th>Velocidad media</th></tr></thead><tbody><tr><td>${maxSpeed!==null?fmt(maxSpeed)+' km/h':'—'}</td><td>${avgSpeed!==null?fmt(avgSpeed)+' km/h':'—'}</td></tr></tbody></table>`;
+  $('speedStats').innerHTML=`<table><thead><tr><th>Velocidad máxima</th><th>Velocidad media</th></tr></thead><tbody><tr><td>${maxSpeed!==null?fmt(maxSpeed)+' km/h':'—'}</td><td>${avgSpeed!==null?fmt(avgSpeed)+' km/h':'—'}</td></tr></tbody></table><div class="detail-muted">${esc(speed.method)}${speed.rejected?' Muestras de sensor sin validar: '+speed.rejected+'.':''} Media: ${esc(speedAverage.method)}.</div>`;
   renderSegments();if(compareActivity)renderComparison();createMap(points);setExplorerActivity(points);
 }
 

@@ -9,11 +9,11 @@ export function duration(ms,{seconds=false}={}){
 }
 export const stamp=ms=>new Date(ms).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'});
 export function averageSpeed(points){
-  const samples=points.filter(p=>p.speedSource!=='gps'&&Number.isFinite(p.recordedDistance)).map(p=>p.speed).filter(v=>Number.isFinite(v)&&v>=0&&v<=150);
-  if(samples.length)return {value:avg(samples),source:'sensor',method:'Media de muestras de velocidad del TCX'};
+  const {accepted}=validatedSensorSpeeds(points);
+  if(accepted.length)return {value:avg(accepted),source:'sensor',method:'Media de muestras de sensor validadas'};
   const continuous=continuousSpeed(points);
   if(continuous!==null)return {value:continuous,source:'gps',method:'Distancia GPS / tiempo entre puntos continuos'};
-  const speeds=points.map(p=>p.speed).filter(v=>Number.isFinite(v)&&v>=0&&v<=150);
+  const speeds=points.filter(p=>p.speedSource!=='sensor').map(p=>p.speed).filter(v=>Number.isFinite(v)&&v>=0&&v<=150);
   return {value:avg(speeds),source:speeds.length?'samples':'absent',method:speeds.length?'Media de muestras disponibles':'Sin datos de velocidad'};
 }
 export function elevationText(activity,field='ascent'){
@@ -42,53 +42,116 @@ export function continuousSpeed(points){
   return ms?d/ms*3600:null;
 }
 function smoothedElevation(points,i,starts){
-  const segmentId=points[i]?.segmentId;
-  if(segmentId==null)return null;
-  const vals=[];
-  for(let j=Math.max(starts[i],i-2);j<=Math.min(points.length-1,i+2);j++){
-    if(points[j].segmentId!==segmentId)continue;
-    if(j>i&&points[j].breakBefore)break;
-    if(Number.isFinite(points[j].ele))vals.push(points[j].ele);
+  const vals=[points[i].ele];
+  // No suavizar a través de una altitud ausente ni de un corte.
+  for(const direction of [-1,1])for(let step=1;step<=2;step++){
+    const j=i+direction*step,p=points[j];
+    if(!p||j<starts[i]||p.segmentId!==points[i].segmentId||!Number.isFinite(p.ele))break;
+    if(direction===1?p.breakBefore:points[j+1].breakBefore)break;
+    vals.push(p.ele);
   }
-  return vals.length?avg(vals):null;
+  return avg(vals);
 }
-// Ventanas de distancia y tiempo: evitan máximos falsos por ruido GPS/altímetro.
-// Nunca se calculan valores cruzando trkseg/Track ni puntos sin datos.
+// La ventana corta conserva el suavizado; la sostenida interpola altitudes
+// del archivo a una distancia exacta de 60 m, sin rellenar datos ausentes.
 function gradeWindow(points,starts,windowM,minM,maxM){
  const slopes=[];let j=0,lastMissing=-1;
  for(let i=1;i<points.length;i++){
-  const cur=points[i],first=starts[i];
-  if(!Number.isFinite(points[i-1].ele))lastMissing=i-1;
-  if(i<=first||!Number.isFinite(cur.ele))continue;
+  const cur=points[i],first=starts[i],prev=points[i-1];
+  if(!Number.isFinite(prev.ele)||!Number.isFinite(prev.d)||cur.d<prev.d)lastMissing=i-1;
+  if(i<=first||!Number.isFinite(cur.ele)||!Number.isFinite(cur.d))continue;
   j=Math.max(j,first,lastMissing+1);
   if(j>=i)continue;
-  // El extremo izquierdo solo avanza: coste lineal incluso durante paradas.
   while(j+1<i&&cur.d-points[j+1].d>=windowM)j++;
-  const dd=cur.d-points[j].d;
-  if(dd<minM||dd>maxM)continue;
-  const e1=smoothedElevation(points,j,starts),e2=smoothedElevation(points,i,starts);
+  const span=cur.d-points[j].d;
+  if(span<minM||span>maxM)continue;
+  const from=points[j].d,dd=span,e1=smoothedElevation(points,j,starts),e2=smoothedElevation(points,i,starts);
   if(!Number.isFinite(e1)||!Number.isFinite(e2))continue;
   const slope=(e2-e1)/dd*100;
-  if(Number.isFinite(slope))slopes.push({slope,dd,e1,e2});
+  if(Number.isFinite(slope))slopes.push({slope,dd,e1,e2,from,to:cur.d,segmentId:cur.segmentId});
+ }
+ return slopes;
+}
+function sustainedGrades(points,windowM=60){
+ const slopes=[];
+ let first=0;
+ while(first<points.length){
+  if(!Number.isFinite(points[first].ele)||!Number.isFinite(points[first].d)){first++;continue}
+  let last=first;
+  while(last+1<points.length){
+   const p=points[last],n=points[last+1];
+   if(n.breakBefore||n.segmentId!==p.segmentId||!Number.isFinite(n.ele)||!Number.isFinite(n.d)||n.d<p.d)break;
+   last++;
+  }
+  // Los extremos de una diferencia de dos interpolaciones lineales están
+  // donde uno de sus extremos coincide con una muestra. Fusionar ambas
+  // secuencias evita depender de la fase del muestreo y mantiene coste O(n).
+  let end=first,start=first,left=first,right=first,previous=-Infinity;
+  const minEnd=points[first].d+windowM,maxEnd=points[last].d;
+  while(end<=last&&points[end].d<minEnd)end++;
+  while(end<=last||start<=last){
+   const a=end<=last?points[end].d:Infinity;
+   const b=start<=last?points[start].d+windowM:Infinity;
+   const to=Math.min(a,b);if(to>maxEnd)break;
+   if(a===to)end++;if(b===to)start++;
+   if(to===previous)continue;previous=to;
+   const from=to-windowM;
+   while(left<last&&points[left+1].d<=from)left++;
+   while(right<last&&points[right+1].d<=to)right++;
+   const interpolate=(i,d)=>{
+    const p=points[i],n=points[i+1];
+    return d===p.d?p.ele:p.ele+(n.ele-p.ele)*(d-p.d)/(n.d-p.d);
+   };
+   const e1=interpolate(left,from),e2=interpolate(right,to),slope=(e2-e1)/windowM*100;
+   if(Number.isFinite(slope))slopes.push({slope,dd:windowM,e1,e2,from,to,segmentId:points[first].segmentId});
+  }
+  first=last+1;
  }
  return slopes;
 }
 export function slopeStats(points){
  const starts=runStarts(points);
  const short=gradeWindow(points,starts,12,8,35);
- const sustained=gradeWindow(points,starts,60,30,180);
+ const sustained=sustainedGrades(points);
  const maxUp=values=>values.length?values.reduce((m,v)=>Math.max(m,v.slope),0):null;
  const maxDown=values=>values.length?values.reduce((m,v)=>Math.min(m,v.slope),0):null;
+ const sustainedUp=sustained.reduce((best,v)=>v.slope>0&&(!best||v.slope>best.slope)?v:best,null);
+ const sustainedDown=sustained.reduce((best,v)=>v.slope<0&&(!best||v.slope<best.slope)?v:best,null);
  let gain=0,distance=0;
  for(const x of sustained)if(x.slope>0){gain+=x.e2-x.e1;distance+=x.dd}
- return {maxUp:maxUp(sustained),maxDown:maxDown(sustained),
+ return {maxUp:maxUp(sustained),maxDown:maxDown(sustained),sustainedUp,sustainedDown,
   shortUp:maxUp(short),shortDown:maxDown(short),avgUp:distance>0?gain/distance*100:null};
 }
-export function speedStats(points){
- if(points.some(p=>Number.isFinite(p.recordedDistance))){
-  const samples=points.map(p=>p.speed).filter(v=>Number.isFinite(v)&&v>=0&&v<=150);
-  if(samples.length)return {max:samples.reduce((m,v)=>Math.max(m,v),0),avg:avg(samples)};
+function validatedSensorSpeeds(points){
+ const accepted=[];let rejected=0;
+ for(let i=0;i<points.length;i++){
+  const p=points[i];
+  if(p.speedSource!=='sensor'||!Number.isFinite(p.speed))continue;
+  let supportMs=0,confirmed=false,contradicted=false;
+  for(const k of [i-1,i+1]){
+   const n=points[k];if(!n)continue;
+   const a=k<i?n:p,b=k<i?p:n;
+   if(b.breakBefore||a.segmentId!==b.segmentId||!Number.isFinite(a.time)||!Number.isFinite(b.time))continue;
+   const dt=b.time-a.time;if(dt<=0||dt>30000)continue;
+   if(Number.isFinite(a.recordedDistance)&&Number.isFinite(b.recordedDistance)){
+    const dd=b.recordedDistance-a.recordedDistance,v=dd/dt*3600;
+    // DistanceMeters es independiente de la geometría GPS y puede confirmar
+    // un pico breve real. Un contador reiniciado no aporta corroboración.
+    if(dd<0||Math.abs(v-p.speed)>Math.max(5,p.speed*.25))contradicted=true;
+    else confirmed=true;
+   }
+   if(n.speedSource==='sensor'&&Number.isFinite(n.speed)&&Math.abs(n.speed-p.speed)<=Math.max(5,p.speed*.20))supportMs+=dt;
+  }
+  // Sin distancia registrada se requieren al menos 1 s de muestras vecinas.
+  if(p.speed>=0&&p.speed<=150&&!contradicted&&(confirmed||supportMs>=1000))accepted.push(p.speed);
+  else rejected++;
  }
+ return {accepted,rejected};
+}
+export function speedStats(points){
+ const {accepted,rejected}=validatedSensorSpeeds(points);
+ if(accepted.length)return {max:accepted.reduce((m,v)=>Math.max(m,v),0),avg:avg(accepted),source:'sensor',rejected,
+  method:'Máxima de sensor validada con intervalos continuos de hasta 30 s: distancia registrada (tolerancia 25 % o 5 km/h) o, sin distancia, 1 s de muestras vecinas coherentes.'};
  const starts=runStarts(points),speeds=[],intervals=[];
  // Ventana de al menos 5 s para no confundir saltos aislados de GPS con velocidad real.
  // Se limita el tiempo entre muestras a 30 s y se rechazan desplazamientos físicamente
@@ -114,7 +177,8 @@ export function speedStats(points){
   if(valid)speeds.push(windowDist/windowMs*3600);
  }
  const ms=intervals.reduce((sum,x)=>sum+x.dt,0),distance=intervals.reduce((sum,x)=>sum+x.dd,0);
- return {max:speeds.length?speeds.reduce((m,v)=>Math.max(m,v),0):null,avg:ms>0?distance/ms*3600:null};
+ return {max:speeds.length?speeds.reduce((m,v)=>Math.max(m,v),0):null,avg:ms>0?distance/ms*3600:null,source:'gps',rejected,
+  method:'Máxima GPS: distancia / tiempo en ventanas de 5 a 30 s; se excluyen cortes e intervalos superiores a 100 km/h.'};
 }
 export function heartZones(points,settings={}){
   const valid=points.filter(p=>Number.isFinite(p.hr));

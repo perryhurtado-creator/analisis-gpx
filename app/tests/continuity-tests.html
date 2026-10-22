@@ -126,7 +126,7 @@ run('TCX continuo mantiene métricas',()=>{
 run('breakBefore interrumpe speedStats y slopeStats aunque segmentId sea igual',()=>{
   const points=[{segmentId:0,breakBefore:true,d:0,time:1000,ele:0},{segmentId:0,breakBefore:false,d:50,time:6000,ele:0},{segmentId:0,breakBefore:true,d:50,time:7000,ele:1000},{segmentId:0,breakBefore:false,d:100,time:12000,ele:1000}];
   assert(speedStats(points).avg===36&&speedStats(points).max===36,'velocidad por runs');
-  assert(slopeStats(points).maxUp===0,'pendiente sin suavizado entre runs');
+  assert(slopeStats(points).maxUp===null,'no hay 60 m continuos para pendiente sostenida');
 });
 run('Mapa crea líneas independientes y gráficos interrumpen el path',()=>{
   const oldL=window.L,lines=[];
