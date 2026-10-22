@@ -19,9 +19,15 @@ export function accumulateElevation(points){
   for(let i=0;i<points.length;i++){
     const p=points[i];let ele=null;
     if(Number.isFinite(p.ele)){
-      let sum=0,count=0;
-      for(let j=Math.max(starts[i],i-2);j<=Math.min(ends[i],i+2);j++){sum+=points[j].ele;count++}
-      ele=sum/count;
+      const blockStart=starts[i],blockEnd=ends[i];
+      const blockLength=blockEnd-blockStart+1;
+      if(blockLength<4||i===blockStart||i===blockEnd){
+        ele=p.ele;
+      }else{
+        let sum=0,count=0;
+        for(let j=Math.max(blockStart,i-2);j<=Math.min(blockEnd,i+2);j++){sum+=points[j].ele;count++}
+        ele=sum/count;
+      }
     }
     if(ele===null){anchor=null;direction=0}
     else if(i===starts[i]||anchor===null){anchor=ele;direction=0}
