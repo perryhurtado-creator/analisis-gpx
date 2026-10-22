@@ -133,6 +133,14 @@
               <label>Descansos<select id="tripBreaks"><option value="0">Sin descansos</option><option value="1">1 descanso</option><option value="2" selected>2 descansos</option><option value="3">3 descansos</option><option value="4">4 descansos</option><option value="5">5 descansos</option><option value="6">6 descansos</option></select></label>
               <label>Minutos por descanso<select id="tripBreakMinutes"><option value="5">5 min</option><option value="10" selected>10 min</option><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option></select></label>
             </div>
+            <div class="trip-stop-controls">
+              <label>Tipo de parada<select id="tripStopType"><option value="food">🍽️ Comer</option><option value="water">💧 Hidratación</option><option value="rest">☕ Descanso</option><option value="dog">🐾 Revisión de perros</option></select></label>
+              <label>Duración<select id="tripStopDuration"><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20">20 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option></select></label>
+              <label>Nombre o referencia<input id="tripStopName" maxlength="90" placeholder="Ej. Comida en el pueblo"></label>
+              <button type="button" class="action-btn" id="tripPickStop" disabled>📍 Elegir parada en el mapa</button>
+            </div>
+            <p class="planner-note" id="tripStopStatus">Traza una ruta y selecciona «Elegir parada en el mapa». El punto se ajustará al recorrido.</p>
+            <div id="tripStopsList" class="trip-stops-list"></div>
             <div class="trip-summary" id="tripSummary" role="status">Traza una ruta para generar el itinerario.</div>
             <ol class="trip-timeline" id="tripTimeline"></ol>
             <div class="action-row"><button type="button" class="action-btn secondary" id="tripCopy" disabled>Copiar itinerario</button></div>
