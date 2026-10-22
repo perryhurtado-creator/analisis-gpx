@@ -1,0 +1,22 @@
+name: IA-01 GPX elevation benchmark
+on:
+  push:
+    branches:
+      - test/ia01-gpx-altimetria
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ia01:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate synthetic GPX oracle
+        run: node tests/ia01/run-oracle.mjs
+      - name: Compare current filtered elevation
+        run: node tests/ia01/compare-app.mjs
+      - name: Syntax checks
+        run: npm run check
