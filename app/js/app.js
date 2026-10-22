@@ -77,7 +77,15 @@ for(const id of ['heartMax','heartRest','heartMethod'])$(id).addEventListener('c
 
 function renderSegments(){
   const rows=segments(activity);
-  $('segments').innerHTML=rows.map(r=>`<tr><td><span class="seg-bullet"></span>Tramo ${r.index}</td><td>${fmt(r.distance)} km</td><td>${duration(r.time)}</td><td>${r.speed?fmt(r.speed)+' km/h':'—'}</td><td>${r.hr?Math.round(r.hr)+' lpm':'—'}</td></tr>`).join('')||'<tr><td colspan="5">No hay suficientes datos para calcular segmentos.</td></tr>';
+  let distance=0,time=0,shownMetres=0,shownSeconds=0;
+  $('segments').innerHTML=rows.map(r=>{
+    // Repartir el redondeo entre filas para conservar también los totales visibles.
+    distance+=r.distance*1000;time+=r.time??0;
+    const metres=Math.round(distance)-shownMetres,seconds=Math.round(time/1000)-shownSeconds;
+    shownMetres+=metres;shownSeconds+=seconds;
+    const elapsed=r.time===null?'—':seconds?duration(seconds*1000,{seconds:true}):'0 s';
+    return `<tr><td><span class="seg-bullet"></span>Tramo ${r.index}</td><td>${fmt(metres/1000,3)} km</td><td>${elapsed}</td><td>${Number.isFinite(r.speed)?fmt(r.speed)+' km/h':'—'}</td><td>${r.hr?Math.round(r.hr)+' lpm':'—'}</td></tr>`;
+  }).join('')||'<tr><td colspan="5">No hay suficientes datos para calcular segmentos.</td></tr>';
 }
 function renderComparison(){
   if(!activity||!compareActivity)return;

@@ -1,9 +1,10 @@
 import {elevationCoverage} from './elevation.js';
 export const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 export const fmt=(v,n=1)=>new Intl.NumberFormat('es-MX',{maximumFractionDigits:n}).format(v);
-export function duration(ms){
+export function duration(ms,{seconds=false}={}){
   if(!Number.isFinite(ms)||ms<=0)return '—';
   let s=Math.round(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60),sec=s%60;
+  if(seconds)return h?`${h} h ${m} min ${sec} s`:(m?`${m} min ${sec} s`:`${sec} s`);
   return h?`${h} h ${m} min`:(m?`${m} min`:`${sec} s`);
 }
 export const stamp=ms=>new Date(ms).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'});
@@ -30,14 +31,6 @@ export function summary(a){
 function runStarts(points){
   let start=0;
   return points.map((p,i)=>{if(i===0||p.breakBefore||p.segmentId!==points[i-1].segmentId)start=i;return start});
-}
-function continuousTime(points){
-  let ms=0;
-  for(let i=1;i<points.length;i++){
-    const a=points[i-1],b=points[i];
-    if(!b.breakBefore&&a.segmentId===b.segmentId&&Number.isFinite(a.time)&&Number.isFinite(b.time)&&b.time>a.time)ms+=b.time-a.time;
-  }
-  return ms||null;
 }
 export function continuousSpeed(points){
   let ms=0,d=0;
@@ -144,16 +137,36 @@ export function heartZones(points,settings={}){
   return ms.map((time,i)=>({zone:i+1,min:bounds[i],max:i===4?null:bounds[i+1],time}));
 }
 export function segments(activity){
-  const points=activity.points,rows=[];
-  for(let i=0;i<5;i++){
-    const min=activity.distance*i/5,max=activity.distance*(i+1)/5;
-    const seg=points.filter(p=>p.d>=min&&(i===4?p.d<=max:p.d<max));
-    if(seg.length<2)continue;
-    const first=seg[0],last=seg.at(-1),hrs=seg.map(p=>p.hr).filter(Number.isFinite),cads=seg.map(p=>p.cad).filter(Number.isFinite);
-    const elapsed=continuousTime(seg);
-    const sp=continuousSpeed(seg)??avg(seg.map(p=>p.speed).filter(Number.isFinite));
-    rows.push({index:i+1,distance:(last.d-first.d)/1000,time:elapsed,speed:sp,up:Math.max(0,last.up-first.up),
-      hr:hrs.length?avg(hrs):null,cad:cads.length?avg(cads):null});
+  const {points,distance:total}=activity;
+  if(!Number.isFinite(total)||total<=0||points.length<2)return [];
+  const bins=Array.from({length:5},()=>({distance:0,time:0,timedDistance:0,up:0,hasUp:false,hr:[],cad:[],speed:[]}));
+  const at=d=>Math.min(4,Math.max(0,Math.floor(d/total*5)));
+  // Conservar la media de muestras de sensores dentro de cada tramo.
+  for(const p of points){
+    if(!Number.isFinite(p.d)||p.d<0||p.d>total)continue;
+    const bin=bins[at(p.d)];
+    for(const key of ['hr','cad','speed'])if(Number.isFinite(p[key]))bin[key].push(p[key]);
   }
-  return rows;
+  for(let i=1;i<points.length;i++){
+    const a=points[i-1],b=points[i];
+    if(b.breakBefore||a.segmentId!==b.segmentId||!Number.isFinite(a.d)||!Number.isFinite(b.d)||b.d<a.d)continue;
+    const dd=b.d-a.d;
+    const dt=Number.isFinite(a.time)&&Number.isFinite(b.time)&&b.time>a.time?b.time-a.time:null;
+    // Una parada pertenece a un solo tramo, incluso al final de la actividad.
+    if(dd===0){if(dt!==null&&b.d>=0&&b.d<=total)bins[at(b.d)].time+=dt;continue}
+    for(let k=0;k<5;k++){
+      const from=Math.max(a.d,total*k/5),to=Math.min(b.d,total*(k+1)/5),overlap=to-from;
+      if(overlap<=0)continue;
+      const bin=bins[k],fraction=overlap/dd;
+      bin.distance+=overlap;
+      // Interpolar el tiempo en cada límite sin duplicar ni perder intervalos.
+      if(dt!==null){bin.time+=dt*fraction;bin.timedDistance+=overlap}
+      if(Number.isFinite(a.up)&&Number.isFinite(b.up)){
+        bin.up+=Math.max(0,b.up-a.up)*fraction;bin.hasUp=true;
+      }
+    }
+  }
+  return bins.map((bin,i)=>({index:i+1,distance:bin.distance/1000,time:bin.time||null,
+    speed:bin.time>0?bin.timedDistance/bin.time*3600:avg(bin.speed),
+    up:bin.hasUp?bin.up:null,hr:avg(bin.hr),cad:avg(bin.cad)}));
 }

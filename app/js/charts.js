@@ -6,18 +6,24 @@ export function clearCharts(){charts.clear()}
 export function drawChart(id,pairs,color,label,onHover,onLeave){
   const host=document.getElementById(id);
   charts.delete(id);
-  const rawRuns=[];
-  let rawRun=[];
+  const runs=[];
+  let run=[],previous=null,xMax=0;
+  const flush=()=>{if(run.length)runs.push(run);run=[]};
   for(const pair of pairs){
-    if(pair[2]?.breakBefore&&rawRun.length){rawRuns.push(rawRun);rawRun=[]}
-    rawRun.push(pair);
+    const point=pair[2];
+    if(Number.isFinite(pair[0]))xMax=Math.max(xMax,pair[0]);
+    if(point?.breakBefore||(point&&previous&&point.segmentId!==previous.segmentId))flush();
+    if(!Number.isFinite(pair[0])||!Number.isFinite(pair[1]))flush();
+    else run.push(pair);
+    previous=point;
   }
-  if(rawRun.length)rawRuns.push(rawRun);
-  const runs=rawRuns.map(run=>run.filter(p=>Number.isFinite(p[1]))).filter(run=>run.length);
+  flush();
   const vals=runs.flat();
   if(vals.length<2){host.innerHTML='<div class="chart-empty">Este archivo no incluye este dato.</div>';return}
-  const W=900,H=240,p={l:48,r:15,t:15,b:28},xMax=Math.max(...vals.map(x=>x[0]))||1;
-  const rawMin=Math.min(...vals.map(x=>x[1])),rawMax=Math.max(...vals.map(x=>x[1])),pad=Math.max(1,(rawMax-rawMin)*.12),lo=rawMin-pad,hi=rawMax+pad;
+  const W=900,H=240,p={l:48,r:15,t:15,b:28};xMax=xMax||1;
+  let rawMin=Infinity,rawMax=-Infinity;
+  for(const pair of vals){rawMin=Math.min(rawMin,pair[1]);rawMax=Math.max(rawMax,pair[1])}
+  const pad=Math.max(1,(rawMax-rawMin)*.12),lo=rawMin-pad,hi=rawMax+pad;
   const x=v=>p.l+v/xMax*(W-p.l-p.r),y=v=>H-p.b-(v-lo)/(hi-lo)*(H-p.t-p.b);
   const paths=runs;
   const pathFor=run=>run.map((v,i)=>(i?'L':'M')+x(v[0]).toFixed(1)+' '+y(v[1]).toFixed(1)).join('');
@@ -31,6 +37,7 @@ export function drawChart(id,pairs,color,label,onHover,onLeave){
     <line x1="${p.l}" x2="${W-p.r}" y1="${p.t}" y2="${p.t}" stroke="#e5eae6"/>
     <line x1="${p.l}" x2="${W-p.r}" y1="${H-p.b}" y2="${H-p.b}" stroke="#e5eae6"/>
     <path d="${area}" fill="url(#g-${id})"/><path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round"/>
+    ${runs.filter(run=>run.length===1).map(run=>`<circle cx="${x(run[0][0])}" cy="${y(run[0][1])}" r="2.5" fill="${color}"/>`).join('')}
     <line class="guide" x1="0" x2="0" y1="${p.t}" y2="${H-p.b}" stroke="#40574d" stroke-dasharray="4 4" opacity="0"/>
     <text class="readout" y="${p.t+14}" font-size="12" fill="#253a30"></text>
     <text x="2" y="${p.t+6}" font-size="11" fill="#718178">${fmt(hi)}</text>

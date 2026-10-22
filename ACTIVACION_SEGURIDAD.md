@@ -83,3 +83,11 @@ El responsable proporcionó su nombre completo y domicilio de contacto y se inco
 Se identificó la instalación Upstash y el par `KV_REST_API_URL`/`KV_REST_API_TOKEN` en preview y producción sin descifrar valores. Su creación precede al despliegue `1b64e2c`, que ya incluye el soporte para ese par. `rateLimitMode` selecciona distribuido y el código no continúa hacia el proveedor si Redis falla. Una búsqueda devolvió 200 con cinco resultados, una petición inválida devolvió 400 y una ruta de prueba devolvió 200 con altimetría completa. Esto verifica el uso funcional del contador en el despliegue, sin pruebas de carga ni inspección de claves o secretos. La concurrencia sigue limitada por instancia; no se afirma haber forzado un 429 entre dos instancias reales.
 
 Las 50 000 unidades incluidas en Vercel Web Analytics Hobby son eventos mensuales (https://vercel.com/docs/analytics/limits-and-pricing), distintos de visitantes únicos y de los comandos Redis. La prueba no confirma plan, región, auto-upgrade o consumo del recurso contratado.
+
+### Correcciones A11 y A12 — tramos y gráficas
+
+A12: los intervalos continuos se reparten proporcionalmente en los límites exactos de los cinco rangos de distancia. Se conserva distancia y tiempo asignables, incluidas pausas, sin unir segmentos separados ni inventar horarios. La velocidad usa la distancia con tiempo válido. Las medias de sensores conservan las muestras originales por tramo. La tabla muestra segundos y metros y reparte el redondeo para conservar los totales visibles. Se aclara que los huecos entre segmentos no se suman como tiempo registrado continuo.
+
+A11: las gráficas del resumen interrumpen el trazo y el área tanto por cortes como por valores ausentes. Las observaciones aisladas aparecen como puntos. El eje de distancia conserva la extensión de toda la actividad aunque falte el sensor al final, manteniendo los cursores sincronizados.
+
+Regresiones: `segments-tests.mjs` y `charts-gaps-tests.mjs`; CI comprueba también los cinco tramos visibles y huecos de altitud/FC en una importación GPX completa. No se modifican pendientes sostenidas, filtros de velocidad máxima, límites de archivos ni exportadores.
