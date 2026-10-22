@@ -2,11 +2,34 @@ import {requestDeadline} from './network-timeout.js';
 import {currentLocation} from './device-location.js';
 import {elevationProfile,elevationSVG} from './planner-elevation.mjs';
 import {addPlannerLayers} from './planner-layers.js';
-let map=null,markers=[],routeLayer=null,route=null,controller=null,revision=0,observer=null,editMode=null;
+let map=null,markers=[],routeLayer=null,route=null,controller=null,revision=0,observer=null,editMode=null,tripProfile=null,tripText='';
 const $=id=>document.getElementById(id);
 const status=text=>{$('plannerStatus').textContent=text};
+function renderTrip(){
+ const summary=$('tripSummary'),timeline=$('tripTimeline'),copy=$('tripCopy');
+ if(!route){summary.textContent='Traza una ruta para generar el itinerario.';timeline.replaceChildren();copy.disabled=true;tripText='';return}
+ const km=route.distance/1000,ascent=tripProfile?.ascent;
+ const mode=$('tripMode').value,level=$('tripLevel').value;
+ const stops=Number($('tripBreaks').value),pause=Number($('tripBreakMinutes').value);
+ const pace={mtb:12,bikejoring:14,canicross:7.5}[mode],levelFactor={green:.9,blue:1,red:1.08,black:1.13}[level];
+ const penalty=Number.isFinite(ascent)?1+ascent/Math.max(route.distance,1)*4.5:1;
+ const moving=Math.round(km/pace*60*penalty*levelFactor),total=moving+stops*pause;
+ const raw=$('tripStart').value||'07:00',parts=raw.split(':').map(Number);
+ const clock=t=>{const m=((parts[0]*60+parts[1]+t)%1440+1440)%1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
+ const name=$('tripName').value.trim()||'Salida Perros en Bicicleta';
+ const labels={mtb:'MTB',bikejoring:'Bikejoring',canicross:'Canicross'};
+ const format=m=>Math.floor(m/60)+' h '+String(m%60).padStart(2,'0')+' min';
+ summary.textContent=labels[mode]+' · '+km.toFixed(2)+' km · '+(Number.isFinite(ascent)?'+'+Math.round(ascent)+' m':'desnivel no disponible')+' · En movimiento '+format(moving)+' · Descansos '+stops*pause+' min · Llegada estimada '+clock(total);
+ const items=[{km:0,min:0,title:'Inicio',detail:'Revisión del equipo'}];
+ for(let i=1;i<=stops;i++)items.push({km:km*i/(stops+1),min:Math.round(moving*i/(stops+1))+(i-1)*pause,title:'Descanso '+i,detail:pause+' min · '+(mode==='mtb'?'Hidratación':'Hidratación y revisión del perro')});
+ items.push({km,min:total,title:'Llegada',detail:'Recuperación y revisión final'});
+ timeline.replaceChildren();
+ for(const item of items){const li=document.createElement('li');li.className='trip-stop';const time=document.createElement('strong');time.textContent=clock(item.min);const content=document.createElement('span');content.textContent='Km '+item.km.toFixed(1)+' · '+item.title+' — '+item.detail;li.append(time,content);timeline.append(li)}
+ tripText=['PERROS EN BICICLETA',name,summary.textContent,...items.map(x=>clock(x.min)+' | Km '+x.km.toFixed(1)+' | '+x.title+' — '+x.detail),'Horarios orientativos; verifica terreno y clima antes de salir.'].join('\n');
+ copy.disabled=false;
+}
 function invalidateRoute(){
-  revision++;controller?.abort();controller=null;route=null;
+  revision++;controller?.abort();controller=null;route=null;tripProfile=null;renderTrip();
   if(routeLayer){routeLayer.remove();routeLayer=null}
   $('plannerDistance').textContent='—';$('plannerDuration').textContent='—';
   $('plannerAscent').textContent='—';$('plannerDescent').textContent='—';$('plannerAltitude').textContent='—';$('plannerElevationStatus').textContent='';$('plannerElevationChart').innerHTML='<div class="chart-empty">Calcula una ruta para ver la altimetría.</div>';$('plannerDownload').disabled=true;
@@ -45,12 +68,12 @@ async function calculate(){
     map.fitBounds(routeLayer.getBounds(),{padding:[30,30],maxZoom:16});
     $('plannerDistance').textContent=`${(data.distance/1000).toLocaleString('es-MX',{maximumFractionDigits:2})} km`;
     const minutes=Math.max(1,Math.round(data.duration/60));$('plannerDuration').textContent=minutes>=60?`${Math.floor(minutes/60)} h ${minutes%60} min`:`${minutes} min`;
-    const profile=elevationProfile(data.geometry.coordinates,data.distance);
+    const profile=elevationProfile(data.geometry.coordinates,data.distance);tripProfile=profile;
     const height=n=>Number.isFinite(n)?Math.round(n).toLocaleString('es-MX')+' m':'No disponible';
     $('plannerAscent').textContent=height(profile.ascent);$('plannerDescent').textContent=height(profile.descent);$('plannerAltitude').textContent=profile.min!==null?height(profile.min)+' – '+height(profile.max):'No disponible';
     $('plannerElevationChart').innerHTML=elevationSVG(profile);
     $('plannerElevationStatus').textContent=data.elevation?.message||'Altimetría estimada SRTM, suavizada con tolerancia vertical de ±5 m. Gráfica, acumulados y GPX usan las mismas alturas.';
-    $('plannerDownload').disabled=false;status('Ruta lista. Arrastra cualquier punto para recalcular o pulsa Añadir punto intermedio.');
+    $('plannerDownload').disabled=false;renderTrip();status('Ruta lista. Arrastra cualquier punto para recalcular o pulsa Añadir punto intermedio.');
   }catch(error){if(current===revision&&error.name!=='AbortError')status(error.message)}finally{done();if(current===revision)controller=null}
 }
 const searches={Origin:{controller:null,revision:0,results:[]},Destination:{controller:null,revision:0,results:[]}};
@@ -112,6 +135,9 @@ export function openPlanner(){
   map=L.map('plannerMap').setView([20.5888,-100.3899],12);
   addPlannerLayers(map,L);
   setupPlaceSearch('Origin');setupPlaceSearch('Destination');
+  ['tripMode','tripName','tripStart','tripLevel','tripBreaks','tripBreakMinutes'].forEach(id=>$(id).addEventListener('input',renderTrip));
+  $('tripCopy').onclick=async()=>{if(!tripText)return;try{await navigator.clipboard.writeText(tripText);status('Itinerario copiado al portapapeles.')}catch{status('No se pudo copiar el itinerario.')}};
+  renderTrip();
   map.on('click',e=>{
     if(editMode==='origin'||editMode==='destination'){
       if(!markers.length)markers.push(marker(e.latlng));else markers[editMode==='origin'?0:markers.length-1].setLatLng(e.latlng);editMode=null;labels();
