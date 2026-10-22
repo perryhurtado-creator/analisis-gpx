@@ -23,5 +23,5 @@ assert.equal(heartZones(pulse,{max:202,rest:50,method:'reserve'}).find(z=>z.zone
 const interrupted=[pulse[0],{...pulse[1],breakBefore:true},{...pulse[2],time:180000}];assert.equal(heartZones(interrupted,{max:202}).reduce((sum,z)=>sum+z.time,0),120000);
 const dense=Array.from({length:50000},(_,i)=>({segmentId:0,breakBefore:i===0,d:0,ele:100,time:i*1000}));
 const began=performance.now();assert.equal(slopeStats(dense).maxUp,null);const elapsed=performance.now()-began;assert(elapsed<2000,`50 000 puntos inmóviles: ${elapsed} ms`);
-const separated=[{d:0,ele:100,segmentId:0,breakBefore:true},{d:50,ele:100,segmentId:0},{d:50,ele:1000,segmentId:1,breakBefore:true},{d:100,ele:1000,segmentId:1}];assert.equal(slopeStats(separated).maxUp,0);
+const separated=[{d:0,ele:100,segmentId:0,breakBefore:true},{d:50,ele:100,segmentId:0},{d:50,ele:1000,segmentId:1,breakBefore:true},{d:100,ele:1000,segmentId:1}];assert.equal(slopeStats(separated).maxUp,null);
 console.log(`PASS auditoría alta: velocidad coherente, cero válido, zonas personales, timestamps en cero, altitud ausente/parcial, acumulados, clasificación explícita y pendientes lineales (${Math.round(elapsed)} ms).`);

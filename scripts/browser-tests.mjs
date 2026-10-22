@@ -61,5 +61,15 @@ try{
   const pngPromise=page.waitForEvent('download');await page.locator('#downloadPoster').click();const png=await pngPromise;const bytes=await readFile(await png.path());assert.equal(bytes.readUInt32BE(16),1080);assert.equal(bytes.readUInt32BE(20),1620);
   await page.locator('a[href="#video"]').click();await page.locator('#videoElevationChart svg').waitFor();const downloadPromise=page.waitForEvent('download',{timeout:120000});await page.locator('#makeVideo').click();await page.getByRole('button',{name:'Entendido, generar video'}).click();const movie=await downloadPromise;assert((await stat(await movie.path())).size>1024);assert(/\.(mp4|webm)$/.test(movie.suggestedFilename()));
   assert.deepEqual(errors,[]);console.log('PASS navegador: carga GPX, Leaflet, zonas personales, explorador, cartel PNG y video real descargado.');
+  assert((await page.locator('#elevationStats').innerText()).includes('Sostenida (60 m)'));
+  assert((await page.locator('#elevationStats').innerText()).includes('Fuente: altitudes del archivo'));
+  await page.locator('a[href="#resumen"]').click();
+  const tcx='<TrainingCenterDatabase><Activities><Activity><Lap><Track>'+[36,36,120,36,36].map((speed,i)=>`<Trackpoint><Time>${new Date(1700000000000+i*1000).toISOString()}</Time><Position><LatitudeDegrees>20</LatitudeDegrees><LongitudeDegrees>${-100+i*.0001}</LongitudeDegrees></Position><DistanceMeters>${i*10}</DistanceMeters><AltitudeMeters>${100+i}</AltitudeMeters><Extensions><Speed>${speed/3.6}</Speed></Extensions></Trackpoint>`).join('')+'</Track></Lap></Activity></Activities></TrainingCenterDatabase>';
+  await page.locator('#fileInput').setInputFiles({name:'pico-sensor.tcx',mimeType:'application/xml',buffer:Buffer.from(tcx)});
+  await page.waitForFunction(()=>document.querySelector('#routeMeta').textContent.startsWith('TCX'));
+  assert.equal(await page.locator('#speedStats tbody td').first().innerText(),'36 km/h');
+  assert((await page.locator('#speedStats').innerText()).includes('Muestras de sensor sin validar: 1'));
+  assert.equal(await page.locator('#elevationStats tbody tr').nth(1).locator('td').nth(1).innerText(),'—','Menos de 60 m no tiene pendiente sostenida');
+  assert.deepEqual(errors,[]);console.log('PASS navegador: TCX descarta pico de 120 km/h, explica la fuente y no anuncia pendiente sostenida con menos de 60 m.');
   await context.close();
 }finally{await browser?.close();await new Promise(r=>server.close(r))}
