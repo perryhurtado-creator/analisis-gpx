@@ -2,26 +2,79 @@ import {requestDeadline} from './network-timeout.js';
 import {currentLocation} from './device-location.js';
 import {elevationProfile,elevationSVG} from './planner-elevation.mjs';
 import {addPlannerLayers} from './planner-layers.js';
-let map=null,markers=[],routeLayer=null,route=null,controller=null,revision=0,observer=null,editMode=null,tripProfile=null,tripText='';
+let map=null,markers=[],routeLayer=null,route=null,controller=null,revision=0,observer=null,editMode=null,tripProfile=null,tripText='',tripStops=[],stopMarkers=[],stopPicking=false;
 const $=id=>document.getElementById(id);
 const status=text=>{$('plannerStatus').textContent=text};
+const stopLabels={food:'🍽️ Comer',water:'💧 Hidratación',rest:'☕ Descanso',dog:'🐾 Revisión de perros'};
+function clearStops(){
+ stopPicking=false;tripStops=[];stopMarkers.forEach(m=>m.remove());stopMarkers=[];
+ $('tripPickStop').textContent='📍 Elegir parada en el mapa';$('tripPickStop').disabled=true;
+ $('tripStopStatus').textContent='Traza una ruta y selecciona «Elegir parada en el mapa».';
+ renderStopsList();
+}
+function geoDistance(a,b){
+ const rad=Math.PI/180,R=6371000,lat=(a[1]+b[1])/2*rad;
+ return Math.hypot((b[1]-a[1])*rad*R,(b[0]-a[0])*rad*R*Math.cos(lat));
+}
+function closestOnRoute(latlng){
+ const coords=route?.geometry?.coordinates;
+ if(!Array.isArray(coords)||coords.length<2)return null;
+ let best=null,accumulated=0;
+ for(let i=1;i<coords.length;i++){
+  const a=coords[i-1],b=coords[i],dy=(b[1]-a[1])*111195,dx=(b[0]-a[0])*111195*Math.cos(latlng.lat*Math.PI/180);
+  const px=(latlng.lng-a[0])*111195*Math.cos(latlng.lat*Math.PI/180),py=(latlng.lat-a[1])*111195;
+  const length2=dx*dx+dy*dy,t=length2?Math.max(0,Math.min(1,(px*dx+py*dy)/length2)):0;
+  const lon=a[0]+(b[0]-a[0])*t,lat=a[1]+(b[1]-a[1])*t;
+  const error=Math.hypot(px-dx*t,py-dy*t),length=geoDistance(a,b);
+  if(!best||error<best.error)best={lat,lon,error,km:(accumulated+length*t)/1000};
+  accumulated+=length;
+ }
+ if(!best)return null;
+ // Escala distancia geodésica a la distancia publicada por el proveedor.
+ best.km*=route.distance/Math.max(accumulated,1);
+ return best;
+}
+function renderStopsList(){
+ const host=$('tripStopsList');host.replaceChildren();
+ const ordered=[...tripStops].sort((a,b)=>a.km-b.km);
+ ordered.forEach((stop,index)=>{
+  const item=document.createElement('div');item.className='trip-stop-entry';
+  const description=document.createElement('span');description.textContent=(index+1)+'. '+stopLabels[stop.type]+' · Km '+stop.km.toFixed(1)+' · '+stop.minutes+' min'+(stop.name?' · '+stop.name:'');
+  const remove=document.createElement('button');remove.type='button';remove.className='action-btn secondary';remove.textContent='Eliminar';remove.onclick=()=>{tripStops=tripStops.filter(s=>s.id!==stop.id);stop.marker.remove();stopMarkers=stopMarkers.filter(m=>m!==stop.marker);renderStopsList();renderTrip()};
+  item.append(description,remove);host.append(item);
+ });
+}
+function addStop(latlng){
+ const match=closestOnRoute(latlng);if(!match){status('No se encontró una ruta válida para colocar la parada.');return}
+ if(tripStops.length>=12){status('Máximo de 12 paradas por salida.');return}
+ const type=$('tripStopType').value,minutes=Number($('tripStopDuration').value),name=$('tripStopName').value.trim();
+ const id=Date.now()+Math.random();
+ const marker=window.L.marker([match.lat,match.lon],{icon:window.L.divIcon({className:'trip-map-marker',html:'<span>☕</span>',iconSize:[30,30],iconAnchor:[15,15]})}).addTo(map);
+ const stop={id,km:match.km,minutes,type,name,marker,lat:match.lat,lon:match.lon};
+ marker.bindPopup(stopLabels[type]+' · Km '+match.km.toFixed(1)+(name?' · '+name.replace(/[<>&]/g,''):''));
+ tripStops.push(stop);stopMarkers.push(marker);stopPicking=false;
+ $('tripPickStop').textContent='📍 Elegir parada en el mapa';
+ $('tripStopStatus').textContent='Parada añadida en el km '+match.km.toFixed(1)+'. Puedes añadir más o eliminarlas.';
+ renderStopsList();renderTrip();
+}
 function renderTrip(){
  const summary=$('tripSummary'),timeline=$('tripTimeline'),copy=$('tripCopy');
  if(!route){summary.textContent='Traza una ruta para generar el itinerario.';timeline.replaceChildren();copy.disabled=true;tripText='';return}
  const km=route.distance/1000,ascent=tripProfile?.ascent;
  const mode=$('tripMode').value,level=$('tripLevel').value;
- const stops=Number($('tripBreaks').value),pause=Number($('tripBreakMinutes').value);
+ const manual=tripStops.length>0,stops=manual?tripStops.length:Number($('tripBreaks').value),pause=Number($('tripBreakMinutes').value);
+ const orderedStops=[...tripStops].sort((a,b)=>a.km-b.km),restTotal=manual?orderedStops.reduce((sum,x)=>sum+x.minutes,0):stops*pause;
  const pace={mtb:12,bikejoring:14,canicross:7.5}[mode],levelFactor={green:.9,blue:1,red:1.08,black:1.13}[level];
  const penalty=Number.isFinite(ascent)?1+ascent/Math.max(route.distance,1)*4.5:1;
- const moving=Math.round(km/pace*60*penalty*levelFactor),total=moving+stops*pause;
+ const moving=Math.round(km/pace*60*penalty*levelFactor),total=moving+restTotal;
  const raw=$('tripStart').value||'07:00',parts=raw.split(':').map(Number);
  const clock=t=>{const m=((parts[0]*60+parts[1]+t)%1440+1440)%1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
  const name=$('tripName').value.trim()||'Salida Perros en Bicicleta';
  const labels={mtb:'MTB',bikejoring:'Bikejoring',canicross:'Canicross'};
  const format=m=>Math.floor(m/60)+' h '+String(m%60).padStart(2,'0')+' min';
- summary.textContent=labels[mode]+' · '+km.toFixed(2)+' km · '+(Number.isFinite(ascent)?'+'+Math.round(ascent)+' m':'desnivel no disponible')+' · En movimiento '+format(moving)+' · Descansos '+stops*pause+' min · Llegada estimada '+clock(total);
+ summary.textContent=labels[mode]+' · '+km.toFixed(2)+' km · '+(Number.isFinite(ascent)?'+'+Math.round(ascent)+' m':'desnivel no disponible')+' · En movimiento '+format(moving)+' · Descansos '+restTotal+' min · Llegada estimada '+clock(total);
  const items=[{km:0,min:0,title:'Inicio',detail:'Revisión del equipo'}];
- for(let i=1;i<=stops;i++)items.push({km:km*i/(stops+1),min:Math.round(moving*i/(stops+1))+(i-1)*pause,title:'Descanso '+i,detail:pause+' min · '+(mode==='mtb'?'Hidratación':'Hidratación y revisión del perro')});
+ if(manual){let elapsed=0;for(const stop of orderedStops){items.push({km:stop.km,min:Math.round(moving*stop.km/Math.max(km,.001))+elapsed,title:stopLabels[stop.type],detail:stop.minutes+' min'+(stop.name?' · '+stop.name:'')});elapsed+=stop.minutes}}else for(let i=1;i<=stops;i++)items.push({km:km*i/(stops+1),min:Math.round(moving*i/(stops+1))+(i-1)*pause,title:'Descanso '+i,detail:pause+' min · '+(mode==='mtb'?'Hidratación':'Hidratación y revisión del perro')});
  items.push({km,min:total,title:'Llegada',detail:'Recuperación y revisión final'});
  timeline.replaceChildren();
  for(const item of items){const li=document.createElement('li');li.className='trip-stop';const time=document.createElement('strong');time.textContent=clock(item.min);const content=document.createElement('span');content.textContent='Km '+item.km.toFixed(1)+' · '+item.title+' — '+item.detail;li.append(time,content);timeline.append(li)}
@@ -29,7 +82,7 @@ function renderTrip(){
  copy.disabled=false;
 }
 function invalidateRoute(){
-  revision++;controller?.abort();controller=null;route=null;tripProfile=null;renderTrip();
+  revision++;controller?.abort();controller=null;route=null;tripProfile=null;clearStops();renderTrip();
   if(routeLayer){routeLayer.remove();routeLayer=null}
   $('plannerDistance').textContent='—';$('plannerDuration').textContent='—';
   $('plannerAscent').textContent='—';$('plannerDescent').textContent='—';$('plannerAltitude').textContent='—';$('plannerElevationStatus').textContent='';$('plannerElevationChart').innerHTML='<div class="chart-empty">Calcula una ruta para ver la altimetría.</div>';$('plannerDownload').disabled=true;
@@ -64,7 +117,9 @@ async function calculate(){
     if(current!==revision)return;
     if(!response.ok)throw Error(data.error||'No se pudo calcular la ruta.');
     if(data.geometry?.type!=='LineString'||!data.geometry.coordinates?.length||!Number.isFinite(data.distance)||!Number.isFinite(data.duration))throw Error('El servicio devolvió una ruta inválida.');
-    route=data;routeLayer=window.L.geoJSON(data.geometry,{style:{color:'#2a9b69',weight:5,opacity:.95}}).addTo(map);
+    route=data;routeLayer=window.L.geoJSON(data.geometry,{style:{color:'#2a9b69',weight:9,opacity:.85}}).addTo(map);
+    routeLayer.on('click',e=>{if(stopPicking){window.L.DomEvent.stopPropagation(e);addStop(e.latlng)}});
+    $('tripPickStop').disabled=false;
     map.fitBounds(routeLayer.getBounds(),{padding:[30,30],maxZoom:16});
     $('plannerDistance').textContent=`${(data.distance/1000).toLocaleString('es-MX',{maximumFractionDigits:2})} km`;
     const minutes=Math.max(1,Math.round(data.duration/60));$('plannerDuration').textContent=minutes>=60?`${Math.floor(minutes/60)} h ${minutes%60} min`:`${minutes} min`;
@@ -137,8 +192,10 @@ export function openPlanner(){
   setupPlaceSearch('Origin');setupPlaceSearch('Destination');
   ['tripMode','tripName','tripStart','tripLevel','tripBreaks','tripBreakMinutes'].forEach(id=>$(id).addEventListener('input',renderTrip));
   $('tripCopy').onclick=async()=>{if(!tripText)return;try{await navigator.clipboard.writeText(tripText);status('Itinerario copiado al portapapeles.')}catch{status('No se pudo copiar el itinerario.')}};
+  $('tripPickStop').onclick=()=>{if(!route)return;stopPicking=!stopPicking;editMode=null;$('tripPickStop').textContent=stopPicking?'Cancelar selección':'📍 Elegir parada en el mapa';$('tripStopStatus').textContent=stopPicking?'Toca la línea de la ruta o un punto del mapa para añadir la parada.':'Selección cancelada.'};
   renderTrip();
   map.on('click',e=>{
+    if(stopPicking){addStop(e.latlng);return}
     if(editMode==='origin'||editMode==='destination'){
       if(!markers.length)markers.push(marker(e.latlng));else markers[editMode==='origin'?0:markers.length-1].setLatLng(e.latlng);editMode=null;labels();
       if(markers.length>=2)calculate();else status('Toca el mapa para marcar B · Destino.');return;
