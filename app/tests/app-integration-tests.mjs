@@ -6,7 +6,7 @@ for(const key of ['window','document','DOMParser','location','FileReader','Event
 window.scrollTo=()=>{};globalThis.requestAnimationFrame=window.requestAnimationFrame.bind(window);globalThis.cancelAnimationFrame=window.cancelAnimationFrame.bind(window);
 const marker=()=>({addTo(){return this},bindTooltip(){return this},setLatLng(){return this},setOpacity(){return this}});
 window.L={map:()=>({remove(){},fitBounds(){},invalidateSize(){}}),tileLayer:()=>({on(){return this},addTo(){return this}}),polyline:()=>({}),featureGroup:()=>({addTo(){return this}}),circleMarker:marker,marker,icon:x=>x,latLngBounds:x=>x};
-await import('../js/app.js');const $=id=>document.getElementById(id);
+await import('../js/app.js');assert.match(document.getElementById('activityLimits').textContent,/30 MiB y 50 000 puntos/);const $=id=>document.getElementById(id);
 async function load(text,name,id='fileInput'){
   Object.defineProperty($(id),'files',{configurable:true,value:[new File([text],name)]});$(id).onchange();
   for(let i=0;i<100;i++){await new Promise(r=>setTimeout(r,5));if(id==='fileInput'?!/Leyendo/.test($('fileStatus').textContent):!/Analizando/.test($('compareState').textContent))return}

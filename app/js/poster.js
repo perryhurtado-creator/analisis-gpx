@@ -1,3 +1,4 @@
+import {createPosterTask} from './poster-task.js';
 import {TITLE_FONTS,ensureTitleFont} from './poster-fonts.js';
 import {posterData,posterMapSnapshot,POSTER_LEVELS,posterRuns} from './poster-data.js';
 import {fmt} from './metrics.js';
@@ -162,7 +163,7 @@ function update(){
 function empty(){const div=document.createElement('div');div.className='poster-empty';const b=document.createElement('b');b.textContent='Aún no hay una ruta cargada';const span=document.createElement('span');span.textContent='Sube una actividad desde Resumen para preparar tu cartel.';div.append(b,span);return div}
 export function setPosterActivity(next){
   if(next===activity)return;
-  controller?.abort();controller=null;revision++;activity=next;resources=null;canvas=null;
+  controller?.abort();controller=null;$('cancelPoster').hidden=true;revision++;activity=next;resources=null;canvas=null;
   $('posterPreview').replaceChildren(empty());$('posterData').replaceChildren();$('makePoster').disabled=!next;$('downloadPoster').disabled=true;
   if(!next){$('posterStatus').textContent='Esperando ruta';return}
   $('posterData').innerHTML='<label class="poster-field">Nombre de la ruta<input id="posterName" maxlength="140" type="text"></label><label class="poster-field">Clasificación MTB<select id="posterLevel"><option value="">Sin clasificar</option></select></label><label class="poster-field">Tipografía del título<select id="posterFont"></select></label><label class="poster-field"><input id="posterLocalities" type="checkbox" checked> Mostrar localidades del catálogo</label><label class="poster-field"><input id="posterExternalLocalities" type="checkbox"> Ampliar búsqueda de localidades en línea</label><label class="poster-field"><input id="posterProfile" type="checkbox" checked> Perfil de elevación</label><label class="poster-field"><input id="posterTips" type="checkbox" checked> Recomendaciones de seguridad</label><p id="posterMetrics" class="poster-route-name"></p><p id="posterScore" class="poster-note"></p><p class="poster-note">Formato vertical 1080 × 1620. Se usa primero el catálogo incluido. Ampliar la búsqueda envía un área aproximada del recorrido a nuestro servidor y, fuera de la cobertura del catálogo, a Overpass. No se envían puntos individuales a Nominatim.</p>';
@@ -173,13 +174,14 @@ export function setPosterActivity(next){
   for(const id of ['posterLocalities','posterExternalLocalities','posterProfile','posterTips'])$(id).addEventListener('change',update);
   update();$('posterPreview').firstChild.querySelector('b').textContent='Tu cartel aparecerá aquí';$('posterPreview').firstChild.querySelector('span').textContent='Elige el nombre y la clasificación, y pulsa Generar cartel.';
 }
+export function cancelPoster(){controller?.abort()}
 export async function generatePoster(){
   if(!activity||controller)return;
-  const selected=activity,abort=new AbortController();controller=abort;const fields=[$('posterName'),$('posterLevel'),$('posterFont'),$('posterLocalities'),$('posterExternalLocalities'),$('posterProfile'),$('posterTips')];fields.forEach(e=>e.disabled=true);$('makePoster').disabled=true;$('downloadPoster').disabled=true;
+  const selected=activity,task=createPosterTask(),abort=task.controller;controller=abort;$('cancelPoster').hidden=false;const fields=[$('posterName'),$('posterLevel'),$('posterFont'),$('posterLocalities'),$('posterExternalLocalities'),$('posterProfile'),$('posterTips')];fields.forEach(e=>e.disabled=true);$('makePoster').disabled=true;$('downloadPoster').disabled=true;
   try{
     $('posterStatus').textContent='Cargando mapa de relieve, localidades y logo…';
     if(!resources){const snapshot=posterMapSnapshot(selected.points,1080,1460,70),map=document.createElement('canvas');map.width=snapshot.width;map.height=snapshot.height;const ctx=map.getContext('2d');ctx.fillStyle='#e6eade';ctx.fillRect(0,0,map.width,map.height);
-      const [logo,tiles,localities]=await Promise.all([
+      const [logo,tiles,localities]=await task.wait(Promise.all([
         image(new URL('../assets/logo-perros-en-bicicleta.png',import.meta.url).href,abort.signal),
         Promise.all(snapshot.tiles.map(async tile=>{
           const terrain=tile.url.replace('https://tile.openstreetmap.org/','https://a.tile.opentopomap.org/');
@@ -187,14 +189,14 @@ export async function generatePoster(){
           return {...tile,image:loaded};
         })),
         $('posterLocalities').checked?posterLocalities(selected.points,abort.signal,{external:$('posterExternalLocalities').checked}):Promise.resolve({places:[],message:''})
-      ]);
+      ]));
       if(abort.signal.aborted)throw aborted();tiles.forEach(tile=>ctx.drawImage(tile.image,tile.x,tile.y,256,256));resources={logo,map,snapshot,localities:localities.places,localityMessage:localities.message,localityMode:localityMode()};
     }
-    const chosenFont=options().titleFont,titleFontReady=await ensureTitleFont(chosenFont);if(abort.signal.aborted)throw aborted();if(!titleFontReady)throw Error('No se pudo cargar la tipografía seleccionada. Revisa tu conexión o elige Clásica.');
+    const chosenFont=options().titleFont,titleFontReady=await task.wait(ensureTitleFont(chosenFont));if(abort.signal.aborted)throw aborted();if(!titleFontReady)throw Error('No se pudo cargar la tipografía seleccionada. Revisa tu conexión o elige Arial · Clásica.');
     canvas=document.createElement('canvas');canvas.className='poster-canvas';canvas.setAttribute('aria-label','Cartel de la ruta con mapa, clasificación y datos');drawPoster(canvas,selected,{...options(),...posterData(selected,options()),titleFontReady},resources);canvas.getContext('2d').getImageData(0,0,1,1);
     if(abort.signal.aborted||activity!==selected)throw aborted();$('posterPreview').replaceChildren(canvas);$('posterStatus').textContent='Cartel listo · 1080 × 1620'+(resources?.localityMessage?' · '+resources.localityMessage:'');$('downloadPoster').disabled=false;
-  }catch(e){if(activity===selected)$('posterStatus').textContent=e.name==='AbortError'?'Generación cancelada.':e.message;abort.abort()}
-  finally{if(controller===abort){controller=null;$('makePoster').disabled=!activity;fields.forEach(e=>e.disabled=false)}}
+  }catch(e){if(activity===selected&&controller===abort)$('posterStatus').textContent=e.name==='AbortError'?'Generación cancelada.':e.message;abort.abort()}
+  finally{task.dispose();if(controller===abort){controller=null;$('cancelPoster').hidden=true;$('makePoster').disabled=!activity;fields.forEach(e=>e.disabled=false)}}
 }
 export async function downloadPoster(){
   if(!canvas||!activity||controller)return;

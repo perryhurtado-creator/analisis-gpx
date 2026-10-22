@@ -16,7 +16,7 @@ for(const type of ['GPX','TCX'])for(const raw of ['0','','-1']){
  const nodes=Array.from({length:2},(_,i)=>type==='GPX'?node({speed:raw},{lat:String(20+i*.001),lon:'-100'}):node({LatitudeDegrees:20+i*.001,LongitudeDegrees:-100,Speed:raw}));
  const pointTag=type==='GPX'?'trkpt':'Trackpoint',groupTag=type==='GPX'?'trkseg':'Track';
  const group={getElementsByTagNameNS:(_,name)=>name===pointTag?nodes:[],getElementsByTagName:()=>[]};
- globalThis.DOMParser=class{parseFromString(){return {...xml,querySelector:()=>null,getElementsByTagNameNS:(_,name)=>name===groupTag?[group]:[]}}};
+ globalThis.DOMParser=class{parseFromString(){return {...xml,querySelector:()=>null,getElementsByTagNameNS:(_,name)=>name===groupTag?[group]:name===pointTag?nodes:[]}}};
  const activity=(type==='GPX'?parseGPX:parseTCX)('',`test.${type.toLowerCase()}`);
  assert.equal(activity.points[0].speed,raw==='0'?0:null,`${type}: cero explícito válido, vacío o negativo ausente`);
 }

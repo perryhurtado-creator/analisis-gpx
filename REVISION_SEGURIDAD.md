@@ -10,7 +10,7 @@ Los GPX/TCX y los videos se procesan localmente. El trazador envía coordenadas 
 
 ## Cambios aplicados
 
-- Cada archivo GPX/TCX tiene un límite de 10 MiB y 50 000 puntos, también en comparación y llamadas directas al parser. El tamaño se comprueba antes de FileReader, y se comprueba de nuevo en UTF-8 al analizar XML. Se rechazan DTD/ENTITY, XML inválido y raíces de otro formato. No se recortan silenciosamente las actividades.
+- Cada archivo GPX/TCX tiene un límite de 30 MiB y 50 000 puntos, también en comparación y llamadas directas al parser. El tamaño se comprueba antes de FileReader, y se comprueba de nuevo en UTF-8 al analizar XML. Se rechazan DTD/ENTITY, XML inválido y raíces de otro formato. No se recortan silenciosamente las actividades.
 - Se invalidan y abortan lecturas anteriores. Nueva actividad cancela las lecturas pendientes, limpia mapas de resumen y video, el registro de gráficas y los puntos/perfiles de video. Un archivo inválido conserva la actividad actual cuando se carga desde el selector o arrastrando.
 - Se separan errores de lectura/parsing de errores de presentación. La interfaz muestra mensajes y permite volver a cargar. Los nombres se mantienen como texto/HTML escapado, según la superficie.
 - Se precalcula el inicio de los segmentos y se mantiene una ventana de distancia para las pendientes, evitando recorrer repetidamente todo el historial. Se conservan los límites entre segmentos.

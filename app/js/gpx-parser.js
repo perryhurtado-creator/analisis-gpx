@@ -58,11 +58,14 @@ export function parseGPX(xmlText,file){
   const xml=new DOMParser().parseFromString(xmlText,'application/xml');
   if(xml.querySelector('parsererror'))throw Error('El archivo no contiene XML válido.');
   if(xml.documentElement&&xml.documentElement.localName!=='gpx')throw Error('El contenido no corresponde al formato seleccionado.');
-  validatePointCount(all(xml,'trkpt').length);
-  const groups=all(xml,'trkseg').map(seg=>all(seg,'trkpt')).filter(points=>points.length);
-  if(!groups.length)groups.push(all(xml,'trkpt'));
+  const tracks=all(xml,'trkpt'),routes=all(xml,'rtept');
+  validatePointCount(tracks.length+routes.length);
+  // Preferir el track cuando el planificador incluye ambas representaciones.
+  const tag=tracks.length?'trkpt':'rtept',groupTag=tracks.length?'trkseg':'rte';
+  const groups=all(xml,groupTag).map(seg=>all(seg,tag)).filter(points=>points.length);
+  if(!groups.length)groups.push(tracks.length?tracks:routes);
   const raw=groups.flat();
-  if(raw.length<2)throw Error('No encontré suficientes puntos de recorrido en este archivo.');
+  if(raw.length<2)throw Error('El GPX necesita al menos dos puntos de track (trkpt) o de ruta (rtept).');
   return finalize(xml,appendRuns(groups,parsePoint),'GPX',file);
 }
 

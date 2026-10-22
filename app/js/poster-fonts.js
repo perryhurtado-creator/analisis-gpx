@@ -1,3 +1,5 @@
+import {waitForPoster} from './poster-task.js';
+export const POSTER_FONT_TIMEOUT_MS=12000;
 export const TITLE_FONTS={
   anton:{label:'Anton · Potente',family:'Anton',weight:400,file:'anton.woff'},
   bebas:{label:'Bebas Neue · Estrecha',family:'Bebas Neue',weight:400,file:'bebasneue.woff'},
@@ -14,7 +16,9 @@ export async function ensureTitleFont(key){
   const promise=(async()=>{
     const url=new URL('../assets/fonts/'+font.file,import.meta.url).href;
     const face=new FontFace(font.family,`url("${url}") format("woff")`,{weight:String(font.weight),style:'normal'});
-    await face.load();document.fonts.add(face);
+    const timeout=new AbortController(),timer=setTimeout(()=>timeout.abort(new DOMException('La tipografía tardó demasiado.','TimeoutError')),POSTER_FONT_TIMEOUT_MS);
+    try{await waitForPoster(face.load(),timeout.signal)}finally{clearTimeout(timer)}
+    document.fonts.add(face);
     return document.fonts.check(`${font.weight} 52px "${font.family}"`,'LA MAGNÍFICA QUERÉTARO ÑÜ2026');
   })().catch(()=>false);
   promises.set(font.family,promise);
