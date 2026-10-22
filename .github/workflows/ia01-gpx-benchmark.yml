@@ -25,5 +25,9 @@ jobs:
         run: node tests/ia01/import-integration.mjs
       - name: Existing unit regression tests
         run: npm test
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+      - name: Browser upload regression GPX/TCX
+        run: npm run test:browser
       - name: Syntax checks
         run: npm run check
