@@ -74,8 +74,12 @@ El logo original se incluye en `app/assets/logo-perros-en-bicicleta.png`.
 
 ## Seguridad y privacidad
 
-La carga acepta hasta 10 MiB y 50 000 puntos por GPX/TCX. Consulta [la revisión](REVISION_SEGURIDAD.md) para cambios, pruebas y pendientes. La app enlaza [Privacidad y uso de datos](app/privacidad.html), un borrador pendiente de los datos del responsable y de verificar la configuración de los proveedores.
+La carga acepta hasta 30 MiB y 50 000 puntos por GPX/TCX. Consulta [la revisión](REVISION_SEGURIDAD.md) para cambios, pruebas y pendientes. La app enlaza [Privacidad y uso de datos](app/privacidad.html), un borrador con los datos del responsable ya incorporados y pendiente de verificar la configuración y los contratos de los proveedores.
 
 ## Auditoría: primer bloque de correcciones
 
 Las correcciones de prioridad alta, pruebas y pasos de activación pendientes están documentados en [ACTIVACION_SEGURIDAD.md](ACTIVACION_SEGURIDAD.md). Ejecuta `npm ci`, `npm test` y `npm run check`; la CI también verifica el navegador y descargas. Los contadores distribuidos y el aviso definitivo requieren completar la configuración indicada.
+
+El importador GPX admite tracks (`trk/trkseg/trkpt`) y rutas (`rte/rtept`); cada ruta o segmento conserva sus cortes. Si un archivo contiene ambos, se usa el track para no duplicar el recorrido. El tamaño máximo no garantiza fluidez en todos los móviles; también se aplica el límite de puntos.
+
+Ejemplo de compatibilidad: [GPX de ruta sintético](app/examples/ruta-sintetica.gpx), sin recorrido real ni horarios. Al generar un cartel se puede cancelar; las esperas tienen un plazo total de 45 s y las fuentes, 12 s. Si una tipografía no carga se puede reintentar o elegir Arial · Clásica.

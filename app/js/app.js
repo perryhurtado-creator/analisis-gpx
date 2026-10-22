@@ -1,4 +1,5 @@
-import {setPosterActivity,generatePoster,downloadPoster} from './poster.js';
+import {ACTIVITY_LIMITS_TEXT} from './activity-limits.js';
+import {setPosterActivity,generatePoster,downloadPoster,cancelPoster} from './poster.js';
 import {createActivityReader} from './activity-reader.js';
 import {clearCharts} from './charts.js';
 import {avg,fmt,duration,stamp,summary,segments,slopeStats,speedStats,heartZones,averageSpeed,elevationText} from './metrics.js';
@@ -147,7 +148,9 @@ window.addEventListener('unhandledrejection',()=>setFileMessage('No se pudo comp
 
 window.addEventListener('hashchange',()=>navigate(location.hash));
 document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();location.hash=a.getAttribute('href').slice(1)}));
+$('activityLimits').textContent=ACTIVITY_LIMITS_TEXT;
 $('makePoster').onclick=generatePoster;
+$('cancelPoster').onclick=cancelPoster;
 $('downloadPoster').onclick=downloadPoster;
 initExplorer();
 navigate(location.hash||'#resumen');

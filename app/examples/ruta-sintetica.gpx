@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Perros en Bicicleta" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>Ejemplo sintético de GPX de ruta</name><desc>Datos de prueba, no representan una ruta navegable. Sin horarios ni altitudes.</desc></metadata>
+  <rte><name>Ejemplo sintético</name><rtept lat="0" lon="0"/><rtept lat="0" lon="0.001"/><rtept lat="0.001" lon="0.001"/></rte>
+</gpx>

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {TITLE_FONTS,ensureTitleFont} from '../js/poster-fonts.js';
+import {TITLE_FONTS,ensureTitleFont,POSTER_FONT_TIMEOUT_MS} from '../js/poster-fonts.js';
 const manifest=JSON.parse(readFileSync('app/assets/fonts/SOURCES.json','utf8'));
 assert.equal(manifest.fonts.length,5);
 for(const font of Object.values(TITLE_FONTS).filter(f=>!f.local)){
@@ -17,3 +17,11 @@ assert.equal(await ensureTitleFont('blackops'),false);fail=false;
 assert.equal(await ensureTitleFont('blackops'),true);assert.equal(loads,2);assert.equal(added,1);
 await ensureTitleFont('blackops');assert.equal(loads,2);
 console.log('PASS fuentes: cinco archivos locales íntegros con licencias, Arial sin descarga, caché y reintento tras fallo.');
+
+const nativeSetTimeout=globalThis.setTimeout;let complete;
+globalThis.FontFace=class{load(){return new Promise(resolve=>complete=resolve)}};
+globalThis.setTimeout=(fn,ms,...args)=>nativeSetTimeout(fn,ms===POSTER_FONT_TIMEOUT_MS?5:ms,...args);
+try{assert.equal(await ensureTitleFont('anton'),false)}finally{globalThis.setTimeout=nativeSetTimeout}
+const addedBefore=added;complete();await Promise.resolve();assert.equal(added,addedBefore,'No publicar una carga que venció');
+globalThis.FontFace=class{async load(){return this}};assert.equal(await ensureTitleFont('anton'),true,'Reintentar tras timeout de tipografía');
+console.log('PASS tipografía bloqueada: plazo propio, resultado tardío ignorado y reintento.');

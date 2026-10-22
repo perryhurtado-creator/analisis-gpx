@@ -48,7 +48,14 @@ try{
   console.log('PASS navegador: totales visibles de cinco tramos conservados y gráficas con huecos reales.');
   await page.locator('#heartMax').fill('202');await page.locator('#heartMax').press('Tab');assert.equal(await page.locator('#heartStats tbody tr').count(),5);
   await page.locator('#explorerPlay').click();await page.waitForFunction(()=>Number(document.querySelector('#explorerSeek').value)>1);await page.locator('#explorerPlay').click();
-  await page.locator('a[href="#cartel"]').click();assert.equal(await page.locator('#posterExternalLocalities').isChecked(),false);await page.locator('#makePoster').click();await page.locator('#downloadPoster:enabled').waitFor();
+  await page.locator('a[href="#cartel"]').click();assert.equal(await page.locator('#posterExternalLocalities').isChecked(),false);
+  let releaseFont,fontStarted;const fontWait=new Promise(resolve=>releaseFont=resolve),fontRequest=new Promise(resolve=>fontStarted=resolve);
+  const holdFont=async route=>{fontStarted();await fontWait;await route.continue().catch(()=>{})};
+  await context.route('**/assets/fonts/blackopsone.woff',holdFont);
+  await page.locator('#makePoster').click();await fontRequest;
+  await page.locator('#cancelPoster').click();await page.locator('#makePoster:enabled').waitFor();assert((await page.locator('#posterStatus').innerText()).includes('cancelada'));assert(await page.locator('#cancelPoster').isHidden());
+  releaseFont();await context.unroute('**/assets/fonts/blackopsone.woff',holdFont);
+  await page.locator('#makePoster').click();await page.locator('#downloadPoster:enabled').waitFor();
   for(const key of ['anton','bebas','bangers','marker','blackops']){
     await page.locator('#posterFont').selectOption(key);await page.locator('#downloadPoster:enabled').waitFor();
     assert(await page.evaluate(async key=>{const {TITLE_FONTS}=await import('/js/poster-fonts.js');return document.fonts.check('400 52px "'+TITLE_FONTS[key].family+'"','LA MAGNÍFICA QUERÉTARO ÑÜ2026')},key));
@@ -71,6 +78,11 @@ try{
   assert.equal(await page.locator('#speedStats tbody td').nth(1).innerText(),'36 km/h');
   assert((await page.locator('#speedStats').innerText()).includes('Muestras de sensor sin validar: 1'));
   assert.equal(await page.locator('#elevationStats tbody tr').nth(1).locator('td').nth(1).innerText(),'—','Menos de 60 m no tiene pendiente sostenida');
+  assert((await page.locator('#activityLimits').innerText()).includes('30 MiB'));
+  const rte='<gpx><rte><name>Ruta de planificador</name><rtept lat="20" lon="-100"/><rtept lat="20" lon="-99.999"/></rte></gpx>';
+  await page.locator('#fileInput').setInputFiles({name:'planificada.gpx',mimeType:'application/gpx+xml',buffer:Buffer.from(rte)});
+  await page.waitForFunction(()=>document.querySelector('#routeName').textContent==='Ruta de planificador');assert.equal(await page.locator('#map .leaflet-map-pane').count(),1);
+  console.log('PASS navegador: cartel cancelable durante carga de fuente, reintento, GPX rtept y límite de carga real.');
   assert.deepEqual(errors,[]);console.log('PASS navegador: TCX descarta pico de 120 km/h, explica la fuente y no anuncia pendiente sostenida con menos de 60 m.');
   await context.close();
 }finally{await browser?.close();await new Promise(r=>server.close(r))}
