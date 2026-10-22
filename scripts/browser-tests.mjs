@@ -68,6 +68,7 @@ try{
   await page.locator('#fileInput').setInputFiles({name:'pico-sensor.tcx',mimeType:'application/xml',buffer:Buffer.from(tcx)});
   await page.waitForFunction(()=>document.querySelector('#routeMeta').textContent.startsWith('TCX'));
   assert.equal(await page.locator('#speedStats tbody td').first().innerText(),'36 km/h');
+  assert.equal(await page.locator('#speedStats tbody td').nth(1).innerText(),'36 km/h');
   assert((await page.locator('#speedStats').innerText()).includes('Muestras de sensor sin validar: 1'));
   assert.equal(await page.locator('#elevationStats tbody tr').nth(1).locator('td').nth(1).innerText(),'—','Menos de 60 m no tiene pendiente sostenida');
   assert.deepEqual(errors,[]);console.log('PASS navegador: TCX descarta pico de 120 km/h, explica la fuente y no anuncia pendiente sostenida con menos de 60 m.');

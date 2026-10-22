@@ -9,11 +9,11 @@ export function duration(ms,{seconds=false}={}){
 }
 export const stamp=ms=>new Date(ms).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'});
 export function averageSpeed(points){
-  const samples=points.filter(p=>p.speedSource!=='gps'&&Number.isFinite(p.recordedDistance)).map(p=>p.speed).filter(v=>Number.isFinite(v)&&v>=0&&v<=150);
-  if(samples.length)return {value:avg(samples),source:'sensor',method:'Media de muestras de velocidad del TCX'};
+  const {accepted}=validatedSensorSpeeds(points);
+  if(accepted.length)return {value:avg(accepted),source:'sensor',method:'Media de muestras de sensor validadas'};
   const continuous=continuousSpeed(points);
   if(continuous!==null)return {value:continuous,source:'gps',method:'Distancia GPS / tiempo entre puntos continuos'};
-  const speeds=points.map(p=>p.speed).filter(v=>Number.isFinite(v)&&v>=0&&v<=150);
+  const speeds=points.filter(p=>p.speedSource!=='sensor').map(p=>p.speed).filter(v=>Number.isFinite(v)&&v>=0&&v<=150);
   return {value:avg(speeds),source:speeds.length?'samples':'absent',method:speeds.length?'Media de muestras disponibles':'Sin datos de velocidad'};
 }
 export function elevationText(activity,field='ascent'){

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {slopeStats,speedStats} from '../js/metrics.js';
+import {slopeStats,speedStats,averageSpeed} from '../js/metrics.js';
 import {JSDOM} from 'jsdom';
 import {parseTCX} from '../js/tcx-parser.js';
 const near=(a,b)=>assert(Math.abs(a-b)<1e-8,`${a} ≠ ${b}`);
@@ -18,7 +18,7 @@ for(const cut of [{breakBefore:true},{segmentId:1}]){
 }
 const sensor=(speeds,{dt=1000,recorded=true}={})=>speeds.map((speed,i)=>({speed,speedSource:'sensor',d:i*10,recordedDistance:recorded?i*10:null,time:i*dt,segmentId:0,breakBefore:i===0}));
 let ps=sensor([36,36,120,36,36]);let result=speedStats(ps);
-assert.equal(result.max,36,'Pico aislado de 120 km/h con distancia de 36 km/h');assert.equal(result.source,'sensor');assert.equal(result.rejected,1);
+assert.equal(result.max,36,'Pico aislado de 120 km/h con distancia de 36 km/h');assert.equal(result.source,'sensor');assert.equal(averageSpeed(ps).value,36);assert.equal(result.rejected,1);
 assert.deepEqual(ps,sensor([36,36,120,36,36]),'No mutar muestras originales');
 assert.equal(speedStats(sensor([36,36,36])).max,36);
 assert.equal(speedStats(sensor([120,120,120])).source,'gps','Distancia contradice incluso picos repetidos');
@@ -39,3 +39,4 @@ console.log('PASS auditoría: pendientes exactas de 60 m, interpolación, cortes
 globalThis.DOMParser=new JSDOM('').window.DOMParser;
 const xml='<TrainingCenterDatabase><Activities><Activity><Lap><Track>'+[36,36,120,36,36].map((speed,i)=>`<Trackpoint><Time>${new Date(1700000000000+i*1000).toISOString()}</Time><Position><LatitudeDegrees>20</LatitudeDegrees><LongitudeDegrees>${-100+i*.0001}</LongitudeDegrees></Position><DistanceMeters>${i*10}</DistanceMeters><Extensions><Speed>${speed/3.6}</Speed></Extensions></Trackpoint>`).join('')+'</Track></Lap></Activity></Activities></TrainingCenterDatabase>';
 const activity=parseTCX(xml,'sensor.tcx');near(activity.points[2].speed,120);assert.equal(speedStats(activity.points).max,36);
+assert.equal(averageSpeed(activity.points).value,36,'La media tampoco conserva el pico descartado');
