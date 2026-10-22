@@ -14,9 +14,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
       - name: Validate synthetic GPX oracle
         run: node tests/ia01/run-oracle.mjs
       - name: Compare current filtered elevation
         run: node tests/ia01/compare-app.mjs
+      - name: Validate real GPX/TCX importers
+        run: node tests/ia01/import-integration.mjs
+      - name: Existing unit regression tests
+        run: npm test
       - name: Syntax checks
         run: npm run check
