@@ -31,9 +31,21 @@ try{
   await page.goto(base+'/?correo=privado#resumen',{referer:'https://externo.test/persona?token=secreto'});
   await page.waitForFunction(()=>document.querySelector('iframe')?.contentDocument?.readyState==='complete');
   await page.waitForTimeout(100);assert.equal(analyticsEvents.length,1);assert.equal(analyticsEvents[0].body.o,base+'/resumen');assert.equal(analyticsEvents[0].body.r,'');assert(!analyticsEvents[0].referrer);
-  const points=Array.from({length:120},(_,i)=>`<trkpt lat="20" lon="${-100+i*.0001}"><ele>${100+Math.sin(i/15)*15}</ele><time>${new Date(1700000000000+i*1000).toISOString()}</time><extensions><hr>160</hr></extensions></trkpt>`).join('');
+  const points=Array.from({length:120},(_,i)=>`<trkpt lat="20" lon="${-100+i*.0001}"><ele>${i===40?'':100+Math.sin(i/15)*15}</ele><time>${new Date(1700000000000+i*1000).toISOString()}</time><extensions><hr>${i===60?'':160}</hr></extensions></trkpt>`).join('');
   await page.locator('#fileInput').setInputFiles({name:'datos-sinteticos.gpx',mimeType:'application/gpx+xml',buffer:Buffer.from('<gpx><trk><name>Datos sintéticos de prueba</name><trkseg>'+points+'</trkseg></trk></gpx>')});
   await page.locator('#fileStatus').filter({hasText:'correctamente'}).waitFor();assert.equal(await page.locator('#map .leaflet-map-pane').count(),1);
+  const totals=await page.evaluate(async()=>{
+    const {parseGPX}=await import('/js/gpx-parser.js');
+    const {segments}=await import('/js/metrics.js');
+    const input=document.querySelector('#fileInput'),a=parseGPX(await input.files[0].text(),input.files[0].name);
+    const rows=Array.from(document.querySelectorAll('#segments tr'));
+    const displayedDistance=rows.reduce((n,r)=>n+Number(r.children[1].textContent.replace(' km','').replaceAll(',',''))*1000,0);
+    const displayedSeconds=rows.reduce((n,r)=>{const t=r.children[2].textContent;return n+Number(t.match(/(\d+) h/)?.[1]||0)*3600+Number(t.match(/(\d+) min/)?.[1]||0)*60+Number(t.match(/(\d+) s/)?.[1]||0)},0);
+    return {count:rows.length,expectedMetres:Math.round(a.distance),displayedDistance,expectedSeconds:Math.round(segments(a).reduce((n,r)=>n+(r.time||0),0)/1000),displayedSeconds};
+  });
+  assert.equal(totals.count,5);assert(Math.abs(totals.displayedDistance-totals.expectedMetres)<1e-6);assert.equal(totals.displayedSeconds,totals.expectedSeconds);
+  for(const id of ['elevationChart','heartChart'])assert.equal((await page.locator('#'+id+' path[fill="none"]').getAttribute('d')).match(/M/g).length,2);
+  console.log('PASS navegador: totales visibles de cinco tramos conservados y gráficas con huecos reales.');
   await page.locator('#heartMax').fill('202');await page.locator('#heartMax').press('Tab');assert.equal(await page.locator('#heartStats tbody tr').count(),5);
   await page.locator('#explorerPlay').click();await page.waitForFunction(()=>Number(document.querySelector('#explorerSeek').value)>1);await page.locator('#explorerPlay').click();
   await page.locator('a[href="#cartel"]').click();assert.equal(await page.locator('#posterExternalLocalities').isChecked(),false);await page.locator('#makePoster').click();await page.locator('#downloadPoster:enabled').waitFor();
