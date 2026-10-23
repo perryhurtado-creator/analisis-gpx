@@ -49,7 +49,7 @@ function addStop(latlng){
  if(tripStops.length>=12){status('Máximo de 12 paradas por salida.');return}
  const type=$('tripStopType').value,minutes=Number($('tripStopDuration').value),name=$('tripStopName').value.trim();
  const id=Date.now()+Math.random();
- const marker=window.L.marker([match.lat,match.lon],{icon:window.L.divIcon({className:'trip-map-marker',html:'<span>☕</span>',iconSize:[30,30],iconAnchor:[15,15]})}).addTo(map);
+ const marker=window.L.marker([match.lat,match.lon],{icon:window.L.divIcon({className:'trip-map-marker',html:'<span>'+((stopLabels[type]||stopLabels.rest).split(' ')[0])+'</span>',iconSize:[30,30],iconAnchor:[15,15]})}).addTo(map);
  const stop={id,km:match.km,minutes,type,name,marker,lat:match.lat,lon:match.lon};
  marker.bindPopup(stopLabels[type]+' · Km '+match.km.toFixed(1)+(name?' · '+name.replace(/[<>&]/g,''):''));
  tripStops.push(stop);stopMarkers.push(marker);stopPicking=false;
