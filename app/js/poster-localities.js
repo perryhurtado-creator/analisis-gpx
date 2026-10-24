@@ -18,14 +18,20 @@ const RECOGNIZED=new Set([
 ]);
 const normalized=name=>name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-MX').trim();
 const known=new Set([...RECOGNIZED].map(normalized));
-const rank=place=>{
-  const category=place.place||place.type||place.category||'';
-  const population=Number(place.population)||0;
-  if(['city','town'].includes(category))return 4;
-  if(category==='village')return 3;
-  if(known.has(normalized(place.name)))return 3;
-  if(category==='hamlet'&&population>=100)return 2;
-  return 0;
+// IA-02: ponderación híbrida (categoría OSM + cercanía + población).
+// Las localidades pequeñas sin censo siguen siendo elegibles.
+const CLASS={city:{weight:100,radius:3000},town:{weight:80,radius:2500},village:{weight:55,radius:1500},hamlet:{weight:32,radius:900}};
+const classify=place=>{
+  const type=String(place.place||place.type||place.category||'').toLowerCase();
+  if(CLASS[type])return CLASS[type];
+  return known.has(normalized(place.name))?{weight:45,radius:1100}:null;
+};
+const score=place=>{
+  const kind=classify(place);
+  if(!kind||place.offset>kind.radius)return -Infinity;
+  const pop=Number(String(place.population||'').replace(/[^0-9]/g,''))||0;
+  const populationBonus=pop>0?Math.min(18,Math.max(0,(Math.log10(pop)-1)*7)):0;
+  return kind.weight+populationBonus+30*(1-place.offset/kind.radius);
 };
 const routeDistance=points=>points.at(-1)?.d||points.length;
 
@@ -49,25 +55,31 @@ export async function posterLocalities(points,signal,{external=false,fetcher=fet
       message='No se pudo ampliar la búsqueda; se usa el catálogo incluido.';
     }
   }
-  // La cercanía al trazado es obligatoria. Evitar elegir por orden del catálogo.
-  const places=localitiesAlongRoute(points,candidates,900)
-    .filter(place=>rank(place)>0)
-    .sort((a,b)=>rank(b)-rank(a)||a.offset-b.offset);
-  const unique=[],seen=new Set();
+  // Obtener distancia al trazado antes de puntuar. No descartar aldeas por
+  // carecer de datos de población; evitar puntos comerciales sin categoría.
+  const places=localitiesAlongRoute(points,candidates,3000).filter(p=>Number.isFinite(score(p)));
+  const byName=new Map();
   for(const place of places){
     const key=normalized(place.name);
-    if(seen.has(key))continue;
-    seen.add(key);unique.push(place);
+    const existing=byName.get(key);
+    if(!existing||score(place)>score(existing))byName.set(key,place);
   }
-  // No completar artificialmente siete etiquetas. Favorecer importancia y
-  // separación a lo largo de la ruta para evitar saturación visual.
-  const selected=[];
-  const total=routeDistance(points);
-  const separation=Number.isFinite(total)&&total>1000?Math.max(2000,total/9):Math.max(8,points.length/9);
-  for(const place of unique){
-    if(selected.length>=7)break;
-    if(selected.some(other=>Math.abs(other.distance-place.distance)<separation))continue;
-    selected.push(place);
+  const unique=[...byName.values()].sort((a,b)=>score(b)-score(a)||a.offset-b.offset);
+  const selected=[],total=routeDistance(points);
+  const separation=Number.isFinite(total)&&total>1000?Math.max(1400,total/11):Math.max(8,points.length/11);
+  // DeepSeek: reparto ponderado; premiar candidatos que cubren tramos aún
+  // sin etiqueta, sin sobrepasar el límite de siete localidades.
+  while(selected.length<7){
+    let best=null,bestValue=-Infinity;
+    for(const candidate of unique){
+      if(selected.includes(candidate))continue;
+      const gap=selected.length?Math.min(...selected.map(p=>Math.abs(p.distance-candidate.distance))):separation;
+      if(gap<separation*.65)continue;
+      const value=score(candidate)+Math.min(18,gap/separation*9);
+      if(value>bestValue){bestValue=value;best=candidate}
+    }
+    if(!best)break;
+    selected.push(best);
   }
   selected.sort((a,b)=>a.distance-b.distance);
   return {places:selected.map(place=>{
