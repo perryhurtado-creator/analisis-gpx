@@ -15,14 +15,14 @@ async function handle(request){
   // Si el catálogo cubre por completo la zona, evitar solicitudes externas.
   const inCache=s>=20.33&&w>=-100.42&&n<=20.57&&e<=-100.18;
   const inRegion=s>=20&&w>=-100.5&&n<=21.7&&e<=-99;
-  if(inCache||inRegion)return json({places:known,credit:'© OpenStreetMap contributors · GeoNames CC BY 4.0',source:'verified-catalogue'});
-  const query=`[out:json][timeout:12];nwr["place"~"^(city|town|village|hamlet|isolated_dwelling)$"]["name"](${s},${w},${n},${e});out center 1000;`;
+  // Consultar clasificación OSM también en zonas con catálogo local: éste no incluye categorías.
+  const query=`[out:json][timeout:12];nwr["place"~"^(city|town|village|hamlet)$"]["name"](${s},${w},${n},${e});out center 1000;`;
   for(const endpoint of ['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter']){
     try{
       const response=await fetch(endpoint,{method:'POST',headers:{'User-Agent':'PerrosEnBicicleta-GPX/1.0 (+https://github.com/perryhurtado-creator/analisis-gpx)'},body:new URLSearchParams({data:query}),signal:AbortSignal.timeout(16000)});
       if(!response.ok)continue;
       const data=await boundedJSON(response,8*1024*1024);if(!Array.isArray(data.elements)||data.remark)continue;
-      const places=data.elements.map(p=>({...p,lat:p.lat??p.center?.lat,lon:p.lon??p.center?.lon})).filter(p=>typeof p.tags?.name==='string'&&Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&p.lat>=s&&p.lat<=n&&p.lon>=w&&p.lon<=e).slice(0,1000).map(p=>({name:p.tags.name.slice(0,100),lat:p.lat,lon:p.lon}));
+      const places=data.elements.map(p=>({...p,lat:p.lat??p.center?.lat,lon:p.lon??p.center?.lon})).filter(p=>typeof p.tags?.name==='string'&&Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&p.lat>=s&&p.lat<=n&&p.lon>=w&&p.lon<=e).slice(0,1000).map(p=>({name:p.tags.name.slice(0,100),lat:p.lat,lon:p.lon,place:p.tags.place,population:p.tags.population||null}));
       return json({places:[...known,...places].filter((p,i,all)=>all.findIndex(q=>q.name===p.name&&Math.abs(q.lat-p.lat)<.001&&Math.abs(q.lon-p.lon)<.001)===i),credit:'© OpenStreetMap contributors · GeoNames CC BY 4.0',source:'catalogue+overpass'});
     }catch(error){console.error('Localities provider:',error.name)}
   }
