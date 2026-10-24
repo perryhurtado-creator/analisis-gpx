@@ -5,6 +5,7 @@ import {localityBounds,localitiesAlongRoute,loadRouteLocalities} from './video-l
 // suficiente para mostrar automáticamente una etiqueta en un cartel.
 const RECOGNIZED=new Set([
   'santiago de querétaro','querétaro','huimilpan','escolásticas',
+  'palos altos','san pedro','san pedro tenango','san pedro huimilpan',
   'ajuchitlancito','la venta de ajuchitlancito','dolores de ajuchitlancito',
   'lagunillas','el vegil','el rosario','san cirilo','san fandila',
   'san isidro miranda','san pedro mártir','santa teresa','san rafael',
