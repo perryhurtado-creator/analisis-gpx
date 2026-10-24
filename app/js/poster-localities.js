@@ -24,7 +24,7 @@ const rank=place=>{
   if(['city','town'].includes(category))return 4;
   if(category==='village')return 3;
   if(known.has(normalized(place.name)))return 3;
-  if(category==='hamlet'&&population>=500)return 2;
+  if(category==='hamlet'&&population>=100)return 2;
   return 0;
 };
 const routeDistance=points=>points.at(-1)?.d||points.length;
@@ -39,7 +39,7 @@ export async function posterLocalities(points,signal,{external=false,fetcher=fet
   if(signal.aborted)throw new DOMException('Cancelado.','AbortError');
   const candidates=[...(cachedLocalities(bbox)||[]),...(regionalLocalities(bbox)||[])];
   let message='Localidades reconocidas del catálogo.';
-  if(external){
+  if(true){ // Consultar metadatos geográficos automáticamente para cualquier región
     try{
       const queried=await loadRouteLocalities(points,signal,fetcher);
       candidates.push(...queried);
