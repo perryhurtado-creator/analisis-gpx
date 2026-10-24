@@ -24,7 +24,8 @@ const CLASS={city:{weight:100,radius:3000},town:{weight:80,radius:2500},village:
 const classify=place=>{
   const type=String(place.place||place.type||place.category||'').toLowerCase();
   if(CLASS[type])return CLASS[type];
-  return known.has(normalized(place.name))?{weight:45,radius:1100}:\n    (!type&&/^[\\p{L}][\\p{L}\\s.'-]{2,70}$/u.test(place.name||'')?{weight:15,radius:450}:null);
+  return known.has(normalized(place.name))?{weight:45,radius:1100}:
+    (!type&&/^[\p{L}][\p{L}\s.'-]{2,70}$/u.test(place.name||'')?{weight:15,radius:450}:null);
 };
 const score=place=>{
   const kind=classify(place);
