@@ -60,12 +60,25 @@ export function drawPoster(target,source,data,assets){
   // Nombres de poblaciones del catálogo o de la consulta por área.
   if(data.showLocalities&&Array.isArray(assets.localities)){
     ctx.font='bold 19px Arial';ctx.textAlign='left';
-    let lastY=-1000;
+    // IA-02: colocar etiquetas en posiciones libres en vez de descartarlas
+    // por estar cerca del borde o de otra localidad.
+    const occupied=[];
     for(const {name,index} of assets.localities){
-      const p=snap.positions[index];if(!p||p.y<255||p.y>1130||Math.abs(p.y-lastY)<60)continue;lastY=p.y;
-      const w=Math.min(290,ctx.measureText(name).width+22),x=Math.max(15,Math.min(1065-w,p.x+14));
-      panel(ctx,x,p.y-29,w,35,'rgba(0,0,0,.87)',7);
-      ctx.fillStyle='#fff';ctx.fillText(name,x+11,p.y-5);
+      const p=snap.positions[index];if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;
+      const w=Math.min(290,ctx.measureText(name).width+22),h=35;
+      const x=Math.max(15,Math.min(1065-w,p.x+14));
+      const offsets=[-29,-74,16,-119,61,-164,106];
+      let placement=null;
+      for(const delta of offsets){
+        const y=p.y+delta;
+        if(y<190||y+h>1130)continue;
+        const overlaps=occupied.some(r=>x<r.x+r.w+9&&x+w+9>r.x&&y<r.y+r.h+9&&y+h+9>r.y);
+        if(!overlaps){placement={x,y,w,h};break}
+      }
+      if(!placement)continue;
+      const {y}=placement;occupied.push(placement);
+      panel(ctx,x,y,w,h,'rgba(0,0,0,.87)',7);
+      ctx.fillStyle='#fff';ctx.fillText(name,x+11,y+24);
       ctx.fillStyle=routeColor;ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill();
     }
   }
