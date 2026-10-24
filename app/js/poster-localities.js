@@ -24,7 +24,7 @@ const CLASS={city:{weight:100,radius:3000},town:{weight:80,radius:2500},village:
 const classify=place=>{
   const type=String(place.place||place.type||place.category||'').toLowerCase();
   if(CLASS[type])return CLASS[type];
-  return known.has(normalized(place.name))?{weight:45,radius:1100}:null;
+  return known.has(normalized(place.name))?{weight:45,radius:1100}:\n    (!type&&/^[\\p{L}][\\p{L}\\s.'-]{2,70}$/u.test(place.name||'')?{weight:15,radius:450}:null);
 };
 const score=place=>{
   const kind=classify(place);
@@ -89,5 +89,5 @@ export async function posterLocalities(points,signal,{external=false,fetcher=fet
       if(gap<nearest){nearest=gap;index=i}
     }
     return {name:place.name.slice(0,26),index};
-  }),message:selected.length?message:'No se encontraron poblaciones reconocidas suficientemente cercanas a la ruta.'};
+  }),message:selected.length?message+' · '+selected.length+' localidades seleccionadas.':'No se encontraron localidades suficientemente cercanas a la ruta.'};
 }
