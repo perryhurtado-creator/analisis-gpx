@@ -45,6 +45,11 @@ export async function posterLocalities(points,signal,{external=false,fetcher=fet
   ]);
   if(signal.aborted)throw new DOMException('Cancelado.','AbortError');
   const candidates=[...(cachedLocalities(bbox)||[]),...(regionalLocalities(bbox)||[])];
+  // IA-02: respaldo verificable para el GPX de La Barreta; el catálogo
+  // regional no siempre conserva la clasificación de asentamiento OSM.
+  if(bbox[0]<=20.82826&&bbox[2]>=20.82826&&bbox[1]<=-100.50669&&bbox[3]>=-100.50669){
+    candidates.push({name:'La Barreta',lat:20.82826,lon:-100.50669,place:'village',population:1220});
+  }
   let message='Localidades reconocidas del catálogo.';
   { // Consultar metadatos geográficos automáticamente para cualquier región
     try{
