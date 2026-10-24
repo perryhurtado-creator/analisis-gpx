@@ -3,6 +3,7 @@ import {TITLE_FONTS,ensureTitleFont} from './poster-fonts.js';
 import {posterData,posterMapSnapshot,POSTER_LEVELS,posterRuns} from './poster-data.js';
 import {fmt} from './metrics.js';
 import {posterLocalities} from './poster-localities.js';
+import {placeLocalityLabels,posterBlockedRects} from './locality-selection.js';
 const $=id=>document.getElementById(id);
 let activity=null,controller=null,resources=null,canvas=null,revision=0;
 function aborted(){return new DOMException('Cartel cancelado.','AbortError')}
@@ -60,13 +61,13 @@ export function drawPoster(target,source,data,assets){
   // Nombres de poblaciones del catálogo o de la consulta por área.
   if(data.showLocalities&&Array.isArray(assets.localities)){
     ctx.font='bold 19px Arial';ctx.textAlign='left';
-    let lastY=-1000;
-    for(const {name,index} of assets.localities){
-      const p=snap.positions[index];if(!p||p.y<255||p.y>1130||Math.abs(p.y-lastY)<60)continue;lastY=p.y;
-      const w=Math.min(290,ctx.measureText(name).width+22),x=Math.max(15,Math.min(1065-w,p.x+14));
-      panel(ctx,x,p.y-29,w,35,'rgba(0,0,0,.87)',7);
-      ctx.fillStyle='#fff';ctx.fillText(name,x+11,p.y-5);
-      ctx.fillStyle=routeColor;ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill();
+    // Prioridad por importancia; las sustitutas cubren las que no caben sin chocar con paneles.
+    const ordered=[...assets.localities].sort((a,b)=>(b.score||0)-(a.score||0)).concat(assets.localitySpares||[]);
+    const {placed}=placeLocalityLabels(ordered,snap.positions,text=>ctx.measureText(text).width,posterBlockedRects(data));
+    for(const {name,x,y,w,dot} of placed){
+      panel(ctx,x,y,w,35,'rgba(0,0,0,.87)',7);
+      ctx.fillStyle='#fff';ctx.fillText(name,x+11,y+24);
+      ctx.fillStyle=routeColor;ctx.beginPath();ctx.arc(dot.x,dot.y,5,0,Math.PI*2);ctx.fill();
     }
   }
   // Paneles compactos: la ruta permanece visible en el centro del cartel.
@@ -190,7 +191,7 @@ export async function generatePoster(){
         })),
         $('posterLocalities').checked?posterLocalities(selected.points,abort.signal,{external:$('posterExternalLocalities').checked}):Promise.resolve({places:[],message:''})
       ]));
-      if(abort.signal.aborted)throw aborted();tiles.forEach(tile=>ctx.drawImage(tile.image,tile.x,tile.y,256,256));resources={logo,map,snapshot,localities:localities.places,localityMessage:localities.message,localityMode:localityMode()};
+      if(abort.signal.aborted)throw aborted();tiles.forEach(tile=>ctx.drawImage(tile.image,tile.x,tile.y,256,256));resources={logo,map,snapshot,localities:localities.places,localitySpares:localities.spares||[],localityMessage:localities.message,localityMode:localityMode()};
     }
     const chosenFont=options().titleFont,titleFontReady=await task.wait(ensureTitleFont(chosenFont));if(abort.signal.aborted)throw aborted();if(!titleFontReady)throw Error('No se pudo cargar la tipografía seleccionada. Revisa tu conexión o elige Arial · Clásica.');
     canvas=document.createElement('canvas');canvas.className='poster-canvas';canvas.setAttribute('aria-label','Cartel de la ruta con mapa, clasificación y datos');drawPoster(canvas,selected,{...options(),...posterData(selected,options()),titleFontReady},resources);canvas.getContext('2d').getImageData(0,0,1,1);
