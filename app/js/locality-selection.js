@@ -186,7 +186,7 @@ export function posterBlockedRects({showProfile=true,showTips=true}={}){
 }
 
 export function orderLocalityLabels(main,spares=[]){
-  return [...main].sort((a,b)=>(a.priority??Infinity)-(b.priority??Infinity)).concat(spares);
+  return [...main].sort((a,b)=>Number(!!b.manual)-Number(!!a.manual)||(a.priority??Infinity)-(b.priority??Infinity)).concat(spares);
 }
 
 // Coloca etiquetas en píxeles reales: evita paneles y otras etiquetas probando varias
@@ -197,9 +197,9 @@ export function placeLocalityLabels(candidates,positions,measure,blocked=[],{max
   const hit=(a,b,m=0)=>a.x<b.x+b.w+m&&a.x+a.w+m>b.x&&a.y<b.y+b.h+m&&a.y+a.h+m>b.y;
   for(const c of candidates){
     if(placed.length>=max)break;
-    const secondary=c.kind==='hamlet'||c.kind==='unclassified';
+    const secondary=!c.manual&&(c.kind==='hamlet'||c.kind==='unclassified');
     if(secondary&&secondaryCount>=maxSecondary){dropped.push({name:c.name,reason:'limite-secundarias'});continue}
-    const p=positions[c.index];
+    const p=c.position||positions[c.index];
     if(!p){dropped.push({name:c.name,reason:'sin-posicion'});continue}
     if(blocked.some(r=>hit({x:p.x-6,y:p.y-6,w:12,h:12},r))){dropped.push({name:c.name,reason:'bajo-panel'});continue}
     const w=Math.min(maxWidth,measure(c.name)+22);

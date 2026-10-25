@@ -19,6 +19,8 @@ try{
     return route.abort();
   });
   const analyticsEvents=[],localityRequests=[],fontRequests=[],externalFontRequests=[];
+  const manualRequests=[];
+  await context.route('**/api/places?**',async route=>{const u=new URL(route.request().url());manualRequests.push(u.searchParams.get('q'));await route.fulfill({contentType:'application/json',body:JSON.stringify({places:u.searchParams.get('q')==='Lugar manual'?[{name:'Lugar manual',label:'Lugar manual, Estado',lat:20.0005,lon:-99.994}]:[]})})});
   context.on('request',request=>{const u=new URL(request.url());if(u.pathname.endsWith('.woff'))fontRequests.push(u);if(/fonts\.(googleapis|gstatic)\.com$/.test(u.hostname))externalFontRequests.push(u.href)});
   await context.route('**/_vercel/insights/script.js',route=>route.fulfill({contentType:'text/javascript',body:`(()=>{let hook=e=>e;const q=window.vaq||[];window.va=(type,e)=>{if(type==='beforeSend'){hook=e;return}if(type==='pageview'){const event=hook({type:'pageview',url:location.href});if(event)fetch('/_vercel/insights/view',{method:'POST',body:JSON.stringify({o:event.url,r:document.referrer})})}};q.forEach(a=>window.va(...a))})()`}));
   await context.route('**/_vercel/insights/view',async route=>{analyticsEvents.push({body:route.request().postDataJSON(),referrer:route.request().headers()['referer']});await route.fulfill({status:200,body:'{}'})});
@@ -72,6 +74,19 @@ try{
   console.log('PASS navegador: aviso de selección limitada, descarga conserva aviso y regeneración recupera categorías.');
   assert(analyticsEvents.every(e=>!e.body.r&&!e.referrer&&!e.body.o.includes('?')&&!e.body.o.includes('#')));
   const pngPromise=page.waitForEvent('download');await page.locator('#downloadPoster').click();const png=await pngPromise;const bytes=await readFile(await png.path());assert.equal(bytes.readUInt32BE(16),1080);assert.equal(bytes.readUInt32BE(20),1620);
+  assert.deepEqual(manualRequests,[],'sin nombres escritos no se consulta el buscador');
+  await page.locator('#posterLocalities').uncheck();
+  await page.locator('#posterManualOpen').click();await page.getByRole('dialog').waitFor();
+  await page.locator('#posterManualNames').fill('Lugar manual, No existe');
+  if(process.env.POSTER_DIALOG_SCREENSHOT)await page.screenshot({path:process.env.POSTER_DIALOG_SCREENSHOT});
+  await page.locator('#posterManualDone').click();
+  assert.equal(await page.getByRole('dialog').isVisible(),false);assert.match(await page.locator('#posterManualSummary').innerText(),/Lugar manual, No existe/);
+  await page.locator('#makePoster').click();await page.locator('#downloadPoster:enabled').waitFor();
+  assert.deepEqual(manualRequests.sort(),['Lugar manual','No existe']);
+  assert.match(await page.locator('#posterStatus').innerText(),/Localidad no encontrada en mapa: No existe/);
+  const manualPNG=page.waitForEvent('download');await page.locator('#downloadPoster').click();await manualPNG;
+  assert.match(await page.locator('#posterStatus').innerText(),/Localidad no encontrada en mapa: No existe/);
+  console.log('PASS navegador: diálogo de localidades, búsqueda explícita sin nombres automáticos y aviso de no encontrada tras descarga.');
   await page.locator('a[href="#video"]').click();await page.locator('#videoElevationChart svg').waitFor();const downloadPromise=page.waitForEvent('download',{timeout:120000});await page.locator('#makeVideo').click();await page.getByRole('button',{name:'Entendido, generar video'}).click();const movie=await downloadPromise;assert((await stat(await movie.path())).size>1024);assert(/\.(mp4|webm)$/.test(movie.suggestedFilename()));
   assert.deepEqual(errors,[]);console.log('PASS navegador: carga GPX, Leaflet, zonas personales, explorador, cartel PNG y video real descargado.');
   assert((await page.locator('#elevationStats').innerText()).includes('Sostenida (60 m)'));
@@ -80,6 +95,7 @@ try{
   const tcx='<TrainingCenterDatabase><Activities><Activity><Lap><Track>'+[36,36,120,36,36].map((speed,i)=>`<Trackpoint><Time>${new Date(1700000000000+i*1000).toISOString()}</Time><Position><LatitudeDegrees>20</LatitudeDegrees><LongitudeDegrees>${-100+i*.0001}</LongitudeDegrees></Position><DistanceMeters>${i*10}</DistanceMeters><AltitudeMeters>${100+i}</AltitudeMeters><Extensions><Speed>${speed/3.6}</Speed></Extensions></Trackpoint>`).join('')+'</Track></Lap></Activity></Activities></TrainingCenterDatabase>';
   await page.locator('#fileInput').setInputFiles({name:'pico-sensor.tcx',mimeType:'application/xml',buffer:Buffer.from(tcx)});
   await page.waitForFunction(()=>document.querySelector('#routeMeta').textContent.startsWith('TCX'));
+  assert.equal(await page.locator('#posterManualSummary').innerText(),'','otra actividad borra los nombres manuales');
   assert.equal(await page.locator('#speedStats tbody td').first().innerText(),'36 km/h');
   assert.equal(await page.locator('#speedStats tbody td').nth(1).innerText(),'36 km/h');
   assert((await page.locator('#speedStats').innerText()).includes('Muestras de sensor sin validar: 1'));

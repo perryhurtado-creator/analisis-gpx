@@ -12,7 +12,7 @@ function labelFor(points,place){
     const p=points[i],gap=Math.hypot((p.lon-place.lon)*Math.cos(place.lat*Math.PI/180),p.lat-place.lat);
     if(gap<nearest){nearest=gap;index=i}
   }
-  return {name:place.name.slice(0,26),index,score:place.score,kind:place.kind,distance:place.distance};
+  return {name:place.name.slice(0,26),lat:place.lat,lon:place.lon,index,score:place.score,kind:place.kind,distance:place.distance};
 }
 
 export async function posterLocalities(points,signal,{external=false,fetcher=fetch}={}){
