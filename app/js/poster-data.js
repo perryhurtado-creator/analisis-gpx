@@ -46,5 +46,13 @@ export function posterMapSnapshot(points,width=972,height=400,padding=45){
     if(y<0||y>=count)continue;
     for(let x=Math.floor(minX/256);x<=Math.floor((minX+width-1)/256);x++)tiles.push({url:`https://tile.openstreetmap.org/${zoom}/${((x%count)+count)%count}/${y}.png`,x:x*256-minX,y:y*256-minY});
   }
-  return {width,height,tiles,positions:unit.map(p=>({x:p.x*scale-minX,y:p.y*scale-minY})),runs:posterRuns(points)};
+  return {width,height,tiles,projection:{scale,minX,minY,centerX:(extent.minX+extent.maxX)/2},positions:unit.map(p=>({x:p.x*scale-minX,y:p.y*scale-minY})),runs:posterRuns(points)};
+}
+
+export function posterCoordinate(snapshot,point){
+  if(!Number.isFinite(point?.lat)||!Number.isFinite(point?.lon)||Math.abs(point.lat)>85.05112878||Math.abs(point.lon)>180)return null;
+  const {scale,minX,minY,centerX}=snapshot.projection;
+  let x=(point.lon+180)/360;while(x-centerX>.5)x--;while(x-centerX<-.5)x++;
+  const lat=point.lat*Math.PI/180,y=(1-Math.log(Math.tan(lat)+1/Math.cos(lat))/Math.PI)/2;
+  return {x:x*scale-minX,y:y*scale-minY};
 }
