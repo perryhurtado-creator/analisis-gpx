@@ -53,6 +53,20 @@ function parsePoint(node){
     speed:speed!==null&&speed>=0?speed*3.6:null,d:0,up:0};
 }
 
+const plain=text=>String(text??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+// Títulos que las apps asignan por defecto a cualquier actividad: no identifican la ruta.
+const GENERIC_TITLE=/^(ciclismo( al aire libre| de (montana|ruta|carretera)| en (exterior|interiores|bicicleta))?|bicicleta( de (montana|ruta))?|mountain bik(e|ing)|cycling|biking|outdoor cycling|bike( ride)?|ride|(morning|afternoon|evening|lunch|night) (ride|cycle|mountain bike ride)|(salida|paseo|recorrido|vuelta|pedaleada) en bici(cleta)?( por la (manana|tarde|noche)| al mediodia)?|(bici|bicicleta) (por la|en la) (manana|tarde|noche)|ruta|route|track|trail|activity|actividad|sin titulo|untitled|nueva ruta|new route)$/;
+export const isGenericActivityName=name=>{const n=plain(name);return !n||GENERIC_TITLE.test(n)};
+const ownName=node=>Array.from(node.children||[]).find(child=>child.localName==='name')?.textContent.trim()||'';
+const fileTitle=file=>String(file??'').replace(/\.(gpx|tcx)$/i,'').trim();
+// Antes se tomaba el primer <name> del XML, estuviera donde estuviera (p. ej. un
+// <metadata> con el tipo de actividad). Ahora: nombre del track, de la ruta o de los
+// metadatos, en ese orden; si es un título genérico de la app, el del archivo.
+export function activityName(xml,file){
+  const names=[...all(xml,'trk'),...all(xml,'rte'),...all(xml,'metadata')].map(ownName).filter(Boolean);
+  return names.find(name=>!isGenericActivityName(name))||fileTitle(file)||names[0]||'';
+}
+
 export function parseGPX(xmlText,file){
   validateActivityXML(xmlText);
   const xml=new DOMParser().parseFromString(xmlText,'application/xml');
@@ -84,7 +98,7 @@ export function finalize(xml,p,type,file){
   }
   const elevation=accumulateElevation(p);
   const times=p.filter(x=>Number.isFinite(x.time)).map(x=>x.time);
-  return {points:p,name:childText(xml,'name')||file.replace(/\.(gpx|tcx)$/i,''),type,file,
+  return {points:p,name:(type==='GPX'?activityName(xml,file):childText(xml,'name')||fileTitle(file)),type,file,
     distance:p.at(-1).d,...elevation,duration:times.length>1?Math.max(...times)-Math.min(...times):null,
     start:times.length?Math.min(...times):null};
 }

@@ -7,7 +7,8 @@ export function localityBounds(points){
   if(!Number.isFinite(south))throw Error('La ruta no tiene coordenadas válidas.');
   return [Math.floor((south-.012)*100)/100,Math.floor((west-.012)*100)/100,Math.ceil((north+.012)*100)/100,Math.ceil((east+.012)*100)/100];
 }
-export function localitiesAlongRoute(points,places,maxDistance=900){
+// `limit` conserva el tope histórico de 160 para el video; el cartel pide más y decide por importancia.
+export function localitiesAlongRoute(points,places,maxDistance=900,{limit=160}={}){
   const result=[];
   for(const place of places){
     if(!valid(place)||typeof place.name!=='string'||!place.name.trim())continue;
@@ -23,17 +24,18 @@ export function localitiesAlongRoute(points,places,maxDistance=900){
     }
     if(nearest<=maxDistance&&!result.some(p=>p.name===place.name&&Math.hypot((p.lon-place.lon)*METRES*cos,(p.lat-place.lat)*METRES)<200))result.push({...place,name:place.name.trim().slice(0,100),distance:at,offset:nearest});
   }
-  return result.sort((a,b)=>a.distance-b.distance).slice(0,160);
+  return result.sort((a,b)=>a.distance-b.distance).slice(0,limit);
 }
 export function visibleLocalities(places,distance,total,overview=false){
   if(overview)return places.map((place,index)=>({index,gap:Math.abs(place.distance-distance),alpha:1})).sort((a,b)=>a.gap-b.gap);
   const window=Math.max(1400,Math.min(6500,total*.10));
   return places.map((place,index)=>({index,gap:Math.abs(place.distance-distance)})).filter(p=>p.gap<window).sort((a,b)=>a.gap-b.gap).slice(0,3).map(p=>({...p,alpha:Math.min(1,(window-p.gap)/(window*.3))}));
 }
-export async function loadRouteLocalities(points,signal,fetcher=fetch){
+// Lugares del área de la ruta tal como los devuelve el servidor, sin filtrar por cercanía.
+export async function fetchAreaLocalitiesResult(points,signal,fetcher=fetch){
   if(signal.aborted)throw new DOMException('Cancelado.','AbortError');
-  const bbox=localityBounds(points).join(',');let places=cache.get(bbox);
-  if(!places){
+  const bbox=localityBounds(points).join(',');let result=cache.get(bbox);
+  if(!result){
     let data,lastError;
     for(let attempt=0;attempt<2;attempt++){
       try{
@@ -54,7 +56,15 @@ export async function loadRouteLocalities(points,signal,fetcher=fetch){
     // El catálogo regional puede contener más de 1000 lugares en rutas largas.
     // Filtrar por la ruta antes de limitar etiquetas, sin perder el final del catálogo.
     if(data.places.length>10000)throw Error('La consulta devolvió demasiadas localidades.');
-    places=data.places;if(cache.size>=5)cache.delete(cache.keys().next().value);cache.set(bbox,places);
+    result={places:data.places,partial:data.partial===true,truncated:data.truncated===true,source:data.source||null};
+    // Un catálogo de respaldo no debe impedir recuperar categorías en el próximo intento.
+    if(!result.partial&&!result.truncated){if(cache.size>=5)cache.delete(cache.keys().next().value);cache.set(bbox,result)}
   }
-  return localitiesAlongRoute(points,places);
+  return result;
+}
+export async function fetchAreaLocalities(points,signal,fetcher=fetch){
+  return (await fetchAreaLocalitiesResult(points,signal,fetcher)).places;
+}
+export async function loadRouteLocalities(points,signal,fetcher=fetch){
+  return localitiesAlongRoute(points,await fetchAreaLocalities(points,signal,fetcher));
 }

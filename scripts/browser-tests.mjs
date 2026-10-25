@@ -22,7 +22,7 @@ try{
   context.on('request',request=>{const u=new URL(request.url());if(u.pathname.endsWith('.woff'))fontRequests.push(u);if(/fonts\.(googleapis|gstatic)\.com$/.test(u.hostname))externalFontRequests.push(u.href)});
   await context.route('**/_vercel/insights/script.js',route=>route.fulfill({contentType:'text/javascript',body:`(()=>{let hook=e=>e;const q=window.vaq||[];window.va=(type,e)=>{if(type==='beforeSend'){hook=e;return}if(type==='pageview'){const event=hook({type:'pageview',url:location.href});if(event)fetch('/_vercel/insights/view',{method:'POST',body:JSON.stringify({o:event.url,r:document.referrer})})}};q.forEach(a=>window.va(...a))})()`}));
   await context.route('**/_vercel/insights/view',async route=>{analyticsEvents.push({body:route.request().postDataJSON(),referrer:route.request().headers()['referer']});await route.fulfill({status:200,body:'{}'})});
-  await context.route('**/api/localities?**',async route=>{localityRequests.push(route.request().url());await route.fulfill({contentType:'application/json',body:JSON.stringify({places:[{name:'Localidad de prueba',lat:20,lon:-100}]})})});
+  await context.route('**/api/localities?**',async route=>{localityRequests.push(route.request().url());const partial=localityRequests.length===1;await route.fulfill({contentType:'application/json',body:JSON.stringify({places:[{name:'Localidad de prueba',lat:20,lon:-100,...(!partial?{place:'village',population:'2500'}:{})}],partial,source:partial?'partial-catalogue':'catalogue+overpass'})})});
   const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   for(const path of ['tests/continuity-tests.html','tests/map-lifecycle-tests.html']){
     await page.goto(base+'/'+path);await page.waitForFunction(()=>/\d+\/\d+/.test(document.querySelector('#summary')?.textContent||''));
@@ -63,7 +63,13 @@ try{
   assert.equal(externalFontRequests.length,0);assert.equal(new Set(fontRequests.map(u=>u.pathname)).size,5);assert(fontRequests.every(u=>u.origin===base));
   assert.equal(localityRequests.length,0,'El cartel usa el catálogo sin enviar el área');
   await page.locator('#posterExternalLocalities').check();await page.locator('#makePoster').click();await page.locator('#downloadPoster:enabled').waitFor();assert.equal(localityRequests.length,1);
-  await page.locator('#posterExternalLocalities').uncheck();await page.locator('#makePoster').click();await page.locator('#downloadPoster:enabled').waitFor();assert.equal(localityRequests.length,1);
+  assert.match(await page.locator('#posterStatus').innerText(),/No se pudieron obtener categorías/);
+  const partialDownload=page.waitForEvent('download');await page.locator('#downloadPoster').click();await partialDownload;
+  assert.match(await page.locator('#posterStatus').innerText(),/No se pudieron obtener categorías/,'el aviso permanece después de descargar');
+  await page.locator('#makePoster').click();await page.locator('#downloadPoster:enabled').waitFor();assert.equal(localityRequests.length,2);
+  assert.match(await page.locator('#posterStatus').innerText(),/consulta por área/);
+  await page.locator('#posterExternalLocalities').uncheck();await page.locator('#makePoster').click();await page.locator('#downloadPoster:enabled').waitFor();assert.equal(localityRequests.length,2);
+  console.log('PASS navegador: aviso de selección limitada, descarga conserva aviso y regeneración recupera categorías.');
   assert(analyticsEvents.every(e=>!e.body.r&&!e.referrer&&!e.body.o.includes('?')&&!e.body.o.includes('#')));
   const pngPromise=page.waitForEvent('download');await page.locator('#downloadPoster').click();const png=await pngPromise;const bytes=await readFile(await png.path());assert.equal(bytes.readUInt32BE(16),1080);assert.equal(bytes.readUInt32BE(20),1620);
   await page.locator('a[href="#video"]').click();await page.locator('#videoElevationChart svg').waitFor();const downloadPromise=page.waitForEvent('download',{timeout:120000});await page.locator('#makeVideo').click();await page.getByRole('button',{name:'Entendido, generar video'}).click();const movie=await downloadPromise;assert((await stat(await movie.path())).size>1024);assert(/\.(mp4|webm)$/.test(movie.suggestedFilename()));
