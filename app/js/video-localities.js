@@ -32,10 +32,10 @@ export function visibleLocalities(places,distance,total,overview=false){
   return places.map((place,index)=>({index,gap:Math.abs(place.distance-distance)})).filter(p=>p.gap<window).sort((a,b)=>a.gap-b.gap).slice(0,3).map(p=>({...p,alpha:Math.min(1,(window-p.gap)/(window*.3))}));
 }
 // Lugares del área de la ruta tal como los devuelve el servidor, sin filtrar por cercanía.
-export async function fetchAreaLocalities(points,signal,fetcher=fetch){
+export async function fetchAreaLocalitiesResult(points,signal,fetcher=fetch){
   if(signal.aborted)throw new DOMException('Cancelado.','AbortError');
-  const bbox=localityBounds(points).join(',');let places=cache.get(bbox);
-  if(!places){
+  const bbox=localityBounds(points).join(',');let result=cache.get(bbox);
+  if(!result){
     let data,lastError;
     for(let attempt=0;attempt<2;attempt++){
       try{
@@ -56,9 +56,14 @@ export async function fetchAreaLocalities(points,signal,fetcher=fetch){
     // El catálogo regional puede contener más de 1000 lugares en rutas largas.
     // Filtrar por la ruta antes de limitar etiquetas, sin perder el final del catálogo.
     if(data.places.length>10000)throw Error('La consulta devolvió demasiadas localidades.');
-    places=data.places;if(cache.size>=5)cache.delete(cache.keys().next().value);cache.set(bbox,places);
+    result={places:data.places,partial:data.partial===true,truncated:data.truncated===true,source:data.source||null};
+    // Un catálogo de respaldo no debe impedir recuperar categorías en el próximo intento.
+    if(!result.partial&&!result.truncated){if(cache.size>=5)cache.delete(cache.keys().next().value);cache.set(bbox,result)}
   }
-  return places;
+  return result;
+}
+export async function fetchAreaLocalities(points,signal,fetcher=fetch){
+  return (await fetchAreaLocalitiesResult(points,signal,fetcher)).places;
 }
 export async function loadRouteLocalities(points,signal,fetcher=fetch){
   return localitiesAlongRoute(points,await fetchAreaLocalities(points,signal,fetcher));

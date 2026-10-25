@@ -29,7 +29,7 @@ async function handle(request){
   // Los catálogos locales no traen categorías: se consulta también OSM (solo se llega aquí si la persona lo pidió).
   const box=`(${s},${w},${n},${e})`;
   const query=`[out:json][timeout:12];(nwr["place"~"^(city|town|village)$"]["name"]${box};)->.major;(nwr["place"="hamlet"]["name"]${box};)->.minor;.major out center ${MAJOR_LIMIT};.minor out center ${MINOR_LIMIT};`;
-  for(const endpoint of ['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter']){
+  for(const endpoint of ['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter']){
     try{
       const response=await fetch(endpoint,{method:'POST',headers:{'User-Agent':'PerrosEnBicicleta-GPX/1.0 (+https://github.com/perryhurtado-creator/analisis-gpx)'},body:new URLSearchParams({data:query}),signal:AbortSignal.timeout(16000)});
       if(!response.ok)continue;

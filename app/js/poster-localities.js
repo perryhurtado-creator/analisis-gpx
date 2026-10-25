@@ -1,4 +1,4 @@
-import {localityBounds,fetchAreaLocalities} from './video-localities.js';
+import {localityBounds,fetchAreaLocalitiesResult} from './video-localities.js';
 import {selectPosterLocalities} from './locality-selection.js';
 
 // Sin lista de nombres: la selección sale de la categoría OSM (si existe), la población,
@@ -25,18 +25,25 @@ export async function posterLocalities(points,signal,{external=false,fetcher=fet
   if(signal.aborted)throw new DOMException('Cancelado.','AbortError');
   const candidates=[...(cachedLocalities(bbox)||[]),...(regionalLocalities(bbox)||[])];
   let message='Localidades reconocidas del catálogo.';
+  let retry=false;
   if(external){
     try{
-      candidates.push(...await fetchAreaLocalities(points,signal,fetcher));
-      message='Localidades reconocidas del catálogo y consulta por área.';
+      const result=await fetchAreaLocalitiesResult(points,signal,fetcher);
+      retry=result.partial||result.truncated;
+      candidates.push(...result.places);
+      message=result.partial?'No se pudieron obtener categorías de OpenStreetMap; selección limitada al catálogo. Vuelve a generar para reintentar.':
+        result.truncated?'Consulta de localidades incompleta; pueden faltar referencias importantes. Vuelve a generar para reintentar.':
+        'Localidades reconocidas del catálogo y consulta por área.';
     }catch(error){
       if(signal.aborted)throw error;
+      retry=true;
       message='No se pudo ampliar la búsqueda; se usa el catálogo incluido.';
     }
   }
   const {main,spares}=selectPosterLocalities(points,candidates,{max:7,spares:8});
   const byRoute=(a,b)=>a.distance-b.distance;
   return {
+    retry,
     places:main.map(place=>labelFor(points,place)).sort(byRoute),
     spares:spares.map(place=>labelFor(points,place)),
     message:main.length?message:'No se encontraron poblaciones reconocidas suficientemente cercanas a la ruta.'

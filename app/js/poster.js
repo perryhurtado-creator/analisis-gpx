@@ -181,6 +181,7 @@ export async function generatePoster(){
   const selected=activity,task=createPosterTask(),abort=task.controller;controller=abort;$('cancelPoster').hidden=false;const fields=[$('posterName'),$('posterLevel'),$('posterFont'),$('posterLocalities'),$('posterExternalLocalities'),$('posterProfile'),$('posterTips')];fields.forEach(e=>e.disabled=true);$('makePoster').disabled=true;$('downloadPoster').disabled=true;
   try{
     $('posterStatus').textContent='Cargando mapa de relieve, localidades y logo…';
+    if(resources?.localityRetry)resources=null;
     if(!resources){const snapshot=posterMapSnapshot(selected.points,1080,1460,70),map=document.createElement('canvas');map.width=snapshot.width;map.height=snapshot.height;const ctx=map.getContext('2d');ctx.fillStyle='#e6eade';ctx.fillRect(0,0,map.width,map.height);
       const [logo,tiles,localities]=await task.wait(Promise.all([
         image(new URL('../assets/logo-perros-en-bicicleta.png',import.meta.url).href,abort.signal),
@@ -191,7 +192,7 @@ export async function generatePoster(){
         })),
         $('posterLocalities').checked?posterLocalities(selected.points,abort.signal,{external:$('posterExternalLocalities').checked}):Promise.resolve({places:[],message:''})
       ]));
-      if(abort.signal.aborted)throw aborted();tiles.forEach(tile=>ctx.drawImage(tile.image,tile.x,tile.y,256,256));resources={logo,map,snapshot,localities:localities.places,localitySpares:localities.spares||[],localityMessage:localities.message,localityMode:localityMode()};
+      if(abort.signal.aborted)throw aborted();tiles.forEach(tile=>ctx.drawImage(tile.image,tile.x,tile.y,256,256));resources={logo,map,snapshot,localities:localities.places,localitySpares:localities.spares||[],localityMessage:localities.message,localityRetry:localities.retry===true,localityMode:localityMode()};
     }
     const chosenFont=options().titleFont,titleFontReady=await task.wait(ensureTitleFont(chosenFont));if(abort.signal.aborted)throw aborted();if(!titleFontReady)throw Error('No se pudo cargar la tipografía seleccionada. Revisa tu conexión o elige Arial · Clásica.');
     canvas=document.createElement('canvas');canvas.className='poster-canvas';canvas.setAttribute('aria-label','Cartel de la ruta con mapa, clasificación y datos');drawPoster(canvas,selected,{...options(),...posterData(selected,options()),titleFontReady},resources);canvas.getContext('2d').getImageData(0,0,1,1);
@@ -202,7 +203,7 @@ export async function generatePoster(){
 export async function downloadPoster(){
   if(!canvas||!activity||controller)return;
   const selected=activity,version=revision,name=options().name;$('downloadPoster').disabled=true;
-  try{const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw Error('No se pudo guardar el cartel.');if(activity!==selected||revision!==version)return;const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=(name||'ruta').replace(/[^a-z0-9áéíóúñ_-]/gi,'_')+'_cartel.png';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);$('posterStatus').textContent='Cartel PNG descargado.'}
+  try{const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw Error('No se pudo guardar el cartel.');if(activity!==selected||revision!==version)return;const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=(name||'ruta').replace(/[^a-z0-9áéíóúñ_-]/gi,'_')+'_cartel.png';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);$('posterStatus').textContent='Cartel PNG descargado.'+(resources?.localityMessage?' · '+resources.localityMessage:'')}
   catch(e){if(activity===selected)$('posterStatus').textContent=e.message}
   finally{if(activity===selected&&canvas&&!controller)$('downloadPoster').disabled=false}
 }
