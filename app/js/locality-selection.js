@@ -141,10 +141,9 @@ export function routeLength(points){
 // por si el dibujo no encuentra espacio para alguna.
 export function selectPosterLocalities(points,places,{max=7,spares=8}={}){
   const ranked=rankLocalities(points,places);
-  // La cercanía sola no demuestra relevancia. Sin categoría ni población suficiente
-  // no se rellena el cartel: tampoco pueden entrar esos candidatos como sustitutas.
-  const relevant=ranked.accepted.filter(c=>c.kind!=='unclassified'||c.population>=1000);
-  const unsupported=ranked.accepted.filter(c=>!relevant.includes(c));
+  // Población ausente no significa lugar irrelevante. El catálogo sigue siendo
+  // respaldo, con menos etiquetas y reparto; las categorías conocidas mandan.
+  const relevant=ranked.accepted;
   const secondary=c=>!['city','town','village'].includes(c.kind);
   const valids=points.filter(valid);
   const lats=valids.map(p=>p.lat),lons=valids.map(p=>p.lon);
@@ -165,7 +164,8 @@ export function selectPosterLocalities(points,places,{max=7,spares=8}={}){
   const primary=selectSpread(major,{total,max,minMapGap,seeds}).selected;
   // Los secundarios completan huecos: no desplazan principales ni se amontonan
   // en un tramo ya representado. El umbral se adapta a rutas cortas y largas.
-  const secondarySlots=Math.max(0,2-primary.filter(secondary).length);
+  const secondaryLimit=major.length?2:5;
+  const secondarySlots=Math.max(0,secondaryLimit-primary.filter(secondary).length);
   const selected=selectSpread(relevant,{total,max:Math.min(max,primary.length+secondarySlots),minMapGap,seeds:primary,
     minRouteGap:Math.max(250,total/(Math.max(max,1)*2))}).selected;
   // Las sustitutas conservan las principales primero si una etiqueta no cabe.
@@ -173,7 +173,7 @@ export function selectPosterLocalities(points,places,{max=7,spares=8}={}){
   const reserveMajor=selectSpread(restCandidates.filter(c=>['city','town','village'].includes(c.kind)),{total,max:spares,minMapGap}).selected;
   const {selected:reserve,rest}=selectSpread(restCandidates,{total,max:spares,minMapGap,seeds:reserveMajor});
   return {main:selected,spares:reserve,
-    rejected:[...ranked.rejected,...unsupported.map(c=>brief(c,{reason:'sin-evidencia-de-relevancia'})),...rest.map(c=>brief(c,{reason:c.reason,score:Math.round(c.score)}))]};
+    rejected:[...ranked.rejected,...rest.map(c=>brief(c,{reason:c.reason,score:Math.round(c.score)}))]};
 }
 
 // Zonas del cartel (1080×1620) ocupadas por paneles. Deben coincidir con drawPoster.
@@ -191,7 +191,7 @@ export function orderLocalityLabels(main,spares=[]){
 
 // Coloca etiquetas en píxeles reales: evita paneles y otras etiquetas probando varias
 // posiciones alrededor del punto. Lo que no cabe se descarta con su motivo.
-export function placeLocalityLabels(candidates,positions,measure,blocked=[],{max=7,maxWidth=290,height=35,maxSecondary=2}={}){
+export function placeLocalityLabels(candidates,positions,measure,blocked=[],{max=7,maxWidth=290,height=35,maxSecondary=candidates.some(c=>['city','town','village'].includes(c.kind))?2:5}={}){
   const placed=[],dropped=[];
   let secondaryCount=0;
   const hit=(a,b,m=0)=>a.x<b.x+b.w+m&&a.x+a.w+m>b.x&&a.y<b.y+b.h+m&&a.y+a.h+m>b.y;
