@@ -33,7 +33,8 @@ export function classifyPlace(place){
   const name=String(place?.name??'').trim();
   if(!name)return {excluded:true,reason:'sin-nombre'};
   const category=categoryOf(place);
-  if(category){
+  if((!category||category==='unclassified'||category==='hamlet')&&/^(hotel|motel|restaurante|gasolinera|granja|granjas|finca|rancho|hacienda)\b/.test(normalizeName(name)))return {excluded:true,reason:'nombre-de-establecimiento'};
+  if(category&&category!=='unclassified'){
     if(category!=='unclassified'&&PLACE_CLASSES[category])return {kind:category,...PLACE_CLASSES[category]};
     if(URBAN_SUBDIVISIONS.has(category))return {excluded:true,reason:'subdivision-urbana'};
     return {excluded:true,reason:'categoria-no-admitida'};
@@ -111,15 +112,16 @@ export function rankLocalities(points,places,{maxDistance=3000}={}){
 
 // Selección voraz: primero lo más importante y cercano, con un bono por cubrir tramos
 // aún sin etiqueta y una distancia mínima sobre el mapa para no apilar nombres.
-export function selectSpread(candidates,{total=1,max=7,minMapGap=0}={}){
+export function selectSpread(candidates,{total=1,max=7,minMapGap=0,seeds=[],minRouteGap=0}={}){
   const pool=[...candidates].sort((a,b)=>b.score-a.score||a.offset-b.offset||a.name.localeCompare(b.name,'es'));
-  const selected=[],span=Math.max(total,1);
+  const selected=seeds.slice(0,max),span=Math.max(total,1);
+  for(const seed of selected){const i=pool.indexOf(seed);if(i>=0)pool.splice(i,1)}
   while(selected.length<max&&pool.length){
     let best=-1,bestValue=-Infinity;
     pool.forEach((c,i)=>{
       let routeGap=Infinity,mapGap=Infinity;
       for(const s of selected){routeGap=Math.min(routeGap,Math.abs(s.distance-c.distance));mapGap=Math.min(mapGap,metres(s,c))}
-      if(mapGap<minMapGap)return;
+      if(mapGap<minMapGap||routeGap<minRouteGap)return;
       const spread=Number.isFinite(routeGap)?Math.min(1,routeGap/(span/4)):1;
       const value=c.score+12*spread;
       if(value>bestValue){bestValue=value;best=i}
@@ -143,8 +145,28 @@ export function selectPosterLocalities(points,places,{max=7,spares=8}={}){
   const lats=valids.map(p=>p.lat),lons=valids.map(p=>p.lon);
   const diagonal=lats.length?metres({lat:Math.min(...lats),lon:Math.min(...lons)},{lat:Math.max(...lats),lon:Math.max(...lons)}):0;
   const total=routeLength(points)||diagonal;
-  const {selected,rest}=selectSpread(ranked.accepted,{total,max:max+spares,minMapGap:Math.max(250,diagonal/25)});
-  return {main:selected.slice(0,max),spares:selected.slice(max),
+  const minMapGap=Math.max(250,diagonal/25),seeds=[];
+  // Un extremo se identifica por distancia directa al punto real, incluso en bucles.
+  // No se inventa una localidad para un extremo sin candidatos suficientemente cerca.
+  for(const endpoint of [valids[0],valids.at(-1)]){
+    if(!endpoint||seeds.length>=max)continue;
+    const nearby=ranked.accepted.filter(c=>metres(c,endpoint)<=Math.min(1500,PLACE_CLASSES[c.kind].radius));
+    const isMajor=c=>['city','town','village'].includes(c.kind)?1:0;
+    nearby.sort((a,b)=>isMajor(a)-isMajor(b)||(a.score-metres(a,endpoint)/20)-(b.score-metres(b,endpoint)/20));
+    const best=nearby.at(-1);
+    if(best&&!seeds.some(s=>metres(s,best)<minMapGap))seeds.push(best);
+  }
+  const major=ranked.accepted.filter(c=>['city','town','village'].includes(c.kind));
+  const primary=selectSpread(major,{total,max,minMapGap,seeds}).selected;
+  // Los secundarios completan huecos: no desplazan principales ni se amontonan
+  // en un tramo ya representado. El umbral se adapta a rutas cortas y largas.
+  const selected=selectSpread(ranked.accepted,{total,max,minMapGap,seeds:primary,
+    minRouteGap:Math.max(250,total/(Math.max(max,1)*2))}).selected;
+  // Las sustitutas conservan las principales primero si una etiqueta no cabe.
+  const restCandidates=ranked.accepted.filter(c=>!selected.includes(c));
+  const reserveMajor=selectSpread(restCandidates.filter(c=>['city','town','village'].includes(c.kind)),{total,max:spares,minMapGap}).selected;
+  const {selected:reserve,rest}=selectSpread(restCandidates,{total,max:spares,minMapGap,seeds:reserveMajor});
+  return {main:selected,spares:reserve,
     rejected:[...ranked.rejected,...rest.map(c=>brief(c,{reason:c.reason,score:Math.round(c.score)}))]};
 }
 

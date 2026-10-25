@@ -194,3 +194,25 @@ const bigPoints=Array.from({length:20000},(_,i)=>big[Math.floor(i*(big.length-1)
 const started=performance.now(),result=selectPosterLocalities(bigPoints,catalogue);const elapsed=performance.now()-started;
 assert(result.main.length>0&&elapsed<5000,`tardó ${Math.round(elapsed)} ms`);
 console.log(`PASS rendimiento: 20 000 puntos × ${catalogue.length} lugares en ${Math.round(elapsed)} ms.`);
+
+// IA-02 equilibrado: endpoints, tier priority, gap filling, short routes and loops.
+const start={name:'Origen',place:'village',lat:20,lon:-100};
+const finish={name:'Destino',place:'village',lat:20,lon:-99.45};
+const cities=Array.from({length:10},(_,i)=>({name:'Ciudad '+i,place:'city',lat:20,lon:-99.96+i*.045}));
+const endpoints=selectPosterLocalities(long,[...cities,start,finish]).main;
+assert(names(endpoints).includes('Origen')&&names(endpoints).includes('Destino'));
+const villages=Array.from({length:9},(_,i)=>({name:'Principal '+i,place:'village',lat:north(20,1400),lon:-100+i*.06875}));
+const wealthyHamlets=hamletsAlong.map(p=>({...p,population:999999}));
+assert(selectPosterLocalities(long,[...villages,...wealthyHamlets]).main.every(p=>p.kind==='village'));
+const gapFill=selectPosterLocalities(long,[start,finish,{name:'Intermedio',place:'hamlet',lat:20,lon:-99.725}]).main;
+assert(names(gapFill).includes('Intermedio'));
+const clustered=selectPosterLocalities(long,[start,finish,{name:'Junto al origen',place:'hamlet',lat:20,lon:-99.997}]).main;
+assert(!names(clustered).includes('Junto al origen'));
+const short=makeRoute([[20,-100],[20,-99.99]]);
+assert.equal(selectPosterLocalities(short,[start,{name:'Final corto',place:'village',lat:20,lon:-99.99}]).main.length,2);
+const loop=makeRoute([[20,-100],[20,-99.9],[20,-100]]);
+assert.equal(names(selectPosterLocalities(loop,[start]).main).filter(n=>n==='Origen').length,1);
+assert.deepEqual(classifyPlace({name:'Granja Avícola',place:'hamlet'}),{excluded:true,reason:'nombre-de-establecimiento'});
+assert.equal(classifyPlace({name:'Pueblo',place:'unclassified'}).kind,'unclassified');
+assert.deepEqual(selectPosterLocalities([],[]).main,[]);
+console.log('PASS IA-02 equilibrado: extremos, principales antes de caseríos, huecos, ruta corta y circuito.');
