@@ -99,7 +99,7 @@ console.log('PASS tramos separados: el hueco no genera localidades y la distanci
 const hidalgo=makeRoute([[20.52167,-99.69667],[20.61,-99.63972]]);
 let calls=0;const offline=await posterLocalities(hidalgo,signal,{fetcher:async()=>{calls++;throw Error('No debe llamarse')}});
 assert.equal(calls,0,'sin ampliar la búsqueda no sale nada a la red');
-assert(names(offline.places).includes('Pañhé')&&names(offline.places).includes('Xidhí'),'las dos comunidades extremo aparecen');
+assert.deepEqual(offline.places,[],'sin categoría ni población no se supone importancia por estar en los extremos');
 assert(offline.places.every(p=>Number.isInteger(p.index)&&p.index<hidalgo.length)&&offline.places.length<=7);
 assert(!offline.places.some(p=>/^(barrio|rancho|familia)/i.test(p.name)),'sin barrios, ranchos ni familias');
 // b) Yucatán: sin catálogo local. Sin búsqueda en línea no hay datos; con ella, se seleccionan por categoría y cercanía.
@@ -127,7 +127,7 @@ for(const [label,fetcher] of Object.entries(failures)){
   const result=await posterLocalities(variant(variantIndex++),signal,{external:true,fetcher:async(...args)=>{ran++;return fetcher(...args)}});
   // Cualquier fallo se reintenta una vez; una respuesta válida (aunque vacía) no.
   assert.equal(ran,label==='vacía'?1:2,`intentos de "${label}"`);
-  assert(names(result.places).includes('Pañhé'),`catálogo conservado con respuesta ${label}`);
+  assert.deepEqual(result.places,[],`no rellenar con lugares sin importancia conocida ante respuesta ${label}`);
   if(label==='vacía')assert.match(result.message,/consulta por área/);else assert.match(result.message,/No se pudo ampliar la búsqueda/);
 }
 let ranOutside=0;
@@ -192,7 +192,7 @@ console.log(`PASS catálogo regional: ${admitted.length} entradas admitidas y ni
 const big=makeRoute([[20.2,-100.45],[20.6,-100.1],[20.9,-99.8]]);
 const bigPoints=Array.from({length:20000},(_,i)=>big[Math.floor(i*(big.length-1)/19999)]);
 const started=performance.now(),result=selectPosterLocalities(bigPoints,catalogue);const elapsed=performance.now()-started;
-assert(result.main.length>0&&elapsed<5000,`tardó ${Math.round(elapsed)} ms`);
+assert.equal(result.main.length,0,'un catálogo denso sin metadatos no demuestra relevancia');assert(elapsed<5000,`tardó ${Math.round(elapsed)} ms`);
 console.log(`PASS rendimiento: 20 000 puntos × ${catalogue.length} lugares en ${Math.round(elapsed)} ms.`);
 
 // IA-02 equilibrado: endpoints, tier priority, gap filling, short routes and loops.

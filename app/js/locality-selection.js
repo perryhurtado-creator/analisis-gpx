@@ -141,6 +141,11 @@ export function routeLength(points){
 // por si el dibujo no encuentra espacio para alguna.
 export function selectPosterLocalities(points,places,{max=7,spares=8}={}){
   const ranked=rankLocalities(points,places);
+  // La cercanía sola no demuestra relevancia. Sin categoría ni población suficiente
+  // no se rellena el cartel: tampoco pueden entrar esos candidatos como sustitutas.
+  const relevant=ranked.accepted.filter(c=>c.kind!=='unclassified'||c.population>=1000);
+  const unsupported=ranked.accepted.filter(c=>!relevant.includes(c));
+  const secondary=c=>!['city','town','village'].includes(c.kind);
   const valids=points.filter(valid);
   const lats=valids.map(p=>p.lat),lons=valids.map(p=>p.lon);
   const diagonal=lats.length?metres({lat:Math.min(...lats),lon:Math.min(...lons)},{lat:Math.max(...lats),lon:Math.max(...lons)}):0;
@@ -150,24 +155,25 @@ export function selectPosterLocalities(points,places,{max=7,spares=8}={}){
   // No se inventa una localidad para un extremo sin candidatos suficientemente cerca.
   for(const endpoint of [valids[0],valids.at(-1)]){
     if(!endpoint||seeds.length>=max)continue;
-    const nearby=ranked.accepted.filter(c=>metres(c,endpoint)<=Math.min(1500,PLACE_CLASSES[c.kind].radius));
+    const nearby=relevant.filter(c=>metres(c,endpoint)<=Math.min(1500,PLACE_CLASSES[c.kind].radius));
     const isMajor=c=>['city','town','village'].includes(c.kind)?1:0;
     nearby.sort((a,b)=>isMajor(a)-isMajor(b)||(a.score-metres(a,endpoint)/20)-(b.score-metres(b,endpoint)/20));
     const best=nearby.at(-1);
     if(best&&!seeds.some(s=>metres(s,best)<minMapGap))seeds.push(best);
   }
-  const major=ranked.accepted.filter(c=>['city','town','village'].includes(c.kind));
+  const major=relevant.filter(c=>!secondary(c));
   const primary=selectSpread(major,{total,max,minMapGap,seeds}).selected;
   // Los secundarios completan huecos: no desplazan principales ni se amontonan
   // en un tramo ya representado. El umbral se adapta a rutas cortas y largas.
-  const selected=selectSpread(ranked.accepted,{total,max,minMapGap,seeds:primary,
+  const secondarySlots=Math.max(0,2-primary.filter(secondary).length);
+  const selected=selectSpread(relevant,{total,max:Math.min(max,primary.length+secondarySlots),minMapGap,seeds:primary,
     minRouteGap:Math.max(250,total/(Math.max(max,1)*2))}).selected;
   // Las sustitutas conservan las principales primero si una etiqueta no cabe.
-  const restCandidates=ranked.accepted.filter(c=>!selected.includes(c));
+  const restCandidates=relevant.filter(c=>!selected.includes(c));
   const reserveMajor=selectSpread(restCandidates.filter(c=>['city','town','village'].includes(c.kind)),{total,max:spares,minMapGap}).selected;
   const {selected:reserve,rest}=selectSpread(restCandidates,{total,max:spares,minMapGap,seeds:reserveMajor});
   return {main:selected,spares:reserve,
-    rejected:[...ranked.rejected,...rest.map(c=>brief(c,{reason:c.reason,score:Math.round(c.score)}))]};
+    rejected:[...ranked.rejected,...unsupported.map(c=>brief(c,{reason:'sin-evidencia-de-relevancia'})),...rest.map(c=>brief(c,{reason:c.reason,score:Math.round(c.score)}))]};
 }
 
 // Zonas del cartel (1080×1620) ocupadas por paneles. Deben coincidir con drawPoster.
@@ -179,13 +185,20 @@ export function posterBlockedRects({showProfile=true,showTips=true}={}){
   ];
 }
 
+export function orderLocalityLabels(main,spares=[]){
+  return [...main].sort((a,b)=>(a.priority??Infinity)-(b.priority??Infinity)).concat(spares);
+}
+
 // Coloca etiquetas en píxeles reales: evita paneles y otras etiquetas probando varias
 // posiciones alrededor del punto. Lo que no cabe se descarta con su motivo.
-export function placeLocalityLabels(candidates,positions,measure,blocked=[],{max=7,maxWidth=290,height=35}={}){
+export function placeLocalityLabels(candidates,positions,measure,blocked=[],{max=7,maxWidth=290,height=35,maxSecondary=2}={}){
   const placed=[],dropped=[];
+  let secondaryCount=0;
   const hit=(a,b,m=0)=>a.x<b.x+b.w+m&&a.x+a.w+m>b.x&&a.y<b.y+b.h+m&&a.y+a.h+m>b.y;
   for(const c of candidates){
     if(placed.length>=max)break;
+    const secondary=c.kind==='hamlet'||c.kind==='unclassified';
+    if(secondary&&secondaryCount>=maxSecondary){dropped.push({name:c.name,reason:'limite-secundarias'});continue}
     const p=positions[c.index];
     if(!p){dropped.push({name:c.name,reason:'sin-posicion'});continue}
     if(blocked.some(r=>hit({x:p.x-6,y:p.y-6,w:12,h:12},r))){dropped.push({name:c.name,reason:'bajo-panel'});continue}
@@ -197,6 +210,7 @@ export function placeLocalityLabels(candidates,positions,measure,blocked=[],{max
       .find(r=>r.y>=8&&r.y+r.h<=1452&&!blocked.some(b=>hit(r,b))&&!placed.some(o=>hit(r,o,4)));
     if(!spot){dropped.push({name:c.name,reason:'sin-espacio'});continue}
     placed.push({name:c.name,...spot,dot:{x:p.x,y:p.y}});
+    if(secondary)secondaryCount++;
   }
   return {placed,dropped};
 }

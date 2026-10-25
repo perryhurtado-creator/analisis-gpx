@@ -3,7 +3,7 @@ import {TITLE_FONTS,ensureTitleFont} from './poster-fonts.js';
 import {posterData,posterMapSnapshot,POSTER_LEVELS,posterRuns} from './poster-data.js';
 import {fmt} from './metrics.js';
 import {posterLocalities} from './poster-localities.js';
-import {placeLocalityLabels,posterBlockedRects} from './locality-selection.js';
+import {placeLocalityLabels,posterBlockedRects,orderLocalityLabels} from './locality-selection.js';
 const $=id=>document.getElementById(id);
 let activity=null,controller=null,resources=null,canvas=null,revision=0;
 function aborted(){return new DOMException('Cartel cancelado.','AbortError')}
@@ -62,7 +62,7 @@ export function drawPoster(target,source,data,assets){
   if(data.showLocalities&&Array.isArray(assets.localities)){
     ctx.font='bold 19px Arial';ctx.textAlign='left';
     // Prioridad por importancia; las sustitutas cubren las que no caben sin chocar con paneles.
-    const ordered=[...assets.localities].sort((a,b)=>(b.score||0)-(a.score||0)).concat(assets.localitySpares||[]);
+    const ordered=orderLocalityLabels(assets.localities,assets.localitySpares);
     const {placed}=placeLocalityLabels(ordered,snap.positions,text=>ctx.measureText(text).width,posterBlockedRects(data));
     for(const {name,x,y,w,dot} of placed){
       panel(ctx,x,y,w,35,'rgba(0,0,0,.87)',7);

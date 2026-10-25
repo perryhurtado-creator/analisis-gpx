@@ -44,8 +44,8 @@ export async function posterLocalities(points,signal,{external=false,fetcher=fet
   const byRoute=(a,b)=>a.distance-b.distance;
   return {
     retry,
-    places:main.map(place=>labelFor(points,place)).sort(byRoute),
+    places:main.map((place,priority)=>({...labelFor(points,place),priority})).sort(byRoute),
     spares:spares.map(place=>labelFor(points,place)),
-    message:main.length?message:'No se encontraron poblaciones reconocidas suficientemente cercanas a la ruta.'
+    message:main.length?message:'No se encontraron localidades cercanas con categoría o población suficientes para priorizarlas. '+(external?message:'Activa Ampliar búsqueda de localidades en línea para consultar su importancia.')
   };
 }
