@@ -89,7 +89,8 @@ export function rankLocalities(points,places,{maxDistance=3000}={}){
   const accepted=[],rejected=[];
   const route=simplifyRoute(points);
   if(!route.length)return {accepted,rejected};
-  const margin=maxDistance/METRES,cosMax=Math.cos(Math.max(...route.map(p=>Math.abs(p.lat)))*Math.PI/180)||1;
+  const searchDistance=maxDistance+1; // Misma tolerancia de 1 m que el filtro por categoría.
+  const margin=searchDistance/METRES,cosMax=Math.cos(Math.min(85,Math.max(...route.map(p=>Math.abs(p.lat)))+margin)*Math.PI/180)||1;
   const box=route.reduce((b,p)=>({s:Math.min(b.s,p.lat),n:Math.max(b.n,p.lat),w:Math.min(b.w,p.lon),e:Math.max(b.e,p.lon)}),{s:Infinity,n:-Infinity,w:Infinity,e:-Infinity});
   const nearBox=places.filter(p=>valid(p)&&p.lat>=box.s-margin&&p.lat<=box.n+margin&&p.lon>=box.w-margin/cosMax&&p.lon<=box.e+margin/cosMax);
   const eligible=[];
@@ -98,7 +99,7 @@ export function rankLocalities(points,places,{maxDistance=3000}={}){
     if(info.excluded){rejected.push(brief(place,{reason:info.reason}));continue}
     eligible.push({...place,...info});
   }
-  for(const place of localitiesAlongRoute(route,eligible,maxDistance,{limit:Infinity})){
+  for(const place of localitiesAlongRoute(route,eligible,searchDistance,{limit:Infinity})){
     // 1 m de tolerancia: una distancia nominal de 900 m no debe fallar por redondeo.
     if(place.offset>place.radius+1){rejected.push(brief(place,{reason:'fuera-de-radio',offset:Math.round(place.offset),radius:place.radius}));continue}
     const population=populationOf(place.population);
