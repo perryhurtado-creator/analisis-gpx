@@ -38,6 +38,8 @@ export async function manualPosterLocalities(text,points,snapshot,signal,fetcher
   return {places,warnings};
 }
 
+const validCoordinate=p=>Number.isFinite(p?.lat)&&Number.isFinite(p?.lon)&&Math.abs(p.lat)<=85.05112878&&Math.abs(p.lon)<=180;
 export function mergeManualLabels(automatic,manual){
-  return [...manual,...automatic.filter(a=>!manual.some(m=>normalizeName(a.name)===normalizeName(m.name)||Number.isFinite(a.lat)&&Math.hypot((a.lon-m.lon)*111320*Math.cos(m.lat*Math.PI/180),(a.lat-m.lat)*111320)<250))];
+  // Nombre y proximidad juntos: ni un homónimo lejano ni un vecino son duplicados.
+  return [...manual,...automatic.filter(a=>!manual.some(m=>normalizeName(a.name)===normalizeName(m.name)&&validCoordinate(a)&&validCoordinate(m)&&Math.hypot((((a.lon-m.lon)+540)%360-180)*111320*Math.cos((a.lat+m.lat)/2*Math.PI/180),(a.lat-m.lat)*111320)<250))];
 }
