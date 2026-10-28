@@ -1,11 +1,16 @@
 // Localidades reales de OSM; la proximidad se mide contra los tramos, nunca contra los cortes.
 const cache=new Map(),METRES=111320;
 const valid=p=>Number.isFinite(p?.lat)&&Number.isFinite(p?.lon)&&Math.abs(p.lat)<=85&&Math.abs(p.lon)<=180;
-export function localityBounds(points){
+export function localityBounds(points,{paddingMetres}={}){
   let south=Infinity,north=-Infinity,west=Infinity,east=-Infinity;
   for(const p of points)if(valid(p)){south=Math.min(south,p.lat);north=Math.max(north,p.lat);west=Math.min(west,p.lon);east=Math.max(east,p.lon)}
   if(!Number.isFinite(south))throw Error('La ruta no tiene coordenadas válidas.');
-  return [Math.floor((south-.012)*100)/100,Math.floor((west-.012)*100)/100,Math.ceil((north+.012)*100)/100,Math.ceil((east+.012)*100)/100];
+  // El video conserva su margen histórico. El cartel solicita un corredor en metros.
+  if(paddingMetres===undefined)return [Math.floor((south-.012)*100)/100,Math.floor((west-.012)*100)/100,Math.ceil((north+.012)*100)/100,Math.ceil((east+.012)*100)/100];
+  const latPadding=paddingMetres/METRES;
+  const extremeLatitude=Math.min(85,Math.max(Math.abs(south),Math.abs(north))+latPadding);
+  const lonPadding=latPadding/Math.cos(extremeLatitude*Math.PI/180);
+  return [Math.max(-85,Math.floor((south-latPadding)*100)/100),Math.max(-180,Math.floor((west-lonPadding)*100)/100),Math.min(85,Math.ceil((north+latPadding)*100)/100),Math.min(180,Math.ceil((east+lonPadding)*100)/100)];
 }
 // `limit` conserva el tope histórico de 160 para el video; el cartel pide más y decide por importancia.
 export function localitiesAlongRoute(points,places,maxDistance=900,{limit=160}={}){
@@ -32,9 +37,9 @@ export function visibleLocalities(places,distance,total,overview=false){
   return places.map((place,index)=>({index,gap:Math.abs(place.distance-distance)})).filter(p=>p.gap<window).sort((a,b)=>a.gap-b.gap).slice(0,3).map(p=>({...p,alpha:Math.min(1,(window-p.gap)/(window*.3))}));
 }
 // Lugares del área de la ruta tal como los devuelve el servidor, sin filtrar por cercanía.
-export async function fetchAreaLocalitiesResult(points,signal,fetcher=fetch){
+export async function fetchAreaLocalitiesResult(points,signal,fetcher=fetch,boundsOptions={}){
   if(signal.aborted)throw new DOMException('Cancelado.','AbortError');
-  const bbox=localityBounds(points).join(',');let result=cache.get(bbox);
+  const bbox=localityBounds(points,boundsOptions).join(',');let result=cache.get(bbox);
   if(!result){
     let data,lastError;
     for(let attempt=0;attempt<2;attempt++){

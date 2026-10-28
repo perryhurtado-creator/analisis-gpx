@@ -1,6 +1,6 @@
 import {createPosterTask} from './poster-task.js';
 import {TITLE_FONTS,ensureTitleFont} from './poster-fonts.js';
-import {posterData,posterMapSnapshot,POSTER_LEVELS,posterRuns} from './poster-data.js';
+import {posterData,posterMapSnapshot,POSTER_LEVELS,posterRuns,posterCoordinate} from './poster-data.js';
 import {fmt} from './metrics.js';
 import {posterLocalities} from './poster-localities.js';
 import {parseManualLocalities,manualPosterLocalities,mergeManualLabels} from './poster-manual-localities.js';
@@ -64,7 +64,9 @@ export function drawPoster(target,source,data,assets){
   if(data.showLocalities&&Array.isArray(assets.localities)){
     ctx.font='bold 19px Arial';ctx.textAlign='left';
     // Prioridad por importancia; las sustitutas cubren las que no caben sin chocar con paneles.
-    const ordered=orderLocalityLabels(assets.localities,assets.localitySpares);
+    // Anclar al lugar real, incluso cuando el GPX tiene pocos puntos. Incluye sustitutas.
+    const ordered=orderLocalityLabels(assets.localities,assets.localitySpares)
+      .map(p=>p.manual?p:{...p,position:posterCoordinate(snap,p)});
     const {placed,dropped}=placeLocalityLabels(ordered,snap.positions,text=>ctx.measureText(text).width,posterBlockedRects(data),{max:ordered.some(p=>p.manual)?12:7});
     for(const entry of dropped)if(ordered.some(p=>p.manual&&p.name===entry.name))manualWarnings.push(`No hay espacio visible para «${entry.name}»; prueba ocultar el perfil o las recomendaciones.`);
     for(const {name,x,y,w,dot} of placed){

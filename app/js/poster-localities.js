@@ -1,5 +1,5 @@
 import {localityBounds,fetchAreaLocalitiesResult} from './video-localities.js';
-import {selectPosterLocalities} from './locality-selection.js';
+import {selectPosterLocalities,PLACE_CLASSES} from './locality-selection.js';
 
 // Sin lista de nombres: la selección sale de la categoría OSM (si existe), la población,
 // la cercanía real a los tramos y el reparto sobre el mapa (ver locality-selection.js).
@@ -18,7 +18,9 @@ function labelFor(points,place){
 export async function posterLocalities(points,signal,{external=false,fetcher=fetch}={}){
   if(signal.aborted)throw new DOMException('Cancelado.','AbortError');
   if(points.length<2)return {places:[],spares:[],message:'Sin localidades disponibles.'};
-  const bbox=localityBounds(points);
+  // Mismo corredor para ambos catálogos y el proveedor; incluye tolerancia de redondeo.
+  const boundsOptions={paddingMetres:Math.max(...Object.values(PLACE_CLASSES).map(c=>c.radius))+1};
+  const bbox=localityBounds(points,boundsOptions);
   const [{regionalLocalities},{cachedLocalities}]=await Promise.all([
     import('./catalogues/localities-regional.mjs'),import('./catalogues/localities-cache.mjs')
   ]);
@@ -28,7 +30,7 @@ export async function posterLocalities(points,signal,{external=false,fetcher=fet
   let retry=false;
   if(external){
     try{
-      const result=await fetchAreaLocalitiesResult(points,signal,fetcher);
+      const result=await fetchAreaLocalitiesResult(points,signal,fetcher,boundsOptions);
       retry=result.partial||result.truncated;
       candidates.push(...result.places);
       message=result.partial?'No se pudieron obtener categorías de OpenStreetMap; selección limitada al catálogo. Vuelve a generar para reintentar.':
